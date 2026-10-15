@@ -11,7 +11,7 @@ from ...core.config import DATA_DIR
 from ...core.logging import get_logger
 from ...models.profile import ENGINES
 from ...services.browser import chrome_prefetch, cookies, fingerprint
-from ...services.browser.launcher import ProfileBusyError
+from ...services.browser.launcher import BrowserControlError, ProfileBusyError
 from ...services.proxy.geo_check import check_geo
 from ...utils.validation import (
     validate_locale,
@@ -305,9 +305,20 @@ def _require_stopped(name: str, bl: IBrowserLauncher, action: str) -> None:
 _BUSY_DETAIL = "Profile is running or busy with another operation"
 
 
+def _cookies_on_agent(request: Request, bl, profile, action: str, params: dict) -> dict:
+    """Hub mode: run the cookie tool on the caller's PC, where browsers exist."""
+    from ...hub.remote import AgentOfflineError
+
+    try:
+        return bl.cookies(request.state.user["name"], profile, action, params)
+    except AgentOfflineError as e:
+        raise HTTPException(
+            status_code=409, detail="Your PC is not connected: start the FoxProfile agent on it"
+        ) from e
+
+
 @router.get(
     "/{name}/cookies",
-    dependencies=[Depends(_not_hub)],
     response_class=PlainTextResponse,
     responses={
         200: {"content": {"text/plain": {}, "application/json": {}}},
@@ -318,6 +329,7 @@ _BUSY_DETAIL = "Profile is running or busy with another operation"
 )
 def export_cookies(
     name: str,
+    request: Request,
     format: str = Query("json", pattern="^(json|netscape)$"),
     pm: IProfileManager = Depends(get_profile_manager),
     bl: IBrowserLauncher = Depends(get_browser_launcher),
@@ -326,25 +338,30 @@ def export_cookies(
     profile = require_profile(name, pm)
     _require_stopped(name, bl, "exporting cookies")
     try:
-        with bl.exclusive(name):
-            text, count = cookies.export_cookies(name, profile.os_type, format, profile.engine)
+        if hub_store(request) is not None:
+            r = _cookies_on_agent(request, bl, profile, "export", {"format": format})
+            text, count = r["text"], r["count"]
+        else:
+            with bl.exclusive(name):
+                text, count = cookies.export_cookies(name, profile.os_type, format, profile.engine)
     except ProfileBusyError as e:
         raise HTTPException(status_code=409, detail=_BUSY_DETAIL) from e
-    except cookies.CookieError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    except (cookies.CookieError, BrowserControlError) as e:
+        status = getattr(e, "status", 400)
+        raise HTTPException(status_code=status, detail=str(e)) from e
     media = "application/json" if format == "json" else "text/plain"
     return PlainTextResponse(text, media_type=media, headers={"X-Cookie-Count": str(count)})
 
 
 @router.post(
     "/{name}/cookies",
-    dependencies=[Depends(_not_hub)],
     response_model=CookieImportResponse,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )
 def import_cookies(
     name: str,
     body: CookieImportRequest,
+    request: Request,
     pm: IProfileManager = Depends(get_profile_manager),
     bl: IBrowserLauncher = Depends(get_browser_launcher),
 ) -> CookieImportResponse:
@@ -352,11 +369,19 @@ def import_cookies(
     profile = require_profile(name, pm)
     _require_stopped(name, bl, "importing cookies")
     try:
-        with bl.exclusive(name):
-            count = cookies.import_cookies(name, profile.os_type, body.content, profile.engine)
+        if hub_store(request) is not None:
+            params = {"content": body.content}
+            count = _cookies_on_agent(request, bl, profile, "import", params)["imported"]
+        else:
+            with bl.exclusive(name):
+                count = cookies.import_cookies(name, profile.os_type, body.content, profile.engine)
     except ProfileBusyError as e:
         raise HTTPException(status_code=409, detail=_BUSY_DETAIL) from e
     except cookies.CookieError as e:
+        return CookieImportResponse(success=False, error=str(e))
+    except BrowserControlError as e:
+        if e.status != 400:
+            raise HTTPException(status_code=e.status, detail=str(e)) from e
         return CookieImportResponse(success=False, error=str(e))
     logger.info("API imported %d cookies into %s", count, name)
     return CookieImportResponse(success=True, imported=count)

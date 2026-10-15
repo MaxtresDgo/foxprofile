@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
@@ -33,8 +33,16 @@ def _bearer(scope: Scope) -> str:
     return ""
 
 
-def build(self_url: str, token: str) -> tuple[Route, contextlib.AbstractAsyncContextManager]:
-    """Return the /mcp route and the lifespan context that runs its sessions."""
+def build(
+    self_url: str,
+    token: str,
+    check: Callable[[str], bool] | None = None,
+) -> tuple[Route, contextlib.AbstractAsyncContextManager]:
+    """Return the /mcp route and the lifespan context that runs its sessions.
+
+    `check` (hub mode) accepts a caller's own credential instead of the server
+    token; the tools then call the REST API with that credential, so each user
+    sees and drives only their own profiles."""
     mcp_server.configure(self_url, token)
     manager = StreamableHTTPSessionManager(
         app=mcp_server.mcp._mcp_server,
@@ -48,7 +56,12 @@ def build(self_url: str, token: str) -> tuple[Route, contextlib.AbstractAsyncCon
         # A class instance, not a function: Starlette then passes raw ASGI
         # (scope, receive, send) instead of wrapping it as a Request handler.
         async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-            if token and not secrets.compare_digest(_bearer(scope), token):
+            bearer = _bearer(scope)
+            if check is not None:
+                allowed = check(bearer)
+            else:
+                allowed = not token or secrets.compare_digest(bearer, token)
+            if not allowed:
                 response = JSONResponse(
                     {"detail": "Missing or invalid API token"},
                     status_code=401,
@@ -56,7 +69,15 @@ def build(self_url: str, token: str) -> tuple[Route, contextlib.AbstractAsyncCon
                 )
                 await response(scope, receive, send)
                 return
-            await manager.handle_request(scope, receive, send)
+            if check is None:
+                await manager.handle_request(scope, receive, send)
+                return
+            # Tasks spawned for this request copy the current context.
+            reset = mcp_server.CALLER_TOKEN.set(bearer)
+            try:
+                await manager.handle_request(scope, receive, send)
+            finally:
+                mcp_server.CALLER_TOKEN.reset(reset)
 
     @contextlib.asynccontextmanager
     async def lifespan() -> AsyncIterator[None]:

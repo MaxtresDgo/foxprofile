@@ -25,6 +25,7 @@ ROLES = ("admin", "operator")
 SESSION_TTL = 12 * 3600
 _NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 MIN_PASSWORD = 8
+KEY_PREFIX = "fpk_"
 
 
 class HubError(ValueError):
@@ -127,8 +128,26 @@ class HubStore:
     def _sign(self, name: str, exp: int) -> str:
         return f"{name}.{exp}.{self._sig(name, exp)}"
 
+    def new_key(self, name: str) -> str:
+        """A personal API key for MCP clients and scripts; replaces the previous one."""
+        key = KEY_PREFIX + secrets.token_urlsafe(32)
+        with self._lock:
+            self.users[name]["key"] = hashlib.sha256(key.encode()).hexdigest()
+            self._save()
+        return key
+
+    def _verify_key(self, key: str) -> dict | None:
+        digest = hashlib.sha256(key.encode()).hexdigest()
+        with self._lock:
+            for name, user in self.users.items():
+                if user.get("key") and hmac.compare_digest(user["key"], digest):
+                    return {"name": name, "role": user["role"]}
+        return None
+
     def verify(self, token: str) -> dict | None:
-        """{"name", "role"} for a valid, unexpired session token."""
+        """{"name", "role"} for a valid personal key or unexpired session token."""
+        if token.startswith(KEY_PREFIX):
+            return self._verify_key(token)
         try:
             name, exp_s, sig = token.split(".")
             exp = int(exp_s)

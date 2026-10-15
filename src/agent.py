@@ -28,6 +28,8 @@ from src.core.config import AGENT_USER, DATA_DIR, HUB_URL, LAUNCH_WAIT_TIMEOUT
 from src.core.container import Container
 from src.core.logging import get_logger
 from src.models.profile import Profile
+from src.services.browser import cookies
+from src.services.browser.launcher import BrowserControlError
 from src.services.profile.transfer import export_to_zip, import_from_zip
 
 logger = get_logger("agent")
@@ -121,6 +123,45 @@ class Agent:
             # Not running here (lost launch, or already closed): just free it.
             self._call_quietly("POST", f"/hub/release/{self.q(name)}")
 
+    def control(self, cmd: dict) -> None:
+        """A page action from the hub (remote viewer, MCP) for a browser running here."""
+        try:
+            result = self.bl.control(cmd["name"], cmd["action"], cmd["params"])
+        except BrowserControlError as e:
+            self._answer(cmd["id"], ok=False, error=str(e), status=e.status)
+            return
+        self._answer(cmd["id"], ok=True, result=result)
+
+    def cookie_job(self, cmd: dict) -> None:
+        """Export or import a stopped profile's cookies; the hub holds its lease meanwhile."""
+        name, params = cmd["profile"]["name"], cmd["params"]
+        local = self.data_root / name
+        try:
+            profile = self._download(name)
+            if cmd["action"] == "export":
+                text, count = cookies.export_cookies(
+                    name, profile.os_type, params["format"], profile.engine
+                )
+                result = {"text": text, "count": count}
+            else:
+                count = cookies.import_cookies(
+                    name, profile.os_type, params["content"], profile.engine
+                )
+                self._upload(name, local)
+                result = {"imported": count}
+            say(f"[{name}] cookies {cmd['action']}: {count}")
+            self._answer(cmd["id"], ok=True, result=result)
+        except cookies.CookieError as e:
+            self._answer(cmd["id"], ok=False, error=str(e), status=400)
+        except Exception as e:
+            say(f"[{name}] cookies {cmd['action']} failed: {e}")
+            self._answer(cmd["id"], ok=False, error=f"On {self.hub.user}'s PC: {e}", status=502)
+        finally:
+            shutil.rmtree(local, ignore_errors=True)
+
+    def _answer(self, request_id: str, **answer) -> None:
+        self._call_quietly("POST", f"/hub/result/{request_id}", json.dumps(answer).encode())
+
     def _closed(self, name: str) -> None:
         say(f"[{name}] browser closed")
         threading.Thread(target=self._sync, args=(name,), daemon=True).start()
@@ -207,6 +248,10 @@ class Agent:
                 threading.Thread(target=self.launch, args=(resp["profile"],), daemon=True).start()
             elif resp["op"] == "stop":
                 threading.Thread(target=self.stop, args=(resp["name"],), daemon=True).start()
+            elif resp["op"] == "control":
+                threading.Thread(target=self.control, args=(resp,), daemon=True).start()
+            elif resp["op"] == "cookies":
+                threading.Thread(target=self.cookie_job, args=(resp,), daemon=True).start()
 
 
 def main() -> None:

@@ -11,6 +11,7 @@ import contextlib
 import queue
 import threading
 import time
+import uuid
 from collections import defaultdict
 from collections.abc import Iterator
 from typing import Any
@@ -35,22 +36,65 @@ class RemoteLauncher:
         self._seen: dict[str, float] = {}
         self._results: dict[str, _LaunchResult] = {}
         self._busy: set[str] = set()
+        # Requests waiting for an agent's answer: id -> (user, event, answer).
+        self._pending: dict[str, tuple[str, threading.Event, dict]] = {}
 
     # --- hub side --------------------------------------------------------------
 
     def online(self, user: str) -> bool:
         return time.monotonic() - self._seen.get(user, float("-inf")) < AGENT_TIMEOUT
 
+    def _lease(self, user: str, name: str) -> None:
+        """Caller holds self._lock."""
+        if name in self._leases or name in self._busy:
+            raise ProfileBusyError(name)
+        if not self.online(user):
+            raise AgentOfflineError(user)
+        self._leases[name] = user
+
     def dispatch(self, user: str, profile: Profile) -> None:
         """Lease the profile to `user` and ask their agent to launch it."""
         with self._lock:
-            if profile.name in self._leases or profile.name in self._busy:
-                raise ProfileBusyError(profile.name)
-            if not self.online(user):
-                raise AgentOfflineError(user)
-            self._leases[profile.name] = user
+            self._lease(user, profile.name)
             self._results[profile.name] = _LaunchResult()
             self._queues[user].put({"op": "launch", "profile": profile.to_dict()})
+
+    def _call(self, user: str, command: dict, timeout: float) -> Any:
+        """Send `command` to `user`'s agent and return its answer's result."""
+        request_id = uuid.uuid4().hex
+        done, answer = threading.Event(), {}
+        with self._lock:
+            self._pending[request_id] = (user, done, answer)
+        self._queues[user].put({**command, "id": request_id})
+        try:
+            if not done.wait(timeout):
+                raise BrowserControlError("The operator's PC did not answer in time", status=504)
+        finally:
+            with self._lock:
+                self._pending.pop(request_id, None)
+        if not answer.get("ok"):
+            raise BrowserControlError(answer.get("error") or "Failed", answer.get("status", 400))
+        return answer.get("result")
+
+    def answer(self, user: str, request_id: str, answer: dict) -> bool:
+        """An agent's reply to `_call`; False unless it was asked of that agent."""
+        with self._lock:
+            entry = self._pending.get(request_id)
+        if entry is None or entry[0] != user:
+            return False
+        entry[2].update(answer)
+        entry[1].set()
+        return True
+
+    def cookies(self, user: str, profile: Profile, action: str, params: dict) -> Any:
+        """Export/import a stopped profile's cookies on `user`'s PC (cookies.py runs there)."""
+        with self._lock:
+            self._lease(user, profile.name)
+        try:
+            command = {"op": "cookies", "profile": profile.to_dict(), "action": action}
+            return self._call(user, {**command, "params": params}, timeout=300)
+        finally:
+            self.release(profile.name, user)
 
     def leases(self) -> dict[str, str]:
         with self._lock:
@@ -152,7 +196,14 @@ class RemoteLauncher:
         params: dict[str, Any] | None = None,
         timeout: float = 60,
     ) -> Any:
-        raise BrowserControlError("Browsers run on the operators' PCs in hub mode", status=501)
+        """Run a page action in the browser on the PC that holds the profile."""
+        user = self.holder(profile_name)
+        if user is None:
+            raise BrowserControlError("Browser is not running", status=409)
+        if not self.online(user):
+            raise BrowserControlError(f"{user}'s PC is not connected", status=503)
+        command = {"op": "control", "name": profile_name, "action": action}
+        return self._call(user, {**command, "params": params or {}}, timeout + 5)
 
     def shutdown_all(self) -> None:
         pass

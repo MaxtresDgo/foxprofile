@@ -16,6 +16,7 @@ import os
 import pathlib
 import shutil
 import tempfile
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
@@ -77,6 +78,15 @@ def me(request: Request) -> dict:
         "leases": {n: u for n, u in bl.leases().items() if store.can(user, n)},
         "owners": {n: u for n, u in store.owners.items() if store.can(user, n)},
     }
+
+
+@router.post("/me/key")
+def new_key(request: Request) -> dict:
+    """Create (or replace) the caller's personal API key, shown only this once."""
+    user, store = _user(request), hub_store(request)
+    if user["name"] not in store.users:
+        raise HTTPException(status_code=400, detail="Only hub users have personal keys")
+    return {"key": store.new_key(user["name"])}
 
 
 # --- user admin ----------------------------------------------------------------
@@ -152,12 +162,12 @@ async def poll(request: Request, running: str = "") -> Response:
     store = hub_store(request)
     names = {n for n in running.split(",") if n and store.can(_user(request), n)}
     bl.touch(user, names)
-    # ponytail: 0.5 s polling of an in-memory queue; an asyncio.Event per user if latency matters.
-    for _ in range(POLL_WAIT * 2):
+    # ponytail: 0.1 s polling of an in-memory queue; an asyncio.Event per user if it ever costs.
+    for _ in range(POLL_WAIT * 10):
         command = bl.next_command(user)
         if command is not None:
             return JSONResponse(command)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.1)
         bl.touch(user, set())
     return Response(status_code=204)
 
@@ -225,6 +235,21 @@ def _swap_in(zip_path: str, tmp: str, name: str, data_root: pathlib.Path) -> Non
     if target.exists():
         target.rename(old)
     new.rename(target)
+
+
+class AnswerBody(BaseModel):
+    ok: bool
+    result: Any = None
+    error: str | None = None
+    status: int = 400
+
+
+@router.post("/result/{request_id}")
+def answer(request_id: str, body: AnswerBody, request: Request) -> dict:
+    """The agent's reply to a control or cookies command."""
+    if not _launcher(request).answer(_user(request)["name"], request_id, body.model_dump()):
+        raise HTTPException(status_code=404, detail="No such request for you")
+    return {"id": request_id}
 
 
 class StatusBody(BaseModel):

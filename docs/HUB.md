@@ -74,6 +74,14 @@ Un agente por operador: si el mismo usuario abre el agente en dos PCs, cada orde
 - Los perfiles contienen sesiones iniciadas (cookies). `./data` y las copias de seguridad deben tratarse como credenciales.
 - `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`). Cambiarlo cierra todas las sesiones.
 
+## Visor remoto, cookies y MCP
+
+Todo se ejecuta en la PC del operador; el hub solo reenvía las órdenes a su agente.
+
+- **Visor remoto** (icono de monitor): ver y controlar un perfil abierto desde el panel. El admin puede ver los perfiles de cualquier operador; la acción ocurre en la PC de quien lo tiene abierto.
+- **Cookies** (icono de galleta, con el perfil detenido): exportar JSON / cookies.txt o importar. El agente de quien lo pide descarga el perfil, lee o escribe las cookies con Camoufox y, al importar, lo sube de nuevo. Requiere que ese agente esté conectado.
+- **MCP** (Claude, Cursor, VS Code): en *Connect AI (MCP)* pulse *Create my personal key*. La clave se muestra una sola vez y reemplaza la anterior. Un asistente con esa clave ve solo sus perfiles y los abre en su PC. La clave no caduca: trátela como una contraseña y regenérela si se filtra.
+
 ## Limitaciones actuales
 
-En modo hub no están disponibles: el visor remoto de pantalla, exportar/importar cookies desde el panel, exportar/importar ZIP por ruta del servidor y MCP. Los datos se transfieren completos (sin caché del navegador) en cada apertura y cierre.
+Exportar/importar ZIP por ruta del servidor no está disponible en modo hub. Los datos se transfieren completos (sin caché del navegador) en cada apertura y cierre. El visor envía cada captura a través del hub (unos cientos de KB cada 2 s).

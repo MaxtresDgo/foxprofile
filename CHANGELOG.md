@@ -5,7 +5,7 @@
 ## [Unreleased]
 
 ### Thêm
-- Chế độ hub (`FOXPROFILE_HUB=true`, `Dockerfile`, `compose.yaml`): server trung tâm lưu profile và tài khoản người dùng, không chạy trình duyệt. Mỗi nhân viên đăng nhập bằng tài khoản riêng, chỉ thấy profile được giao; profile mở trên máy của họ qua agent `python -m src.agent` (`foxprofile-agent.bat` / `.command`), dữ liệu được tải về khi mở và đồng bộ lại khi đóng. Xem `docs/HUB.md`.
+- Chế độ hub (`FOXPROFILE_HUB=true`, `Dockerfile`, `compose.yaml`): server trung tâm lưu profile và tài khoản người dùng, không chạy trình duyệt. Mỗi nhân viên đăng nhập bằng tài khoản riêng, chỉ thấy profile được giao; profile mở trên máy của họ qua agent `python -m src.agent` (`foxprofile-agent.bat` / `.command`), dữ liệu được tải về khi mở và đồng bộ lại khi đóng. Xem màn hình từ xa, xuất/nhập cookie và MCP (key cá nhân cho từng người) chạy qua agent trên máy của nhân viên. Xem `docs/HUB.md`.
 
 ### Thay đổi
 - Xuất profile ZIP bỏ qua thư mục cache của trình duyệt.

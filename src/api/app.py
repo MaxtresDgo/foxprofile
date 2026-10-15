@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
+import secrets
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING
 
@@ -35,6 +36,17 @@ _FONTS = pathlib.Path(__file__).resolve().parents[1] / "assets" / "fonts"
 _FONT_FILES = {f.name: f for f in _FONTS.glob("*.ttf")}
 
 
+def _hub_check(container: Container):
+    """MCP callers in hub mode: a user's key or session, or the server token."""
+
+    def check(bearer: str) -> bool:
+        if API_TOKEN and secrets.compare_digest(bearer, API_TOKEN):
+            return True
+        return bool(bearer) and container.hub_store.verify(bearer) is not None
+
+    return check
+
+
 def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     """Build the FastAPI application.
 
@@ -44,6 +56,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     mcp_route, mcp_lifespan = mcp_http.build(
         self_url or f"http://127.0.0.1:{API_PORT}",
         API_TOKEN,
+        _hub_check(container) if container.hub else None,
     )
 
     @contextlib.asynccontextmanager
@@ -69,17 +82,16 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     app.include_router(profiles_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(browser_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(proxy_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
+    app.router.routes.append(mcp_route)
     if container.hub:
-        # Browsers live on the operators' PCs: no remote page control, no MCP.
+        # Browsers live on the operators' PCs; page actions relay through their agents.
         from ..hub import routes as hub_routes
 
         container.hub_store  # noqa: B018 - fail fast on a missing secret or bad hub file
         app.include_router(hub_routes.public_router, prefix=API_PREFIX)
         app.include_router(hub_routes.router, prefix=API_PREFIX, dependencies=protected)
-    else:
-        app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)
-        app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
-        app.router.routes.append(mcp_route)
 
     @app.get(f"{API_PREFIX}/health", response_model=SuccessResponse, tags=["health"])
     def health_check() -> SuccessResponse:

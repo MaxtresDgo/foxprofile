@@ -450,6 +450,8 @@ const I18N = {
     new_password: "Mật khẩu mới", set_password: "Đổi", owner: "Người dùng", unassigned: "Chưa giao",
     confirm_delete_user: "Xoá người dùng “{name}”? Profile của họ vẫn còn, chỉ quản trị viên thấy cho đến khi giao lại.",
     user_saved: "Đã lưu {name}",
+    mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
+    mcp_key_note: "Key chỉ hiện một lần và thay thế key cũ. AI dùng key này chỉ thấy profile của bạn và mở chúng trên máy của bạn.",
   },
   en: {
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
@@ -510,6 +512,8 @@ const I18N = {
     new_password: "New password", set_password: "Set", owner: "Operator", unassigned: "Unassigned",
     confirm_delete_user: "Delete user “{name}”? Their profiles stay, visible to admins until reassigned.",
     user_saved: "Saved {name}",
+    mcp_new_key: "Create my personal key and insert it",
+    mcp_key_note: "The key is shown only now and replaces your previous one. An AI using it sees only your profiles and opens them on your PC.",
   },
 };
 
@@ -738,7 +742,7 @@ function row(p) {
       h("span", { class: "minor" + (p.locale ? " data" : "") }, p.locale || t("follow_ip"))),
     h("div", { class: "c-stamp", role: "cell" }, stamp(p)),
     h("div", { class: "actions", role: "cell" }, main,
-      hub ? null : iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
+      iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
       iconBtn("cookie", t("cookies"), () => openCookies(p), "", on),
       iconBtn("edit", t("edit"), () => openEditor(p)),
       iconBtn("trash", t("delete"), () => removeProfile(p), "danger", on)));
@@ -992,7 +996,7 @@ function openCookies(p) {
     return h("div", {},
       modalHead(t("cookies"), `${p.name} · ${t("cookie_hint")}`, close),
       h("div", { class: "modal-body" },
-        hub ? null : h("div", { class: "choice" },
+        h("div", { class: "choice" },
           choice("download", t("export_json"), t("export_json_hint"), () => exportAs("json")),
           choice("download", t("export_txt"), t("export_txt_hint"), () => exportAs("netscape")),
           choice("upload", t("import"), t("import_hint"), () => file.click())), file,
@@ -1092,7 +1096,16 @@ async function openMcpGuide() {
       h("input", { type: "checkbox", onchange: (e) => { state.insertToken = e.target.checked; draw(); } }),
       t("mcp_insert_token"));
     const example = t("mcp_example", { name: sample });
-    const fill = (text) => (state.insertToken && token ? text.split(setup.token_placeholder).join(token) : text);
+    // Hub: sessions expire, so MCP clients get the user's personal key instead.
+    const secret = () => (hub ? state.key : token);
+    const fill = (text) => (state.insertToken && secret() ? text.split(setup.token_placeholder).join(secret()) : text);
+    const keyBox = h("div", { style: "margin-top:12px" },
+      h("button", { type: "button", class: "btn btn-line", onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { state.key = (await api("POST", "/hub/me/key")).key; state.insertToken = true; draw(); }
+        catch (ex) { toast(ex.message, true); e.currentTarget.disabled = false; }
+      } }, t("mcp_new_key")),
+      h("div", { class: "note calm" }, icon("alert", true), h("span", {}, t("mcp_key_note"))));
     function draw() {
       const cfg = setup.configs.find((c) => c.id === state.client);
       chips.replaceChildren(...setup.configs.map((c) => h("button", { type: "button", class: c.id === state.client ? "active" : "",
@@ -1114,7 +1127,7 @@ async function openMcpGuide() {
         h("div", { class: "where-row", style: "margin-top:16px" }, where,
           h("button", { type: "button", class: "btn btn-act", onclick: () => copyBtn(code.textContent) }, t("mcp_copy"))),
         code, note,
-        setup.auth_required ? tokenBox : null,
+        setup.auth_required ? (hub ? keyBox : tokenBox) : null,
         h("div", { class: "step" }, t("mcp_restart")),
         h("div", { class: "where-row" }, h("i", {}, example),
           h("button", { type: "button", class: "btn btn-line", onclick: () => copyBtn(example) }, t("mcp_copy"))),
@@ -1244,7 +1257,6 @@ document.addEventListener("keydown", (e) => {
       $("username").required = true;
       for (const [sel, key] of [["#login [data-t=token]", "password"], ["#login [data-t=login_side]", "login_side_hub"], ["#login [data-t=login_hint]", "login_hint_hub"]])
         document.querySelector(sel).dataset.t = key;
-      $("mcp-btn").classList.add("hidden");
       applyI18n();
     }
     if (info.auth_required && !token) return showLogin();

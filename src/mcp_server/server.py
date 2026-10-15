@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextvars
 import json
 import os
 import urllib.error
@@ -23,6 +24,8 @@ from mcp.types import ToolAnnotations
 BASE_URL = os.getenv("FOXPROFILE_URL", "http://127.0.0.1:8000").rstrip("/") + "/api/v1"
 TOKEN = os.getenv("FOXPROFILE_API_TOKEN", "")
 TIMEOUT = 150
+# Hub mode: the credential of the MCP client being served, used instead of TOKEN.
+CALLER_TOKEN: contextvars.ContextVar[str | None] = contextvars.ContextVar("caller", default=None)
 
 INSTRUCTIONS = """\
 FoxProfile manages anti-detect Camoufox browser profiles. Each profile has its own
@@ -63,8 +66,8 @@ def _request(
     if query:
         url += "?" + urllib.parse.urlencode({k: v for k, v in query.items() if v is not None})
     headers = {"Content-Type": "application/json"}
-    if TOKEN:
-        headers["Authorization"] = f"Bearer {TOKEN}"
+    if token := CALLER_TOKEN.get() or TOKEN:
+        headers["Authorization"] = f"Bearer {token}"
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
