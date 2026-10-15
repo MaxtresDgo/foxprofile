@@ -131,7 +131,7 @@ On a VPS, put the server behind an HTTPS reverse proxy (Caddy, Nginx) so the tok
 
 Full deployment guide (Ubuntu, systemd, nginx, HTTPS; in Vietnamese): [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Hub mode (team server, browsers on each PC):** `docker compose up -d` runs a central panel with per-operator logins; every operator runs `foxprofile-agent.bat` / `foxprofile-agent.command` and their profiles open on their own computer. Guide (Spanish): [docs/HUB.md](docs/HUB.md).
+**Hub mode (team server, browsers on each PC):** `docker compose up -d` runs a central panel with per-operator logins; every operator runs `foxprofile-agent.bat` / `foxprofile-agent.command` (or, on Windows, the `FoxProfileAgent-<version>.msi` installer, which bundles Python and starts the agent at logon) and their profiles open on their own computer. Guide (Spanish): [docs/HUB.md](docs/HUB.md).
 
 ## MCP: let AI agents drive the browser
 

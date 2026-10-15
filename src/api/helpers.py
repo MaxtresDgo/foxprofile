@@ -3,16 +3,31 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from ..core.config import DATA_DIR
+from ..services.browser.launcher import BrowserControlError
 from .schemas.profiles import ProfileResponse
 
 if TYPE_CHECKING:
     from ..interfaces import IBrowserLauncher, IProfileManager
     from ..models.profile import Profile
+
+
+def check_on_agent(request: Request, bl, op: str, params: dict, timeout: float) -> Any:
+    """Hub mode: run a proxy check on the caller's PC, where the browsers use the proxy."""
+    from ..hub.remote import AgentOfflineError
+
+    try:
+        return bl.run_check(request.state.user["name"], op, params, timeout)
+    except AgentOfflineError as e:
+        raise HTTPException(
+            status_code=409, detail="Your PC is not connected: start the FoxProfile agent on it"
+        ) from e
+    except BrowserControlError as e:
+        raise HTTPException(status_code=e.status, detail=str(e)) from e
 
 
 def require_profile(name: str, pm: IProfileManager) -> Profile:

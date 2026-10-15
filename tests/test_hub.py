@@ -256,6 +256,43 @@ def test_cookies_run_on_the_callers_pc(hub):
     assert bl.holder("shop-01") is None
 
 
+def test_proxy_checks_run_on_the_callers_pc(hub):
+    from src.api.schemas.proxy import GeoCheckResponse
+    from src.services.proxy.geo_check import GeoCheckResult
+
+    client, container, _ = hub
+    bl = container.browser_launcher
+    ana = _login(client, "ana", "anaanaanaana")
+    proxy = "socks5://user:pass@exit-01.example.ts.net:1080"
+    r = client.post("/api/v1/proxy/check", json={"proxy": proxy}, headers=ana)
+    assert r.status_code == 409  # no agent: the hub cannot vouch for a proxy only the PC reaches
+    bl.touch("ana", set())
+
+    def proxy_reply(cmd):
+        assert cmd["op"] == "proxy_check" and cmd["params"]["proxy"] == proxy
+        return {"ok": True, "result": {"ok": True, "message": "OK - IP: 203.0.113.7"}}
+
+    _fake_agent(client, ana, proxy_reply)
+    r = client.post("/api/v1/proxy/check", json={"proxy": proxy}, headers=ana)
+    assert r.json() == {"success": True, "message": "OK - IP: 203.0.113.7"}
+
+    tz = "Asia/Ho_Chi_Minh"
+    geo = GeoCheckResult("203.0.113.7", "VN", tz, "vi-VN", tz, False, "vi-VN", False, [], [])
+
+    def geo_reply(cmd):
+        assert cmd["op"] == "geo_check" and cmd["params"]["proxy"] == proxy
+        return {"ok": True, "result": GeoCheckResponse.from_result(geo).model_dump()}
+
+    client.post("/api/v1/profiles", json={"name": "shop-01", "proxy": proxy}, headers=ana)
+    _fake_agent(client, ana, geo_reply)
+    r = client.get("/api/v1/profiles/shop-01/ip-check", headers=ana)
+    assert r.status_code == 200 and r.json()["exit_ip"] == "203.0.113.7"
+
+    _fake_agent(client, ana, lambda cmd: {"ok": False, "error": "On ana's PC: boom", "status": 502})
+    r = client.post("/api/v1/proxy/geo-check", json={"proxy": proxy}, headers=ana)
+    assert r.status_code == 502 and r.json()["detail"] == "On ana's PC: boom"
+
+
 def test_personal_key_for_mcp(hub):
     client, container, _ = hub
     ana = _login(client, "ana", "anaanaanaana")

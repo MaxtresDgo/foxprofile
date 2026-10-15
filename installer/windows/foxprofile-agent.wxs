@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FoxProfile Agent for Windows; built by build-msi.sh with msitools (wixl). -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="FoxProfile Agent" Manufacturer="FoxProfile" Language="1033"
+           Version="$(var.Version)" UpgradeCode="C41F8B92-A278-45FC-9939-E6F4F26F4C41">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine"
+             Description="FoxProfile Agent: opens the hub's profiles on this PC" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer FoxProfile Agent is already installed." />
+    <Media Id="1" Cabinet="agent.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="FoxProfile Agent" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder" />
+    </Directory>
+
+    <!-- Not a Windows service: services run in session 0 and cannot show the
+         browsers to the operator, so the agent starts with each user's logon. -->
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="Autostart" Guid="CFA8D8C2-F1C1-428B-9B53-1163048E946E" Win64="yes">
+        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                       Name="FoxProfile Agent" Type="string"
+                       Value="&quot;[INSTALLDIR]foxprofile-agent.cmd&quot;" KeyPath="yes" />
+        <Shortcut Id="StartMenu" Directory="ProgramMenuFolder" Name="FoxProfile Agent"
+                  Target="[INSTALLDIR]foxprofile-agent.cmd" WorkingDirectory="INSTALLDIR" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Main" Level="1">
+      <ComponentGroupRef Id="Payload" />
+      <ComponentRef Id="Autostart" />
+    </Feature>
+  </Product>
+</Wix>

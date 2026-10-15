@@ -131,7 +131,7 @@ Khi đưa lên VPS, nên đặt server sau reverse proxy có HTTPS (Caddy, Nginx
 
 Hướng dẫn triển khai đầy đủ (Ubuntu, systemd, nginx, HTTPS): [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Chế độ hub (server cho nhóm, trình duyệt chạy trên từng máy):** `docker compose up -d` chạy panel trung tâm với tài khoản riêng cho từng nhân viên; mỗi người chạy `foxprofile-agent.bat` / `foxprofile-agent.command` và profile mở trên chính máy của họ. Hướng dẫn (tiếng Tây Ban Nha): [docs/HUB.md](docs/HUB.md).
+**Chế độ hub (server cho nhóm, trình duyệt chạy trên từng máy):** `docker compose up -d` chạy panel trung tâm với tài khoản riêng cho từng nhân viên; mỗi người chạy `foxprofile-agent.bat` / `foxprofile-agent.command` (hoặc, trên Windows, bộ cài `FoxProfileAgent-<version>.msi`, đã kèm Python và tự chạy agent khi đăng nhập) và profile mở trên chính máy của họ. Hướng dẫn (tiếng Tây Ban Nha): [docs/HUB.md](docs/HUB.md).
 
 ## MCP: cho AI điều khiển trình duyệt
 

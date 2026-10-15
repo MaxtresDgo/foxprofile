@@ -6,11 +6,17 @@
 
 ### Thêm
 - Chế độ hub (`FOXPROFILE_HUB=true`, `Dockerfile`, `compose.yaml`): server trung tâm lưu profile và tài khoản người dùng, không chạy trình duyệt. Mỗi nhân viên đăng nhập bằng tài khoản riêng, chỉ thấy profile được giao; profile mở trên máy của họ qua agent `python -m src.agent` (`foxprofile-agent.bat` / `.command`), dữ liệu được tải về khi mở và đồng bộ lại khi đóng. Xem màn hình từ xa, xuất/nhập cookie và MCP (key cá nhân cho từng người) chạy qua agent trên máy của nhân viên. Xem `docs/HUB.md`.
+- Bộ cài MSI cho agent trên Windows (`installer/windows/build-msi.sh`, workflow `Agent MSI`): kèm Python embeddable và mọi thư viện, cài vào Program Files và tự chạy agent mỗi khi người dùng đăng nhập Windows; dữ liệu và `.env` của từng người nằm trong `%LOCALAPPDATA%\FoxProfile`.
+- Chế độ hub: "Check proxy" và "Check IP" chạy trên máy của người dùng qua agent (nơi trình duyệt dùng proxy), nên kiểm tra được cả proxy chỉ truy cập được từ máy đó, ví dụ địa chỉ Tailscale.
 
 ### Thay đổi
 - Xuất profile ZIP bỏ qua thư mục cache của trình duyệt.
 
 ### Sửa
+- File `.env` được tìm từ thư mục làm việc thay vì thư mục chứa mã nguồn.
+- "Check proxy" hoạt động với proxy SOCKS5/SOCKS4 (trước đây luôn báo lỗi vì gửi HTTP tới proxy SOCKS).
+- Engine Camoufox mở được profile dùng proxy SOCKS5 có user/pass (Firefox không tự xác thực SOCKS5; giờ đi qua cầu nối loopback như engine Chrome).
+- Agent và MCP gửi User-Agent riêng, nên dùng được hub sau Cloudflare (Browser Integrity Check chặn `Python-urllib` với lỗi 1010). Cổng của hub trong `compose.yaml` đổi được bằng `FOXPROFILE_HUB_PORT`.
 - App desktop: nút "Launch" không còn bị gãy chữ thành hai dòng khi dùng giao diện English.
 - Proxy dạng `host:port:user:pass` có `@` hoặc `:` trong mật khẩu không còn bị bỏ qua (trước đây profile mở mà không qua proxy). Chấp nhận proxy IPv6 dạng `[2001:db8::1]`; host proxy tối đa 253 ký tự.
 - Tên profile không phân biệt hoa thường: "Demo" và "demo" không còn tạo được hai profile dùng chung một thư mục dữ liệu trên Windows/macOS. Đổi tên chỉ khác hoa thường vẫn giữ nguyên dữ liệu; tên chứa ký tự điều khiển bị từ chối.

@@ -3,7 +3,7 @@ services:
     build: .
     image: foxprofile-hub
     ports:
-      - "8000:8000"
+      - "${FOXPROFILE_HUB_PORT:-8000}:8000"
     volumes:
       - ./data:/data
     env_file: .env

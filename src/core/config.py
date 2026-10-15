@@ -1,9 +1,11 @@
 import os
 
 try:
-    from dotenv import load_dotenv
+    from dotenv import find_dotenv, load_dotenv
 
-    load_dotenv()
+    # From the working directory, not from this file: the Windows installer keeps
+    # the code in Program Files and each user's .env in %LOCALAPPDATA%\FoxProfile.
+    load_dotenv(find_dotenv(usecwd=True))
 except ImportError:
     pass
 

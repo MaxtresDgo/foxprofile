@@ -24,6 +24,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.api.schemas.proxy import GeoCheckResponse
 from src.core.config import AGENT_USER, DATA_DIR, HUB_URL, LAUNCH_WAIT_TIMEOUT
 from src.core.container import Container
 from src.core.logging import get_logger
@@ -31,6 +32,7 @@ from src.models.profile import Profile
 from src.services.browser import cookies
 from src.services.browser.launcher import BrowserControlError
 from src.services.profile.transfer import export_to_zip, import_from_zip
+from src.services.proxy.geo_check import check_geo
 
 logger = get_logger("agent")
 RETRY_SECONDS = 10
@@ -61,7 +63,10 @@ class HubClient:
             return self._send(method, path, data, timeout=timeout, raw=raw)
 
     def _send(self, method, path, data=None, timeout: float = 60, auth=True, raw=False):
-        headers = {"Content-Type": "application/json"} if isinstance(data, bytes) else {}
+        # Cloudflare's Browser Integrity Check answers 403 (error 1010) to Python-urllib.
+        headers = {"User-Agent": "FoxProfile-Agent"}
+        if isinstance(data, bytes):
+            headers["Content-Type"] = "application/json"
         if auth:
             headers["Authorization"] = f"Bearer {self.token}"
         if hasattr(data, "seek"):
@@ -81,7 +86,9 @@ class HubClient:
 class Agent:
     def __init__(self, hub: HubClient) -> None:
         self.hub = hub
-        self.bl = Container(hub=False).browser_launcher
+        container = Container(hub=False)
+        self.bl = container.browser_launcher
+        self.proxies = container.proxy_service
         self.data_root = pathlib.Path(DATA_DIR)
         self.data_root.mkdir(parents=True, exist_ok=True)
 
@@ -158,6 +165,22 @@ class Agent:
             self._answer(cmd["id"], ok=False, error=f"On {self.hub.user}'s PC: {e}", status=502)
         finally:
             shutil.rmtree(local, ignore_errors=True)
+
+    def check(self, cmd: dict) -> None:
+        """Check IP / Check proxy from the panel, run here: the browsers use the
+        proxy from this PC, which may reach it when the hub cannot (Tailscale)."""
+        params = cmd["params"]
+        try:
+            if cmd["op"] == "proxy_check":
+                ok, message = self.proxies.check_proxy_sync(params["proxy"], params["timeout"])
+                result = {"ok": ok, "message": message}
+            else:
+                geo = check_geo(params["proxy"], params["timezone"], params["locale"])
+                result = GeoCheckResponse.from_result(geo).model_dump()
+        except Exception as e:
+            self._answer(cmd["id"], ok=False, error=f"On {self.hub.user}'s PC: {e}", status=502)
+            return
+        self._answer(cmd["id"], ok=True, result=result)
 
     def _answer(self, request_id: str, **answer) -> None:
         self._call_quietly("POST", f"/hub/result/{request_id}", json.dumps(answer).encode())
@@ -252,6 +275,8 @@ class Agent:
                 threading.Thread(target=self.control, args=(resp,), daemon=True).start()
             elif resp["op"] == "cookies":
                 threading.Thread(target=self.cookie_job, args=(resp,), daemon=True).start()
+            elif resp["op"] in ("proxy_check", "geo_check"):
+                threading.Thread(target=self.check, args=(resp,), daemon=True).start()
 
 
 def main() -> None:

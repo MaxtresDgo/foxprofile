@@ -1,0 +1,27 @@
+name: Agent MSI
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "installer/windows/**"
+      - "requirements.txt"
+      - ".github/workflows/agent-msi.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update && sudo apt-get install -y msitools
+      - run: installer/windows/build-msi.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FoxProfileAgent-msi
+          path: dist/*.msi

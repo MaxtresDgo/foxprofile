@@ -65,7 +65,8 @@ def _request(
     url = BASE_URL + path
     if query:
         url += "?" + urllib.parse.urlencode({k: v for k, v in query.items() if v is not None})
-    headers = {"Content-Type": "application/json"}
+    # A custom agent: Cloudflare's Browser Integrity Check refuses Python-urllib (error 1010).
+    headers = {"Content-Type": "application/json", "User-Agent": "FoxProfile-MCP"}
     if token := CALLER_TOKEN.get() or TOKEN:
         headers["Authorization"] = f"Bearer {token}"
     data = json.dumps(body).encode() if body is not None else None

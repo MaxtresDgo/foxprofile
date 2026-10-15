@@ -86,6 +86,13 @@ class RemoteLauncher:
         entry[1].set()
         return True
 
+    def run_check(self, user: str, op: str, params: dict, timeout: float) -> Any:
+        """Run a proxy check on `user`'s PC: its proxies are reachable from there
+        (a Tailscale address, say), not necessarily from the hub."""
+        if not self.online(user):
+            raise AgentOfflineError(user)
+        return self._call(user, {"op": op, "params": params}, timeout)
+
     def cookies(self, user: str, profile: Profile, action: str, params: dict) -> Any:
         """Export/import a stopped profile's cookies on `user`'s PC (cookies.py runs there)."""
         with self._lock:

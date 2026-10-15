@@ -12,7 +12,6 @@ from ...core.logging import get_logger
 from ...models.profile import ENGINES
 from ...services.browser import chrome_prefetch, cookies, fingerprint
 from ...services.browser.launcher import BrowserControlError, ProfileBusyError
-from ...services.proxy.geo_check import check_geo
 from ...utils.validation import (
     validate_locale,
     validate_profile_name,
@@ -38,6 +37,7 @@ from ..schemas.profiles import (
     ProfileUpdate,
 )
 from ..schemas.proxy import GeoCheckResponse
+from .proxy import geo_check_here_or_on_agent
 
 if TYPE_CHECKING:
     from ...core.events import EventBus
@@ -429,11 +429,13 @@ def reset_fingerprint(
 )
 def check_profile_ip(
     name: str,
+    request: Request,
     pm: IProfileManager = Depends(get_profile_manager),
+    bl: IBrowserLauncher = Depends(get_browser_launcher),
 ) -> GeoCheckResponse:
     """Where GeoIP sources place the profile's exit IP vs. the timezone/locale it presents.
 
     Goes out through the profile's proxy to Cloudflare, ipinfo and ip-api (~10s).
     """
     profile = require_profile(name, pm)
-    return GeoCheckResponse.from_result(check_geo(profile.proxy, profile.timezone, profile.locale))
+    return geo_check_here_or_on_agent(request, bl, profile.proxy, profile.timezone, profile.locale)

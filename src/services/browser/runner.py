@@ -12,6 +12,7 @@ sys.path.insert(
 from camoufox.async_api import AsyncCamoufox
 from camoufox.virtdisplay import VirtualDisplay
 
+from chrome_engine.proxy_bridge import ProxyBridge, Upstream
 from src.core.config import DATA_DIR, HEADLESS, RESTORE_TABS
 from src.services.browser import control, session
 from src.services.browser import display as xvfb
@@ -141,6 +142,15 @@ class ProxyUnreachable(RuntimeError):
     pass
 
 
+def needs_bridge(proxy_config: dict | None) -> bool:
+    """Firefox cannot authenticate to SOCKS5 proxies (Playwright refuses to launch)."""
+    return bool(
+        proxy_config
+        and proxy_config["server"].startswith("socks5://")
+        and "username" in proxy_config
+    )
+
+
 async def run_browser(
     profile_name: str,
     proxy_str: str,
@@ -172,10 +182,16 @@ async def run_browser(
     # left an Xvfb behind. Own the display here and stop it however we exit; the
     # record lets the launcher stop it if this process is killed instead.
     display = None
+    bridge = None
     try:
         # Blocking (up to ~30 s over a slow proxy), so off the event loop; inside
         # the try so a dead proxy reports LAUNCH_FAILED like any launch error.
         launch_config["geoip"] = await asyncio.to_thread(exit_ip, proxy_str)
+        if needs_bridge(proxy_config):
+            # A loopback proxy without credentials that opens every connection
+            # through the SOCKS5 proxy with them; hostnames still resolve there.
+            bridge = await ProxyBridge(Upstream.parse(proxy_str)).start()
+            launch_config["proxy"] = {"server": bridge.url}
         if HEADLESS == "virtual":
             await asyncio.to_thread(xvfb.sweep_stale)
             display = VirtualDisplay()
@@ -247,6 +263,8 @@ async def run_browser(
         _safe_print(f"LAUNCH_FAILED: {type(e).__name__}: {_compact_error(e, 220)}")
         return 1
     finally:
+        if bridge:
+            await bridge.stop()
         if display:
             display.kill()
             xvfb.clear()

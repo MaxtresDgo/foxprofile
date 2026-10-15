@@ -45,6 +45,18 @@ Actualizar: `git pull && docker compose up -d --build`.
 
 ## 3. Instalar el agente en cada PC
 
+### Windows: instalador MSI (recomendado)
+
+`FoxProfileAgent-<versión>.msi` trae todo lo necesario (Python incluido), así que la PC no necesita nada instalado. Se descarga de los artefactos del workflow *Agent MSI* en GitHub Actions, o se arma con `installer/windows/build-msi.sh` (Linux/macOS con `uv` y `msitools`).
+
+- Instalar con doble clic (pide permisos de administrador), o sin preguntas: `msiexec /i FoxProfileAgent-<versión>.msi /qn`.
+- El agente arranca solo **cada vez que un usuario inicia sesión en Windows** y queda en una ventana de consola. También está en el menú Inicio como *FoxProfile Agent*.
+- La primera vez descarga Camoufox y pide la URL del hub, el usuario y la contraseña, igual que el script de abajo. Si el hub no responde (por ejemplo, la red todavía no está lista), reintenta cada 10 segundos.
+- Los datos de cada usuario de Windows quedan en `%LOCALAPPDATA%\FoxProfile` (`.env`, `logs`, copias locales de perfiles); desinstalar no los borra.
+- No es un servicio de Windows: los servicios corren sin escritorio y no podrían mostrar los navegadores al operador.
+
+### Script (Windows y macOS)
+
 Requisitos: Python 3.10 o superior de [python.org](https://www.python.org/downloads/) (en Windows marcar *Add python.exe to PATH*), y descargar este repositorio (git clone o ZIP de GitHub).
 
 - **Windows:** doble clic en `foxprofile-agent.bat`.
@@ -78,6 +90,7 @@ Un agente por operador: si el mismo usuario abre el agente en dos PCs, cada orde
 
 Todo se ejecuta en la PC del operador; el hub solo reenvía las órdenes a su agente.
 
+- **Check proxy / Check IP** se ejecutan en la PC del operador a través de su agente, igual que los navegadores. Así funcionan proxies que solo esa PC alcanza (por ejemplo, direcciones de Tailscale); sin el agente conectado, el panel lo avisa.
 - **Visor remoto** (icono de monitor): ver y controlar un perfil abierto desde el panel. El admin puede ver los perfiles de cualquier operador; la acción ocurre en la PC de quien lo tiene abierto.
 - **Cookies** (icono de galleta, con el perfil detenido): exportar JSON / cookies.txt o importar. El agente de quien lo pide descarga el perfil, lee o escribe las cookies con Camoufox y, al importar, lo sube de nuevo. Requiere que ese agente esté conectado.
 - **MCP** (Claude, Cursor, VS Code): en *Connect AI (MCP)* pulse *Create my personal key*. La clave se muestra una sola vez y reemplaza la anterior. Un asistente con esa clave ve solo sus perfiles y los abre en su PC. La clave no caduca: trátela como una contraseña y regenérela si se filtra.

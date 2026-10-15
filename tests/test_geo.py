@@ -312,3 +312,13 @@ def test_dead_proxy_reports_launch_failed(monkeypatch, tmp_path, capsys):
     )
     assert "Failed to get IP address" in out  # the raw error is still logged
     assert "user" not in out.split("LAUNCH_FAILED:", 1)[1]
+
+
+def test_runner_bridges_only_socks5_proxies_with_credentials():
+    from src.services.browser.runner import needs_bridge
+    from src.utils.proxy_parser import parse_proxy
+
+    assert needs_bridge(parse_proxy("socks5://user:pass@198.51.100.4:1080"))
+    assert not needs_bridge(parse_proxy("socks5://198.51.100.4:1080"))
+    assert not needs_bridge(parse_proxy("http://user:pass@198.51.100.4:8080"))
+    assert not needs_bridge(parse_proxy(""))
