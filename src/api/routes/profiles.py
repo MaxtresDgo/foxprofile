@@ -4,7 +4,7 @@ import os
 import pathlib
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
 from ...core.config import DATA_DIR
@@ -19,6 +19,7 @@ from ...utils.validation import (
     validate_proxy_format,
     validate_timezone,
 )
+from ..auth import can_see, hub_store
 from ..dependencies import get_browser_launcher, get_event_bus, get_profile_manager
 from ..helpers import build_profile_response, profile_response, require_profile
 from ..schemas.common import ErrorResponse, SuccessResponse
@@ -57,14 +58,21 @@ def _require_os(os_type: str) -> None:
         )
 
 
-def _require_engine(engine: str) -> None:
+def _require_engine(engine: str, here: bool = True) -> None:
+    """`here`: the browser runs on this machine (not on a hub agent's PC)."""
     if engine not in ENGINES:
         raise HTTPException(
             status_code=400,
             detail=f"engine must be one of: {', '.join(ENGINES)}",
         )
-    if engine == "chrome" and (reason := chrome_prefetch.unsupported_reason()):
+    if here and engine == "chrome" and (reason := chrome_prefetch.unsupported_reason()):
         raise HTTPException(status_code=400, detail=f"Chrome engine unavailable here: {reason}")
+
+
+def _not_hub(request: Request) -> None:
+    """Routes that need a browser or a file path on the server itself."""
+    if hub_store(request) is not None:
+        raise HTTPException(status_code=501, detail="Not available in hub mode")
 
 
 def _require_geo(timezone: str | None, locale: str | None) -> None:
@@ -76,10 +84,11 @@ def _require_geo(timezone: str | None, locale: str | None) -> None:
 
 @router.get("", response_model=ProfileListResponse)
 def list_profiles(
+    request: Request,
     pm: IProfileManager = Depends(get_profile_manager),
     bl: IBrowserLauncher = Depends(get_browser_launcher),
 ) -> ProfileListResponse:
-    profiles = [profile_response(p, bl) for p in pm.list_profiles()]
+    profiles = [profile_response(p, bl) for p in pm.list_profiles() if can_see(request, p.name)]
     return ProfileListResponse(profiles=profiles, total=len(profiles))
 
 
@@ -91,6 +100,7 @@ def list_profiles(
 )
 def create_profile(
     body: ProfileCreate,
+    request: Request,
     pm: IProfileManager = Depends(get_profile_manager),
     bl: IBrowserLauncher = Depends(get_browser_launcher),
     bus: EventBus = Depends(get_event_bus),
@@ -99,7 +109,8 @@ def create_profile(
     if not valid:
         raise HTTPException(status_code=400, detail=msg)
     _require_os(body.os_type)
-    _require_engine(body.engine)
+    hub = hub_store(request)
+    _require_engine(body.engine, here=hub is None)
     _require_geo(body.timezone, body.locale)
 
     if body.proxy:
@@ -117,8 +128,10 @@ def create_profile(
     ):
         raise HTTPException(status_code=409, detail="Profile already exists")
 
+    if hub is not None and request.state.user["name"] in hub.users:
+        hub.set_owner(body.name, request.state.user["name"])
     logger.info("API created profile: %s", body.name)
-    if body.engine == "chrome":
+    if body.engine == "chrome" and hub is None:
         chrome_prefetch.start()
     bus.emit()
     return build_profile_response(body.name, pm, bl)
@@ -146,6 +159,7 @@ def get_profile(
 def update_profile(
     name: str,
     body: ProfileUpdate,
+    request: Request,
     pm: IProfileManager = Depends(get_profile_manager),
     bl: IBrowserLauncher = Depends(get_browser_launcher),
     bus: EventBus = Depends(get_event_bus),
@@ -187,6 +201,8 @@ def update_profile(
         name, new_name, new_proxy or "", new_os, new_timezone or None, new_locale or None
     ):
         raise HTTPException(status_code=409, detail="Update failed (name conflict?)")
+    if (store := hub_store(request)) is not None and new_name != name:
+        store.rename_profile(name, new_name)
 
     logger.info("API updated profile: %s -> %s", name, new_name)
     bus.emit()
@@ -200,6 +216,7 @@ def update_profile(
 )
 def delete_profile(
     name: str,
+    request: Request,
     pm: IProfileManager = Depends(get_profile_manager),
     bl: IBrowserLauncher = Depends(get_browser_launcher),
     bus: EventBus = Depends(get_event_bus),
@@ -211,6 +228,8 @@ def delete_profile(
             detail="Stop the browser before deleting",
         )
     pm.delete_profile(name)
+    if (store := hub_store(request)) is not None:
+        store.set_owner(name, None)
     logger.info("API deleted profile: %s", name)
     bus.emit()
     return SuccessResponse(message=f"Profile '{name}' deleted")
@@ -236,6 +255,7 @@ def get_data_dir(
 
 @router.post(
     "/{name}/export",
+    dependencies=[Depends(_not_hub)],
     response_model=ExportResponse,
     responses={404: {"model": ErrorResponse}},
 )
@@ -257,6 +277,7 @@ def export_profile(
 
 @router.post(
     "/import",
+    dependencies=[Depends(_not_hub)],
     response_model=ImportResponse,
     responses={400: {"model": ErrorResponse}},
 )
@@ -286,6 +307,7 @@ _BUSY_DETAIL = "Profile is running or busy with another operation"
 
 @router.get(
     "/{name}/cookies",
+    dependencies=[Depends(_not_hub)],
     response_class=PlainTextResponse,
     responses={
         200: {"content": {"text/plain": {}, "application/json": {}}},
@@ -316,6 +338,7 @@ def export_cookies(
 
 @router.post(
     "/{name}/cookies",
+    dependencies=[Depends(_not_hub)],
     response_model=CookieImportResponse,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
 )

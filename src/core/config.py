@@ -46,3 +46,13 @@ RESTORE_TABS = _env("RESTORE_TABS", "true").strip().lower() in ("1", "true", "ye
 # Shared secret for the REST API, the web panel and the MCP server. Required
 # whenever the API listens on anything other than the loopback interface.
 API_TOKEN = _env("API_TOKEN", "")
+
+# Hub mode: this server coordinates; browsers run on each operator's PC through
+# `python -m src.agent`. Users and profile owners live in HUB_FILE.
+HUB = _env("HUB", "false").strip().lower() in ("1", "true", "yes")
+HUB_FILE = _env("HUB_FILE", "hub.json")
+# Creates the `admin` user on first start when HUB_FILE has no users yet.
+ADMIN_PASSWORD = _env("ADMIN_PASSWORD", "")
+# Agent side: where the hub is and which operator this PC belongs to.
+HUB_URL = _env("HUB_URL", "").rstrip("/")
+AGENT_USER = _env("AGENT_USER", "")

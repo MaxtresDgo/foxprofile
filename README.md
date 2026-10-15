@@ -131,6 +131,8 @@ On a VPS, put the server behind an HTTPS reverse proxy (Caddy, Nginx) so the tok
 
 Full deployment guide (Ubuntu, systemd, nginx, HTTPS; in Vietnamese): [docs/DEPLOY.md](docs/DEPLOY.md).
 
+**Hub mode (team server, browsers on each PC):** `docker compose up -d` runs a central panel with per-operator logins; every operator runs `foxprofile-agent.bat` / `foxprofile-agent.command` and their profiles open on their own computer. Guide (Spanish): [docs/HUB.md](docs/HUB.md).
+
 ## MCP: let AI agents drive the browser
 
 FoxProfile ships an MCP server so Claude Code, Claude Desktop, Cursor, VS Code and others can manage profiles and act on pages: navigate, read, click, type, screenshot.

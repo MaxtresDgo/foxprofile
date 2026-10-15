@@ -1,0 +1,10 @@
+services:
+  hub:
+    build: .
+    image: foxprofile-hub
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    env_file: .env
+    restart: unless-stopped

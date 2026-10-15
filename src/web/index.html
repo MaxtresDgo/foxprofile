@@ -101,6 +101,13 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .rail-foot { display: flex; flex-direction: column; gap: 8px; }
 .rail-link { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 7px; border: 0; background: transparent; color: var(--cover-ink); text-decoration: none; cursor: pointer; font-weight: 500; }
 .rail-link:hover { background: var(--cover-deep); }
+.agent { display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 12.5px; color: var(--cover-muted); }
+.agent::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--cover-muted); }
+.agent.on { color: var(--cover-ink); }
+.agent.on::before { background: var(--ok); border-color: var(--ok); }
+.user-row { display: grid; grid-template-columns: minmax(70px, 1fr) 110px minmax(200px, 1.6fr) 34px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.user-row input, .user-row select, .user-form input, .user-form select { height: 34px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--paper-raised); min-width: 0; }
+.user-form { display: grid; grid-template-columns: 1fr 1fr 110px auto; gap: 8px; margin-top: 14px; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 8px; background: var(--cover-deep); }
 .seg button { height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--cover-muted); cursor: pointer; font-size: 13px; font-weight: 500; }
 .seg button.active { background: var(--cover); color: var(--cover-ink); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
@@ -309,6 +316,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
   <symbol id="i-fingerprint" viewBox="0 0 24 24"><path d="M12 10a2 2 0 0 0-2 2c0 1-.1 2.5-.3 4M14 13.1c0 2.4 0 6.4-1 8.9M17.3 21c.1-.6.4-2.3.5-3M2 12a10 10 0 0 1 18-6M21.8 16c.2-2 .1-5.4 0-6M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .3-2M8.7 22c.2-.7.4-1.3.6-2M9 6.8a6 6 0 0 1 9 5.2v2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
   <symbol id="i-tab" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M12 13v4M10 15h4"/></symbol>
 </svg>
 
@@ -320,6 +328,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <form id="login-form">
     <h1 data-t="login"></h1>
     <p class="muted" data-t="login_hint"></p>
+    <div class="field hidden" id="user-field"><label for="username" data-t="username"></label><input id="username" autocomplete="username"></div>
     <div class="field"><label for="token" data-t="token"></label><input id="token" type="password" autocomplete="current-password" required></div>
     <div class="msg err" id="login-err" role="alert"></div>
     <button class="btn btn-act" type="submit" data-t="login"></button>
@@ -338,6 +347,8 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
     </nav>
     <div class="grow"></div>
     <div class="rail-foot">
+      <div class="agent hidden" id="agent-status" role="status"></div>
+      <button class="rail-link hidden" id="users-btn"><svg class="i"><use href="#i-user"/></svg><span data-t="users"></span></button>
       <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
       <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
       <button class="rail-link hidden" id="logout-btn"><svg class="i"><use href="#i-logout"/></svg><span data-t="logout"></span></button>
@@ -431,6 +442,14 @@ const I18N = {
     go: "Đi", new_tab: "Tab mới", type: "Gõ", type_hint: "Gõ vào ô đang chọn (bấm lên ảnh để chọn ô)", working: "Đang xử lý...",
     back: "Quay lại", reload: "Tải lại",
     retry: "Thử lại", boot_error: "Không thể kết nối với server",
+    username: "Tên đăng nhập", password: "Mật khẩu", bad_login: "Sai tên đăng nhập hoặc mật khẩu",
+    login_side_hub: "Server FoxProfile của nhóm. Profile mở trên máy tính của bạn qua FoxProfile agent.",
+    login_hint_hub: "Đăng nhập bằng tài khoản quản trị viên đã tạo cho bạn.",
+    agent_on: "Máy của bạn: đã kết nối", agent_off: "Máy của bạn: chưa chạy agent",
+    users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên", add_user: "Thêm",
+    new_password: "Mật khẩu mới", set_password: "Đổi", owner: "Người dùng", unassigned: "Chưa giao",
+    confirm_delete_user: "Xoá người dùng “{name}”? Profile của họ vẫn còn, chỉ quản trị viên thấy cho đến khi giao lại.",
+    user_saved: "Đã lưu {name}",
   },
   en: {
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
@@ -483,6 +502,14 @@ const I18N = {
     go: "Go", new_tab: "New tab", type: "Type", type_hint: "Type into the focused field (click the screen to focus one)", working: "Working...",
     back: "Back", reload: "Reload",
     retry: "Retry", boot_error: "Cannot reach the server",
+    username: "User name", password: "Password", bad_login: "Wrong user name or password",
+    login_side_hub: "Your team's FoxProfile server. Profiles open on your own computer through the FoxProfile agent.",
+    login_hint_hub: "Log in with the account your admin created for you.",
+    agent_on: "Your PC: connected", agent_off: "Your PC: agent not running",
+    users: "Users", role_admin: "Admin", role_operator: "Operator", add_user: "Add",
+    new_password: "New password", set_password: "Set", owner: "Operator", unassigned: "Unassigned",
+    confirm_delete_user: "Delete user “{name}”? Their profiles stay, visible to admins until reassigned.",
+    user_saved: "Saved {name}",
   },
 };
 
@@ -493,6 +520,7 @@ const store = {
 let lang = store.get("foxprofile.lang") || "en";
 let token = store.get("foxprofile.token") || "";
 let profiles = [], running = new Set(), fingerprints = {};
+let hub = false, me = null;      // hub mode: browsers open on each operator's PC
 let filter = "all";
 const busy = new Map();          // name -> "starting" | "stopping"
 const failed = new Map();        // name -> error message of the last failed launch
@@ -550,7 +578,7 @@ async function api(method, path, body, { raw = false } = {}) {
   if (token) headers.Authorization = "Bearer " + token;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch("/api/v1" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (res.status === 401) { showLogin(); throw new ApiError(401, t("bad_token")); }
+  if (res.status === 401) { showLogin(); throw new ApiError(401, t(hub ? "bad_login" : "bad_token")); }
   if (!res.ok) {
     let msg = res.statusText;
     try { const j = await res.json();
@@ -578,8 +606,9 @@ const hhmm = (d) => d.toTimeString().slice(0, 5);
 
 async function refresh() {
   try {
-    const [list, run] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser")]);
+    const [list, run, who] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"), hub ? api("GET", "/hub/me") : null]);
     profiles = list.profiles;
+    if (hub) renderMe(who);
     const now = new Set(run.running);
     for (const name of now) if (!liveSince.has(name)) liveSince.set(name, new Date());
     for (const name of [...liveSince.keys()]) if (!now.has(name)) liveSince.delete(name);
@@ -613,7 +642,7 @@ function render() {
   const shown = visible();
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
-  const key = JSON.stringify([lang, q, filter, profiles, [...running].sort(), [...busy], [...failed], [...selected].sort(),
+  const key = JSON.stringify([lang, q, filter, profiles, me, [...running].sort(), [...busy], [...failed], [...selected].sort(),
     [...justLanded], shown.map((p) => fingerprints[p.name] || null)]);
   if (key === lastRender) return;
   lastRender = key;
@@ -667,8 +696,10 @@ function stamp(p) {
   if (state) return h("span", { class: "stamp pending" }, t(state === "stopping" ? "stamp_stopping" : "stamp_starting"));
   if (running.has(p.name)) {
     const since = liveSince.get(p.name);
+    const holder = hub && me.leases[p.name] !== me.name ? me.leases[p.name] : null;
+    const small = [since && hhmm(since), holder].filter(Boolean).join(" · ");
     return h("span", { class: "stamp" + (justLanded.has(p.name) ? " land" : "") },
-      t("stamp_live"), since ? h("small", {}, hhmm(since)) : null);
+      t("stamp_live"), small ? h("small", {}, small) : null);
   }
   if (failed.has(p.name)) return h("span", { class: "stamp failed", title: failed.get(p.name) }, t("stamp_failed"));
   return h("span", { class: "idle" }, t("idle"));
@@ -707,7 +738,7 @@ function row(p) {
       h("span", { class: "minor" + (p.locale ? " data" : "") }, p.locale || t("follow_ip"))),
     h("div", { class: "c-stamp", role: "cell" }, stamp(p)),
     h("div", { class: "actions", role: "cell" }, main,
-      iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
+      hub ? null : iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
       iconBtn("cookie", t("cookies"), () => openCookies(p), "", on),
       iconBtn("edit", t("edit"), () => openEditor(p)),
       iconBtn("trash", t("delete"), () => removeProfile(p), "danger", on)));
@@ -821,6 +852,13 @@ function openEditor(p) {
     const loc = h("input", { id: "f-locale", value: p && p.locale ? p.locale : "", placeholder: t("locale_hint"), autocomplete: "off", class: "data" });
     const msg = h("div", { class: "msg", role: "status" });
     const geo = h("div");
+    const owner = hub && me.role === "admin" ? h("select", { id: "f-owner" }) : null;
+    if (owner) {
+      const current = p ? me.owners[p.name] || "" : me.name;
+      owner.append(h("option", { value: "" }, t("unassigned")));
+      api("GET", "/hub/users").then((users) => users.forEach((u) =>
+        owner.append(h("option", { value: u.name, selected: u.name === current }, u.name))));
+    }
     const say = (cls, text) => { msg.className = "msg " + cls; msg.textContent = text; };
     const checkIp = h("button", { type: "button", class: "btn btn-line", onclick: async () => {
       checkIp.disabled = true; geo.replaceChildren(h("div", { class: "msg info" }, t("checking")));
@@ -850,6 +888,7 @@ function openEditor(p) {
       try {
         if (p) { await api("PATCH", `/profiles/${enc(p.name)}`, body); delete fingerprints[p.name]; toast(t("saved")); }
         else { await api("POST", "/profiles", body); toast(t("created", { name: body.name })); }
+        if (owner) await api("PUT", `/hub/owners/${enc(body.name)}`, { user: owner.value || null });
         close(); refresh();
       } catch (ex) { say("err", ex.message); }
       finally { if (submitBtn) submitBtn.disabled = false; }
@@ -857,6 +896,7 @@ function openEditor(p) {
       modalHead(p ? t("edit_title") : t("create"), p ? t("edit_sub", { name: p.name }) : t("create_sub"), close),
       h("div", { class: "modal-body" },
         field(t("name"), name),
+        owner ? field(t("owner"), owner) : null,
         h("div", { class: "field-row" }, field(t("engine"), engine, p ? t("engine_locked") : null), field(t("os"), os)),
         engineNote,
         field(t("proxy_label"), proxy, t("proxy_hint")),
@@ -952,7 +992,7 @@ function openCookies(p) {
     return h("div", {},
       modalHead(t("cookies"), `${p.name} · ${t("cookie_hint")}`, close),
       h("div", { class: "modal-body" },
-        h("div", { class: "choice" },
+        hub ? null : h("div", { class: "choice" },
           choice("download", t("export_json"), t("export_json_hint"), () => exportAs("json")),
           choice("download", t("export_txt"), t("export_txt_hint"), () => exportAs("netscape")),
           choice("upload", t("import"), t("import_hint"), () => file.click())), file,
@@ -968,6 +1008,62 @@ function openCookies(p) {
         msg),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   });
+}
+
+// --- Hub: who is logged in, their agent, user admin ---------------------------
+function renderMe(who) {
+  me = who;
+  const el = $("agent-status");
+  el.classList.remove("hidden");
+  el.classList.toggle("on", me.agent_online);
+  el.textContent = `${me.name} · ${t(me.agent_online ? "agent_on" : "agent_off")}`;
+  $("users-btn").classList.toggle("hidden", me.role !== "admin");
+}
+
+function openUsers() {
+  modal((close) => {
+    const list = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
+    const roleSelect = (value, id) => h("select", { id, "aria-label": "Role" }, ["operator", "admin"].map((r) =>
+      h("option", { value: r, selected: r === value }, t("role_" + r))));
+    const load = async () => {
+      let users;
+      try { users = await api("GET", "/hub/users"); } catch (e) { return fail(e); }
+      list.replaceChildren(...users.map((u) => {
+        const role = roleSelect(u.role);
+        const pass = h("input", { type: "password", placeholder: t("new_password"), autocomplete: "new-password", "aria-label": `${t("new_password")}: ${u.name}` });
+        role.onchange = () => api("PATCH", `/hub/users/${enc(u.name)}`, { role: role.value }).then(() => toast(t("user_saved", { name: u.name })), fail);
+        return h("div", { class: "user-row" },
+          h("b", {}, u.name), role,
+          h("form", { style: "display:flex;gap:6px", onsubmit: async (e) => {
+            e.preventDefault();
+            try { await api("PATCH", `/hub/users/${enc(u.name)}`, { password: pass.value }); pass.value = ""; toast(t("user_saved", { name: u.name })); } catch (ex) { fail(ex); }
+          } }, pass, h("button", { class: "btn btn-line" }, t("set_password"))),
+          h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u.name}`, disabled: u.name === me.name,
+            onclick: async () => {
+              if (!(await confirmDialog(t("confirm_delete_user", { name: u.name }), t("delete"), true))) return;
+              try { await api("DELETE", `/hub/users/${enc(u.name)}`); load(); } catch (e) { fail(e); }
+            } }, icon("trash")));
+      }));
+    };
+    const name = h("input", { id: "u-name", placeholder: t("username"), autocomplete: "off", required: true });
+    const pass = h("input", { id: "u-pass", type: "password", placeholder: t("password"), autocomplete: "new-password", required: true });
+    const role = roleSelect("operator", "u-role");
+    load();
+    return h("div", {},
+      modalHead(t("users"), null, close),
+      h("div", { class: "modal-body" }, list,
+        h("form", { class: "user-form", onsubmit: async (e) => {
+          e.preventDefault();
+          try {
+            await api("POST", "/hub/users", { name: name.value.trim(), password: pass.value, role: role.value });
+            toast(t("user_saved", { name: name.value.trim() })); name.value = ""; pass.value = ""; msg.textContent = ""; load();
+          } catch (ex) { fail(ex); }
+        } }, name, pass, role, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_user"))),
+        msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
 }
 
 // --- MCP setup guide -----------------------------------------------------------
@@ -1097,7 +1193,7 @@ let listTimer = null;
 function showLogin() {
   clearInterval(listTimer); listTimer = null;
   $("app").classList.add("hidden"); $("viewer").classList.add("hidden"); $("login").classList.remove("hidden");
-  $("token").focus();
+  (hub ? $("username") : $("token")).focus();
 }
 async function showApp(authRequired) {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
@@ -1107,6 +1203,16 @@ async function showApp(authRequired) {
 }
 $("login-form").onsubmit = async (e) => {
   e.preventDefault();
+  if (hub) {
+    try {
+      const res = await fetch("/api/v1/hub/login", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: $("username").value.trim(), password: $("token").value }) });
+      if (!res.ok) throw new ApiError(res.status, t("bad_login"));
+      token = (await res.json()).token;
+      store.set("foxprofile.token", token); $("token").value = ""; $("login-err").textContent = ""; showApp(true);
+    } catch (err) { $("login-err").textContent = err.message; }
+    return;
+  }
   token = $("token").value.trim();
   try { await api("GET", "/profiles"); store.set("foxprofile.token", token); $("login-err").textContent = ""; showApp(true); }
   catch (err) { $("login-err").textContent = err.status === 401 ? t("bad_token") : (err.message || t("bad_token")); token = ""; }
@@ -1114,6 +1220,7 @@ $("login-form").onsubmit = async (e) => {
 $("logout-btn").onclick = () => { token = ""; store.set("foxprofile.token", null); showLogin(); };
 $("new-btn").onclick = () => openEditor(null);
 $("mcp-btn").onclick = openMcpGuide;
+$("users-btn").onclick = openUsers;
 $("search").oninput = render;
 document.querySelectorAll("[data-lang]").forEach((b) => { b.onclick = () => { lang = b.dataset.lang; store.set("foxprofile.lang", lang); applyI18n(); lastRender = ""; render(); }; });
 document.addEventListener("keydown", (e) => {
@@ -1131,6 +1238,15 @@ document.addEventListener("keydown", (e) => {
     const res = await fetch("/api/v1/info");
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const info = await res.json();
+    if (info.mode === "hub") {
+      hub = true;
+      $("user-field").classList.remove("hidden");
+      $("username").required = true;
+      for (const [sel, key] of [["#login [data-t=token]", "password"], ["#login [data-t=login_side]", "login_side_hub"], ["#login [data-t=login_hint]", "login_hint_hub"]])
+        document.querySelector(sel).dataset.t = key;
+      $("mcp-btn").classList.add("hidden");
+      applyI18n();
+    }
     if (info.auth_required && !token) return showLogin();
     try { await showApp(info.auth_required); } catch { showLogin(); }
   } catch (e) {

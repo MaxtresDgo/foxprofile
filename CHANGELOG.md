@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Thêm
+- Chế độ hub (`FOXPROFILE_HUB=true`, `Dockerfile`, `compose.yaml`): server trung tâm lưu profile và tài khoản người dùng, không chạy trình duyệt. Mỗi nhân viên đăng nhập bằng tài khoản riêng, chỉ thấy profile được giao; profile mở trên máy của họ qua agent `python -m src.agent` (`foxprofile-agent.bat` / `.command`), dữ liệu được tải về khi mở và đồng bộ lại khi đóng. Xem `docs/HUB.md`.
+
+### Thay đổi
+- Xuất profile ZIP bỏ qua thư mục cache của trình duyệt.
+
 ### Sửa
 - App desktop: nút "Launch" không còn bị gãy chữ thành hai dòng khi dùng giao diện English.
 - Proxy dạng `host:port:user:pass` có `@` hoặc `:` trong mật khẩu không còn bị bỏ qua (trước đây profile mở mà không qua proxy). Chấp nhận proxy IPv6 dạng `[2001:db8::1]`; host proxy tối đa 253 ký tự.

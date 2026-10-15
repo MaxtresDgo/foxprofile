@@ -1,0 +1,11 @@
+.git
+.venv
+.env
+data
+camoufox_data
+logs
+profiles.json
+hub.json
+tests
+docs
+**/__pycache__

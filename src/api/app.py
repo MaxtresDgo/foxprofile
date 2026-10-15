@@ -68,10 +68,18 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     protected = [Depends(require_token)]
     app.include_router(profiles_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(browser_router, prefix=API_PREFIX, dependencies=protected)
-    app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(proxy_router, prefix=API_PREFIX, dependencies=protected)
-    app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
-    app.router.routes.append(mcp_route)
+    if container.hub:
+        # Browsers live on the operators' PCs: no remote page control, no MCP.
+        from ..hub import routes as hub_routes
+
+        container.hub_store  # noqa: B018 - fail fast on a missing secret or bad hub file
+        app.include_router(hub_routes.public_router, prefix=API_PREFIX)
+        app.include_router(hub_routes.router, prefix=API_PREFIX, dependencies=protected)
+    else:
+        app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)
+        app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
+        app.router.routes.append(mcp_route)
 
     @app.get(f"{API_PREFIX}/health", response_model=SuccessResponse, tags=["health"])
     def health_check() -> SuccessResponse:
@@ -86,6 +94,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
             "auth_required": bool(API_TOKEN),
             "headless": HEADLESS,
             "mcp_path": mcp_http.MCP_PATH,
+            "mode": "hub" if container.hub else "local",
         }
 
     @app.get("/", include_in_schema=False)

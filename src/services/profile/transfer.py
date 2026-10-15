@@ -17,6 +17,9 @@ from ..browser.fingerprint import CHROME_PERSONA_FILE
 
 logger = get_logger("profile.transfer")
 
+# Browser caches: rebuilt on demand, often hundreds of MB. Never exported.
+_CACHE_DIRS = {"cache2", "startupCache", "Cache", "Code Cache", "GPUCache", "GrShaderCache"}
+
 
 def export_to_zip(
     profile: Profile,
@@ -34,7 +37,8 @@ def export_to_zip(
             zipf.writestr("profile.json", json.dumps(profile.to_dict(), indent=2))
 
             if include_data and pathlib.Path(profile_data_dir).exists():
-                for root, _dirs, files in os.walk(profile_data_dir):
+                for root, dirs, files in os.walk(profile_data_dir):
+                    dirs[:] = [d for d in dirs if d not in _CACHE_DIRS]
                     for file in files:
                         file_path = os.path.join(root, file)
                         arcname = os.path.join(

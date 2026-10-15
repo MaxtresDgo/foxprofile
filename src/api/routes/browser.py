@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from ...core.config import LAUNCH_WAIT_TIMEOUT
 from ...core.logging import get_logger
 from ...services.browser.launcher import ProfileBusyError
+from ..auth import can_see, hub_store
 from ..dependencies import get_browser_launcher, get_event_bus, get_profile_manager
 from ..helpers import require_profile
 from ..schemas.browser import (
@@ -31,9 +32,10 @@ def _api_log(msg: str) -> None:
 
 @router.get("", response_model=RunningBrowsersResponse)
 def list_running(
+    request: Request,
     bl: IBrowserLauncher = Depends(get_browser_launcher),
 ) -> RunningBrowsersResponse:
-    names = sorted(bl.running_profile_names())
+    names = sorted(n for n in bl.running_profile_names() if can_see(request, n))
     return RunningBrowsersResponse(running=names, count=len(names))
 
 
@@ -62,6 +64,7 @@ def browser_status(
 )
 def launch_browser(
     name: str,
+    request: Request,
     response: Response,
     wait: bool = Query(
         True,
@@ -86,7 +89,19 @@ def launch_browser(
         bus.emit()
 
     try:
-        started = bl.start_thread(profile, _api_log, on_ready=_on_ready, on_stop=_on_stop)
+        if hub_store(request) is not None:
+            from ...hub.remote import AgentOfflineError
+
+            try:
+                bl.dispatch(request.state.user["name"], profile)
+            except AgentOfflineError as e:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Your PC is not connected: start the FoxProfile agent on it",
+                ) from e
+            started = True
+        else:
+            started = bl.start_thread(profile, _api_log, on_ready=_on_ready, on_stop=_on_stop)
     except ProfileBusyError as e:
         raise HTTPException(status_code=409, detail="Profile is busy") from e
     if not started:
