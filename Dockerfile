@@ -3,10 +3,11 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY requirements.txt .
-# The desktop UI (flet) is not needed on the hub.
+COPY requirements.txt requirements-hub.txt ./
+# The desktop UI (flet) is not needed on the hub; requirements-hub.txt is (installers
+# in an S3 bucket). requirements.txt stays: agents compare theirs with it.
 RUN grep -v '^flet' requirements.txt > /tmp/req.txt \
-    && pip install --no-cache-dir -r /tmp/req.txt \
+    && pip install --no-cache-dir -r /tmp/req.txt -r requirements-hub.txt \
     && rm /tmp/req.txt
 
 COPY src ./src

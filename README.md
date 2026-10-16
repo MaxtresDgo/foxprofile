@@ -37,6 +37,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - [MCP: let AI agents drive the browser](#mcp-let-ai-agents-drive-the-browser)
 - [Run steps and sync](#run-steps-and-sync)
 - [Chrome engine (experimental)](#chrome-engine-experimental)
+- [Migrating from AdsPower](#migrating-from-adspower)
 - [Cookies and fingerprints](#cookies-and-fingerprints)
 - [Configuration](#configuration)
 - [REST API](#rest-api)
@@ -133,7 +134,7 @@ On a VPS, put the server behind an HTTPS reverse proxy (Caddy, Nginx) so the tok
 
 Full deployment guide (Ubuntu, systemd, nginx, HTTPS; in Vietnamese): [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Hub mode (team server, browsers on each PC):** `docker compose up -d` runs a central panel with per-operator logins; every operator runs `foxprofile-agent.bat` / `foxprofile-agent.command` (or, on Windows, the `FoxProfileAgent-<version>.msi` installer, which bundles Python and starts the agent at logon) and their profiles open on their own computer. The agent signs in through the browser (the panel asks the operator to authorize it, no password on the PC) and runs in the tray / menu bar, with a menu to switch account or show its log. Groups let several operators share a set of profiles from different PCs. Guide (Spanish): [docs/HUB.md](docs/HUB.md).
+**Hub mode (team server, browsers on each PC):** `docker compose up -d` runs a central panel with per-operator logins; every operator runs `foxprofile-agent.bat` / `foxprofile-agent.command` (or the installers, which bundle Python and start the agent at login: `FoxProfileAgent-<version>.msi` on Windows, `FoxProfileAgent-<version>-macos.pkg` on Apple silicon Macs with macOS 15+) and their profiles open on their own computer. The agent signs in through the browser (the panel asks the operator to authorize it, no password on the PC) and runs in the tray / menu bar, with a menu to switch account or show its log. Installed agents update themselves to the hub's version (only the code; new libraries need the new installer), and the panel's Settings › Agents serves the installers (from the hub's disk or a private S3 bucket such as RustFS, through presigned URLs) and shows each PC's version. Groups let several operators share a set of profiles from different PCs. Guide (Spanish): [docs/HUB.md](docs/HUB.md).
 
 ## MCP: let AI agents drive the browser
 
@@ -200,9 +201,24 @@ Over the API: `POST /api/v1/automation/run` with `{"profiles": [...], "script": 
 
 ## Chrome engine (experimental)
 
-Besides Camoufox (Firefox), a profile can run on the **Chrome** engine: a Chromium build with fingerprint spoofing patched in C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), BSD-3 license). Pick it in **Engine** when creating a profile; it cannot be changed afterwards. The browser build (~140-190 MB depending on the OS, fetched from fingerprint-chromium's GitHub releases and verified by SHA-256) is downloaded in the background as soon as the first Chrome profile is created, or on launch if it is still missing; progress shows in the log. To fetch it ahead of time: `python -m chrome_engine fetch`.
+Besides Camoufox (Firefox), a profile can run on the **Chrome** engine: a Chromium build with fingerprint spoofing patched in C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), BSD-3 license). Pick it in **Engine** when creating a profile; it cannot be changed afterwards. The browser build (~140-190 MB depending on the OS, fetched from fingerprint-chromium's GitHub releases and verified by SHA-256) is downloaded in the background as soon as the first Chrome profile is created, or on launch if it is still missing; progress shows in the log. To fetch it ahead of time: `python -m chrome_engine fetch`. The agent installers (MSI, macOS pkg) already include it.
 
 Pick the OS of the machine running FoxProfile: a persona of another OS leaks the machine's fonts, and a Linux persona on Windows/macOS is refused because WebGL reveals the real GPU. Supported: Windows x64, macOS Apple Silicon, Linux x64 (untested). Details and test results (in Vietnamese): [chrome_engine/README.md](chrome_engine/README.md).
+
+**Android (phone) profiles.** With the Chrome engine, the OS can also be **Android**: the profile presents a phone (an Android Chrome User-Agent, matching client hints and `navigator.platform`, a phone screen, touch and a coarse pointer) on any Windows or Mac. It exists to carry Android profiles over from other anti-detect browsers with the User-Agent sites already know. Known gaps: the PC's desktop fonts are visible to font probes, the WebGL renderer is a desktop GPU, and `navigator.platform` inside web workers is the PC's.
+
+## Migrating from AdsPower
+
+**Import from AdsPower** (web panel: Settings; desktop app: **From AdsPower** in the sidebar) copies profiles from an AdsPower running on the same PC, through its Local API (turn it on in AdsPower: Settings > API; enter the API key if you enabled one). The list is grouped by AdsPower group, with a count per group (imported, pending, failed) to check a large migration group by group; tick a whole group or single profiles and import. Importing again only adds the ones that are not there yet. AdsPower answers one request a second, so plan on roughly 8-10 seconds per profile and keep the window open while it runs.
+
+| Comes over | Stays behind |
+|---|---|
+| Name (made safe for a folder name; a repeated name gets its AdsPower number) | Fingerprint noise (canvas, audio, client rects, WebGL image): a SunBrowser algorithm no other browser reproduces |
+| Proxy, including one picked from AdsPower's proxy list | Local storage, extensions, history |
+| The exact User-Agent, so the OS; Android profiles become Android phones (see above) | Notes, groups, platform user name and password |
+| Cookies (Chrome caps their lifetime at 400 days, as SunBrowser does) | |
+
+Profiles are created on the Chrome engine, since AdsPower's SunBrowser is Chromium: sites keep seeing the same kind of browser. Timezone and language follow the proxy's IP, as in AdsPower's "based on IP" setting. In hub mode the import runs on your own PC through your agent, where AdsPower is, and each profile joins the hub group named after its AdsPower group (created when an admin imports; names are reduced to letters, digits, `-` and `_`, so "Ventas México" becomes `Ventas-Mexico`). Importing again also files profiles imported earlier into their group.
 
 ## Cookies and fingerprints
 

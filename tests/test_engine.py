@@ -69,6 +69,26 @@ def test_api_creates_and_reports_the_engine(client):
     assert client.post("/api/v1/profiles", json={"name": "f1"}).json()["engine"] == "camoufox"
 
 
+def test_android_profiles_need_the_chrome_engine(client):
+    r = client.post("/api/v1/profiles", json={"name": "a1", "os_type": "android"})
+    assert r.status_code == 400
+    r = client.post(
+        "/api/v1/profiles", json={"name": "a2", "os_type": "android", "engine": "chrome"}
+    )
+    assert r.status_code == 201
+    client.post("/api/v1/profiles", json={"name": "f2"})
+    assert client.patch("/api/v1/profiles/f2", json={"os_type": "android"}).status_code == 400
+
+
+def test_fingerprint_summary_reports_an_android_phone(tmp_path):
+    (tmp_path / fingerprint.CHROME_PERSONA_FILE).write_text(
+        json.dumps({"seed": 7, "platform": "android", "screen": [412, 915, 2.625]}),
+        encoding="utf-8",
+    )
+    summary = fingerprint.summary(str(tmp_path))
+    assert (summary["platform"], summary["screen"]) == ("Linux armv81", "412x915")
+
+
 def test_api_rejects_unknown_engine(client):
     r = client.post("/api/v1/profiles", json={"name": "x", "engine": "netscape"})
     assert r.status_code == 400

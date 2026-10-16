@@ -37,6 +37,7 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - [MCP: cho AI điều khiển trình duyệt](#mcp-cho-ai-điều-khiển-trình-duyệt)
 - [Chạy bước và đồng bộ](#chạy-bước-và-đồng-bộ)
 - [Engine Chrome (thử nghiệm)](#engine-chrome-thử-nghiệm)
+- [Chuyển từ AdsPower](#chuyển-từ-adspower)
 - [Cookie và fingerprint](#cookie-và-fingerprint)
 - [Cấu hình](#cấu-hình)
 - [REST API](#rest-api)
@@ -133,7 +134,7 @@ Khi đưa lên VPS, nên đặt server sau reverse proxy có HTTPS (Caddy, Nginx
 
 Hướng dẫn triển khai đầy đủ (Ubuntu, systemd, nginx, HTTPS): [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Chế độ hub (server cho nhóm, trình duyệt chạy trên từng máy):** `docker compose up -d` chạy panel trung tâm với tài khoản riêng cho từng nhân viên; mỗi người chạy `foxprofile-agent.bat` / `foxprofile-agent.command` (hoặc, trên Windows, bộ cài `FoxProfileAgent-<version>.msi`, đã kèm Python và tự chạy agent khi đăng nhập) và profile mở trên chính máy của họ. Agent đăng nhập qua trình duyệt (panel hỏi nhân viên cấp quyền cho agent, không cần mật khẩu trên máy) và chạy ở khay hệ thống / thanh menu, với menu để đổi tài khoản hoặc xem log. Nhóm cho phép nhiều nhân viên dùng chung một số profile từ các máy khác nhau. Hướng dẫn (tiếng Tây Ban Nha): [docs/HUB.md](docs/HUB.md).
+**Chế độ hub (server cho nhóm, trình duyệt chạy trên từng máy):** `docker compose up -d` chạy panel trung tâm với tài khoản riêng cho từng nhân viên; mỗi người chạy `foxprofile-agent.bat` / `foxprofile-agent.command` (hoặc các bộ cài, đã kèm Python và tự chạy agent khi đăng nhập: `FoxProfileAgent-<version>.msi` trên Windows, `FoxProfileAgent-<version>-macos.pkg` trên Mac Apple silicon chạy macOS 15 trở lên) và profile mở trên chính máy của họ. Agent đăng nhập qua trình duyệt (panel hỏi nhân viên cấp quyền cho agent, không cần mật khẩu trên máy) và chạy ở khay hệ thống / thanh menu, với menu để đổi tài khoản hoặc xem log. Agent cài bằng bộ cài tự cập nhật theo phiên bản của hub (chỉ phần code; thư viện mới cần bộ cài mới), và mục Cài đặt › Agent trong panel cung cấp bộ cài (từ ổ đĩa của hub hoặc bucket S3 riêng tư như RustFS, qua URL ký sẵn) và cho xem phiên bản của từng máy. Nhóm cho phép nhiều nhân viên dùng chung một số profile từ các máy khác nhau. Hướng dẫn (tiếng Tây Ban Nha): [docs/HUB.md](docs/HUB.md).
 
 ## MCP: cho AI điều khiển trình duyệt
 
@@ -200,9 +201,24 @@ Qua API: `POST /api/v1/automation/run` với `{"profiles": [...], "script": "...
 
 ## Engine Chrome (thử nghiệm)
 
-Ngoài Camoufox (Firefox), profile có thể chạy trên engine **Chrome**: một bản Chromium đã vá fingerprint ở tầng C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), giấy phép BSD-3). Chọn ở ô **Engine** khi tạo profile; không đổi được sau khi tạo. Bản trình duyệt (~140-190 MB tuỳ hệ điều hành, tải từ GitHub của fingerprint-chromium và kiểm tra SHA-256) được tự tải ở nền ngay khi tạo profile Chrome đầu tiên, hoặc lúc mở profile nếu chưa có; tiến độ hiện trong log. Muốn tải trước bằng tay: `python -m chrome_engine fetch`.
+Ngoài Camoufox (Firefox), profile có thể chạy trên engine **Chrome**: một bản Chromium đã vá fingerprint ở tầng C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), giấy phép BSD-3). Chọn ở ô **Engine** khi tạo profile; không đổi được sau khi tạo. Bản trình duyệt (~140-190 MB tuỳ hệ điều hành, tải từ GitHub của fingerprint-chromium và kiểm tra SHA-256) được tự tải ở nền ngay khi tạo profile Chrome đầu tiên, hoặc lúc mở profile nếu chưa có; tiến độ hiện trong log. Muốn tải trước bằng tay: `python -m chrome_engine fetch`. Các bộ cài agent (MSI, pkg macOS) đã kèm sẵn.
 
 Nên chọn đúng hệ điều hành của máy đang chạy FoxProfile: persona khác hệ điều hành sẽ lộ font của máy, và persona Linux trên Windows/macOS bị từ chối vì WebGL lộ GPU thật. Hỗ trợ Windows x64, macOS Apple Silicon và Linux x64 (chưa kiểm chứng). Chi tiết và kết quả kiểm thử: [chrome_engine/README.md](chrome_engine/README.md).
+
+**Profile Android (điện thoại).** Với engine Chrome, hệ điều hành còn có thể là **Android**: profile hiện ra như một điện thoại (User-Agent Chrome Android, client hints và `navigator.platform` khớp theo, màn hình điện thoại, cảm ứng, con trỏ coarse) trên bất kỳ máy Windows hay Mac nào. Tính năng này dùng để chuyển profile Android từ các trình duyệt anti-detect khác mà giữ nguyên User-Agent trang web đã biết. Giới hạn đã biết: font desktop của máy lộ qua đo font, WebGL báo GPU desktop, và `navigator.platform` bên trong web worker là của máy.
+
+## Chuyển từ AdsPower
+
+**Nhập từ AdsPower** (web panel: Settings; app desktop: nút **Từ AdsPower** ở thanh bên) sao chép profile từ AdsPower đang chạy trên cùng máy, qua Local API của nó (bật trong AdsPower: Settings > API; nhập API key nếu đã bật). Danh sách được nhóm theo nhóm của AdsPower, có số đếm cho từng nhóm (đã nhập, còn lại, lỗi) để kiểm tra một lần chuyển lớn theo từng nhóm; tích cả nhóm hoặc từng profile rồi nhập. Nhập lại chỉ thêm những profile chưa có. AdsPower chỉ trả lời một yêu cầu mỗi giây, nên mỗi profile mất khoảng 8-10 giây; hãy để cửa sổ mở trong lúc nhập.
+
+| Được chuyển | Không chuyển được |
+|---|---|
+| Tên (sửa cho hợp lệ làm tên thư mục; tên trùng được thêm số của AdsPower) | Nhiễu fingerprint (canvas, audio, client rects, ảnh WebGL): thuật toán riêng của SunBrowser, trình duyệt khác không tái tạo được |
+| Proxy, kể cả proxy chọn từ danh sách proxy của AdsPower | Local storage, extension, lịch sử |
+| Đúng User-Agent, từ đó suy ra hệ điều hành; profile Android thành điện thoại Android (xem trên) | Ghi chú, nhóm, tên đăng nhập và mật khẩu nền tảng |
+| Cookie (Chrome giới hạn hạn dùng 400 ngày, giống SunBrowser) | |
+
+Profile được tạo trên engine Chrome vì SunBrowser của AdsPower là Chromium: trang web vẫn thấy cùng loại trình duyệt. Timezone và ngôn ngữ theo IP của proxy, như tuỳ chọn "theo IP" của AdsPower. Ở chế độ hub, việc nhập chạy trên máy của bạn qua agent, nơi có AdsPower, và mỗi profile được đưa vào nhóm hub cùng tên với nhóm AdsPower của nó (quản trị viên nhập thì nhóm được tạo; tên chỉ giữ chữ, số, `-` và `_`, nên "Ventas México" thành `Ventas-Mexico`). Nhập lại cũng đưa các profile đã nhập trước đó vào đúng nhóm.
 
 ## Cookie và fingerprint
 

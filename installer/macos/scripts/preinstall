@@ -1,0 +1,14 @@
+#!/bin/bash
+# Upgrade: stop the running agent (bootout ends its process group, with the browsers
+# it had open; their data is uploaded when the new agent starts, recover()) and remove
+# the old app, so files the new version no longer ships (an older Chromium build, old
+# modules) do not stay behind. A first install finds neither.
+plist=/Library/LaunchAgents/io.github.chienbm98.foxprofile-agent.plist
+user=$(stat -f %Su /dev/console)
+if [ -n "$user" ] && [ "$user" != root ] && [ "$user" != loginwindow ]; then
+    uid=$(id -u "$user")
+    launchctl bootout "gui/$uid" "$plist" 2>/dev/null || true
+fi
+pkill -f "/Applications/FoxProfile Agent.app/" 2>/dev/null || true
+rm -rf "/Applications/FoxProfile Agent.app"
+exit 0

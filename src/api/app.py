@@ -17,6 +17,7 @@ from . import mcp_http
 from .auth import require_token
 from .guard import LocalOnlyGuard
 from .routes import (
+    adspower_router,
     automation_router,
     browser_router,
     mcp_setup_router,
@@ -105,6 +106,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(automation_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(adspower_router, prefix=API_PREFIX, dependencies=protected)
     app.router.routes.append(mcp_route)
     if container.hub:
         # Browsers live on the operators' PCs; page actions relay through their agents.

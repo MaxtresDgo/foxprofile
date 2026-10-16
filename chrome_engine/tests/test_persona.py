@@ -39,7 +39,9 @@ def test_random_seed_when_none():
     [
         ({"seed": 0}, "seed"),
         ({"seed": 2**31}, "seed"),
-        ({"platform": "android"}, "platform"),
+        ({"platform": "ios"}, "platform"),
+        ({"platform": "android"}, "Android Chrome User-Agent"),
+        ({"user_agent": "Mozilla/5.0"}, "android personas only"),
         ({"platform_version": "15"}, "platform_version"),
         ({"brand": "Firefox"}, "brand"),
         ({"brand": "Edge", "platform": "linux", "platform_version": "6.8.0"}, "Edge"),
@@ -159,7 +161,36 @@ def test_invalid_saved_values_are_regenerated(tmp_path):
         ("macos", "macos", personas.OK),
         ("macos", "windows", personas.WARN),
         ("macos", "linux", personas.UNSUPPORTED),
+        ("windows", "android", personas.WARN),
+        ("macos", "android", personas.WARN),
     ],
 )
 def test_compatibility(host, platform, level):
     assert personas.compatibility(host, platform)[0] == level
+
+
+PHONE_UA = (
+    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/141.0.7390.122 Mobile Safari/537.36"
+)
+
+
+def test_android_keeps_the_given_user_agent():
+    p = personas.generate("android", seed=5, user_agent=PHONE_UA, screen=[412, 915, 2.625])
+    assert (p.user_agent, p.screen, p.platform_version) == (PHONE_UA, [412, 915, 2.625], "10.0.0")
+    args = p.to_args()
+    # No --fingerprint-platform: it would pin navigator.platform to a desktop OS.
+    assert not any(a.startswith("--fingerprint-platform") for a in args)
+    assert f"--user-agent={PHONE_UA}" in args
+    assert "--fingerprint-brand-version=141.0.7390.122" in args
+    hints = personas.client_hints(p)
+    assert (hints["platform"], hints["model"], hints["mobile"]) == ("Android", "K", True)
+    assert {"brand": "Google Chrome", "version": "141"} in hints["brands"]
+    assert Persona.from_json(p.to_json()) == p
+
+
+def test_android_without_user_agent_is_a_phone_of_this_engine():
+    p = personas.generate("android", seed=5)
+    assert "Android" in p.user_agent and "Mobile Safari" in p.user_agent
+    assert p.screen and len(p.screen) == 3
+    assert personas.generate("android", seed=5) == p

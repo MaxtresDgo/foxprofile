@@ -10,7 +10,8 @@ What the engine adds on top of a bare `launch_persistent_context`:
 - proxies with credentials, through a loopback bridge (proxy_bridge.py);
 - timezone / locale from the proxy's exit IP unless the persona pins them;
 - Playwright's automation switches removed where a page can observe them;
-- a refusal to present an OS the host cannot fake consistently.
+- a refusal to present an OS the host cannot fake consistently;
+- android personas: a phone (mobile emulation, touch, User-Agent, client hints).
 """
 
 from __future__ import annotations
@@ -143,16 +144,39 @@ def build_args(
     if proxy_url:
         args.append(f"--proxy-server={proxy_url}")
     args += ["--no-first-run", "--no-default-browser-check", "--hide-crash-restore-bubble"]
+    # A phone's window is the phone: a desktop-sized one would show in outerWidth.
+    phone = (int(persona.screen[0]), int(persona.screen[1])) if persona.screen else None
     if headless is True:
         # Headless otherwise reports an 800x600 screen.
-        w, h = HEADLESS_SCREEN
+        w, h = phone or HEADLESS_SCREEN
         args += [f"--window-size={w},{h}", f"--screen-info={{0,0 {w}x{h}}}"]
     elif headless == "offscreen":
-        args += ["--window-position=-32000,-32000", "--window-size=1600,900"]
+        size = f"{phone[0]},{phone[1]}" if phone else "1600,900"
+        args += ["--window-position=-32000,-32000", f"--window-size={size}"]
+    elif phone:
+        # Room for the tab strip and toolbar around the emulated viewport.
+        args.append(f"--window-size={phone[0] + 16},{phone[1] + 120}")
     else:
         args.append("--start-maximized")
     args += list(extra_args)
     return args
+
+
+def _device_options(persona: personas.Persona) -> dict[str, Any]:
+    """Playwright options for the persona's device: a phone, or the real window."""
+    if persona.platform != "android":
+        return {"no_viewport": True}
+    assert persona.screen is not None
+    w, h, dpr = persona.screen
+    size = {"width": int(w), "height": int(h)}
+    return {
+        "user_agent": persona.user_agent,
+        "viewport": size,
+        "screen": size,
+        "device_scale_factor": dpr,
+        "is_mobile": True,
+        "has_touch": True,
+    }
 
 
 class ChromeEngine:
@@ -199,6 +223,9 @@ class ChromeEngine:
         self.crashes: list[str] = []
         self.context: Any = None
         self._playwright: Any = None
+        # android: one CDP session per page holding its override (detaching drops it).
+        self._phone_sessions: dict[Any, Any] = {}
+        self._tasks: set[asyncio.Task] = set()
 
     # --- lifecycle --------------------------------------------------------
 
@@ -250,9 +277,9 @@ class ChromeEngine:
             headless=self.headless is True,
             args=self.args,
             ignore_default_args=self._ignored_default_args(),
-            no_viewport=True,
             chromium_sandbox=self.sandbox,
             accept_downloads=True,
+            **_device_options(persona),
         )
         if self.geo and self.geo.latitude is not None and self.geo.longitude is not None:
             # Only the position is emulated; sites still have to ask for permission.
@@ -260,6 +287,9 @@ class ChromeEngine:
                 {"latitude": self.geo.latitude, "longitude": self.geo.longitude, "accuracy": 50}
             )
         for page in self.context.pages:
+            if persona.platform == "android":
+                # Before the first navigation; _watch then sees it done.
+                await self._phone(page)
             self._watch(page)
         self.context.on("page", self._watch)
         return self.context
@@ -343,3 +373,31 @@ class ChromeEngine:
 
     def _watch(self, page: Any) -> None:
         page.on("crash", lambda p: self.crashes.append(p.url))
+        if (
+            self.persona is not None
+            and self.persona.platform == "android"
+            and (page not in self._phone_sessions)
+        ):
+            task = asyncio.ensure_future(self._phone(page))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+
+    async def _phone(self, page: Any) -> None:
+        """navigator.platform and the full client hints of the phone. Playwright's
+        own override (from user_agent / is_mobile) sets neither; workers keep the
+        host's navigator.platform, which CDP cannot reach from here."""
+        assert self.persona is not None and self.persona.user_agent is not None
+        try:
+            session = await self.context.new_cdp_session(page)
+            await session.send(
+                "Emulation.setUserAgentOverride",
+                {
+                    "userAgent": self.persona.user_agent,
+                    "platform": "Linux armv81",
+                    "userAgentMetadata": personas.client_hints(self.persona),
+                },
+            )
+        except Exception:  # the page closed first
+            return
+        self._phone_sessions[page] = session
+        page.on("close", lambda p: self._phone_sessions.pop(p, None))

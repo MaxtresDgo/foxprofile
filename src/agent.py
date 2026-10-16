@@ -8,9 +8,13 @@ to the hub, so the PC needs no open ports. A profile's data is downloaded when i
 launches and uploaded back, then deleted here, when its browser closes.
 
 On Windows and macOS it lives in the tray (menu bar), with no console window; its
-menu opens the panel, switches account or shows the log in a terminal. --console
+menu opens the panel, switches account or shows the log in a window. --console
 (or a system without a tray) keeps it in the terminal instead. --home runs it from
-the per-user data folder, as the Windows installer does.
+the per-user data folder (%LOCALAPPDATA%\\FoxProfile, ~/Library/Application
+Support/FoxProfile), as the Windows and macOS installers do.
+
+Installed agents follow the hub's version: when the hub runs other code, the
+agent downloads it once no browser is open and restarts (src/hub/agent_code.py).
 """
 
 import os
@@ -20,16 +24,21 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 if "--home" in sys.argv:
     # Before src.core.config: it reads .env and resolves data paths from the cwd.
-    _home = os.path.join(os.getenv("LOCALAPPDATA") or os.path.expanduser("~"), "FoxProfile")
+    _base = (
+        os.path.expanduser("~/Library/Application Support")
+        if sys.platform == "darwin"
+        else os.getenv("LOCALAPPDATA") or os.path.expanduser("~")
+    )
+    _home = os.path.join(_base, "FoxProfile")
     os.makedirs(_home, exist_ok=True)
     os.chdir(_home)
 
 import argparse  # noqa: E402
 import contextlib  # noqa: E402
+import importlib.util  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
 import pathlib  # noqa: E402
-import shlex  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
@@ -39,16 +48,19 @@ import urllib.error  # noqa: E402
 import urllib.parse  # noqa: E402
 import urllib.request  # noqa: E402
 import webbrowser  # noqa: E402
+import zipfile  # noqa: E402
 
 from src.api.schemas.proxy import GeoCheckResponse  # noqa: E402
 from src.core.config import DATA_DIR, HUB_URL, LAUNCH_WAIT_TIMEOUT, LOG_DIR  # noqa: E402
 from src.core.container import Container  # noqa: E402
 from src.core.logging import get_logger, setup_logging  # noqa: E402
-from src.core.strings import get_string, set_language  # noqa: E402
-from src.hub.agent_auth import SignIn  # noqa: E402
+from src.core.strings import current_language, get_string, set_language  # noqa: E402
+from src.hub import agent_code  # noqa: E402
+from src.hub.agent_auth import SignIn, pc_name  # noqa: E402
 from src.models.profile import Profile  # noqa: E402
 from src.services.browser import cookies  # noqa: E402
 from src.services.browser.launcher import BrowserControlError  # noqa: E402
+from src.services.profile import adspower  # noqa: E402
 from src.services.profile.transfer import export_to_zip, import_from_zip  # noqa: E402
 from src.services.proxy.geo_check import check_geo  # noqa: E402
 
@@ -121,9 +133,17 @@ class HubClient:
 
 
 class Agent:
-    def __init__(self, hub: HubClient, status=lambda key, **kw: None) -> None:
+    def __init__(self, hub: HubClient, status=lambda key, **kw: None, notify=say) -> None:
         self.hub = hub
         self.status = status
+        self.notify = notify
+        # Reported on every poll, for the hub to decide on updates (hub.routes.poll).
+        self.identity = {
+            "code": agent_code.code_id(),
+            "req": agent_code.installed_requirements() or "",
+            "pc": pc_name(),
+        }
+        self.restart = False  # set when an update is unpacked: run() returns
         container = Container(hub=False)
         self.bl = container.browser_launcher
         self.proxies = container.proxy_service
@@ -218,16 +238,30 @@ class Agent:
         proxy from this PC, which may reach it when the hub cannot (Tailscale)."""
         params = cmd["params"]
         try:
-            if cmd["op"] == "proxy_check":
+            if cmd["op"].startswith("adspower_"):
+                result = self._adspower(cmd["op"], params)
+            elif cmd["op"] == "proxy_check":
                 ok, message = self.proxies.check_proxy_sync(params["proxy"], params["timeout"])
                 result = {"ok": ok, "message": message}
             else:
                 geo = check_geo(params["proxy"], params["timezone"], params["locale"])
                 result = GeoCheckResponse.from_result(geo).model_dump()
+        except adspower.AdsPowerError as e:
+            self._answer(cmd["id"], ok=False, error=str(e), status=400)
+            return
         except Exception as e:
             self._answer(cmd["id"], ok=False, error=f"On {self.hub.user}'s PC: {e}", status=502)
             return
         self._answer(cmd["id"], ok=True, result=result)
+
+    def _adspower(self, op: str, params: dict):
+        """Read AdsPower on this PC for the panel's "Import from AdsPower"."""
+        client = adspower.AdsPower(int(params["port"]), params.get("api_key") or "")
+        if op == "adspower_list":
+            return client.profiles()
+        data = client.fetch(params["profile_id"])
+        say(get_string("agent_adspower", name=data["name"]))
+        return data
 
     def _answer(self, request_id: str, **answer) -> None:
         self._call_quietly("POST", f"/hub/result/{request_id}", json.dumps(answer).encode())
@@ -304,10 +338,11 @@ class Agent:
 
     def run(self) -> None:
         self.recover()
-        while True:
+        while not self.restart:
             running = ",".join(sorted(self.bl.running_profile_names()))
+            query = urllib.parse.urlencode({"running": running, **self.identity})
             try:
-                resp = self.hub.call("GET", "/hub/poll?running=" + self.q(running), timeout=60)
+                resp = self.hub.call("GET", "/hub/poll?" + query, timeout=60)
             except (OSError, urllib.error.URLError) as e:
                 if not (isinstance(e, urllib.error.HTTPError) and e.code == 401):
                     say(get_string("agent_unreachable", error=e))
@@ -326,8 +361,25 @@ class Agent:
                 threading.Thread(target=self.control, args=(resp,), daemon=True).start()
             elif resp["op"] == "cookies":
                 threading.Thread(target=self.cookie_job, args=(resp,), daemon=True).start()
-            elif resp["op"] in ("proxy_check", "geo_check"):
+            elif resp["op"] in ("proxy_check", "geo_check", "adspower_list", "adspower_fetch"):
                 threading.Thread(target=self.check, args=(resp,), daemon=True).start()
+            elif resp["op"] == "update":
+                self.update(resp["code"])
+            elif resp["op"] == "installer_needed":
+                self.notify(get_string("agent_installer_needed"))
+
+    def update(self, code: str) -> None:
+        """Unpack the hub's code for the installer's hook to load, then restart."""
+        say(get_string("agent_updating"))
+        self.status("agent_status_updating")
+        try:
+            with self.hub.call("GET", "/hub/agent/code", timeout=300, raw=True) as resp:
+                data = resp.read()
+            agent_code.unpack(data, code, pathlib.Path.cwd())
+        except (OSError, ValueError, zipfile.BadZipFile) as e:
+            say(get_string("agent_update_failed", error=e))
+            return
+        self.restart = True
 
 
 def _host(url: str) -> str:
@@ -376,51 +428,60 @@ def _log_file() -> str:
 
 
 def open_logs() -> None:
-    """A terminal following the agent's log."""
+    """The log in a window of its own (src/agent_logs.py), following new lines."""
     path = _log_file()
-    if os.name == "nt":
-        literal = path.replace("'", "''")
-        subprocess.Popen(
-            [
-                "powershell",
-                "-NoExit",
-                "-Command",
-                f"Get-Content -LiteralPath '{literal}' -Tail 200 -Wait",
-            ],
-            creationflags=subprocess.CREATE_NEW_CONSOLE,
-        )
-    elif sys.platform == "darwin":
-        script = f"tail -n 200 -f {shlex.quote(path)}".replace("\\", "\\\\").replace('"', '\\"')
-        subprocess.Popen(
-            [
-                "osascript",
-                "-e",
-                f'tell application "Terminal" to do script "{script}"',
-                "-e",
-                'tell application "Terminal" to activate',
-            ]
-        )
-    else:
-        subprocess.Popen(["x-terminal-emulator", "-e", "tail", "-n", "200", "-f", path])
+    if importlib.util.find_spec("tkinter") is None:  # Python built without Tk
+        if os.name == "nt":
+            os.startfile(path)
+        else:
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+        return
+    env = {**os.environ, "PYTHONPATH": str(pathlib.Path(__file__).resolve().parent.parent)}
+    subprocess.Popen([sys.executable, "-m", "src.agent_logs", path, current_language()], env=env)
+
+
+def camoufox_installed() -> bool:
+    from camoufox.pkgman import installed_verstr
+
+    try:
+        installed_verstr()
+        return True
+    except Exception:
+        return False
 
 
 def ensure_browser(status) -> None:
-    """Download Camoufox on the first run (the installer only ships the code)."""
-    from camoufox.pkgman import installed_verstr
-
-    while True:
-        try:
-            installed_verstr()
-            return
-        except Exception:
-            pass
+    """Download Camoufox (~1.3 GB) on the first run: the installers ship the Chrome
+    engine but not Camoufox, which lives in each user's cache. Progress goes to
+    the tray as a percentage, the rest of fetch's output to the log."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = {**os.environ, "PYTHONPATH": root + os.pathsep + os.getenv("PYTHONPATH", "")}
+    while not camoufox_installed():
         status("agent_status_downloading")
         say(get_string("agent_status_downloading"))
+        shown = -1
         with open(_log_file(), "a", encoding="utf-8") as log:
-            code = subprocess.call(
-                [sys.executable, "-m", "camoufox", "fetch"], stdout=log, stderr=subprocess.STDOUT
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "src.services.browser.camoufox_fetch"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+                env=env,
             )
-        if code == 0:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                if not line.startswith("PROGRESS:"):
+                    log.write(line)
+                    continue
+                done, total = (int(n) for n in line.split(":")[1:3])
+                pct = done * 100 // total if total else 0
+                if pct != shown:
+                    shown = pct
+                    status("agent_status_downloading_pct", pct=pct)
+            code = proc.wait()
+        if code == 0 and camoufox_installed():
+            say(get_string("agent_browser_ready"))
             return
         say(get_string("agent_fetch_failed", code=code, seconds=RETRY_SECONDS * 6))
         time.sleep(RETRY_SECONDS * 6)
@@ -434,7 +495,7 @@ class App:
             hub_url or creds.get("hub", ""), creds.get("user", ""), creds.get("key", "")
         )
         self.client.on_unauthorized = self._unauthorized
-        self.agent = Agent(self.client, self.set_status)
+        self.agent = Agent(self.client, self.set_status, self.notify)
         self.ready = threading.Event()
         if self.client.key:
             self.ready.set()
@@ -494,19 +555,40 @@ class App:
 
     # --- running ---------------------------------------------------------------
 
-    def work(self) -> None:
+    def _download(self) -> None:
+        first_run = not camoufox_installed()
         ensure_browser(self.set_status)
+        if first_run:
+            if self.ready.is_set():
+                self.set_status(
+                    "agent_status_connected", user=self.client.user, host=_host(self.client.url)
+                )
+            self.notify(get_string("agent_browser_ready"))
+
+    def notify(self, text: str) -> None:
+        if self.icon is not None and getattr(self.icon, "HAS_NOTIFICATION", False):
+            with contextlib.suppress(Exception):
+                self.icon.notify(text, "FoxProfile Agent")
+
+    def work(self) -> None:
+        # Downloading and signing in at the same time: the operator authorizes the
+        # agent in the browser while the ~1.3 GB browser is still coming.
+        download = threading.Thread(target=self._download, daemon=True)
+        download.start()
         if self.ready.is_set():
             say(get_string("agent_connected", url=self.client.url, user=self.client.user))
         else:
             self.set_status("agent_status_sign_in")
             self.sign_in()  # _finish says when it is connected
         self.ready.wait()
+        download.join()  # the hub's profiles need the browser
         if not os.getenv("FOXPROFILE_LANG"):
             # Speak the hub's language unless this PC picked one.
             with contextlib.suppress(OSError, ValueError):
                 set_language(_request(self.client.url + "/api/v1/info").get("language", ""))
         self.agent.run()
+        if self.icon is not None:  # updated: leave the tray, main() restarts
+            self.icon.stop()
 
     def run_tray(self) -> bool:
         """Run in the tray until Quit; False when this system has no tray."""
@@ -574,6 +656,18 @@ def main() -> None:
         say(get_string("agent_stopping"))
     finally:
         app.agent.bl.shutdown_all()
+    if app.agent.restart:
+        lock.close()  # the new process takes it
+        _restart()
+
+
+def _restart() -> None:
+    """Start this agent again, with the code the update unpacked (the installer's
+    hook picks it). Its own session, so launchd ending this job does not end it."""
+    if os.name == "nt":
+        subprocess.Popen(sys.orig_argv, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+    else:
+        subprocess.Popen(sys.orig_argv, start_new_session=True)
 
 
 if __name__ == "__main__":

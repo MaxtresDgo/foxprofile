@@ -197,3 +197,5 @@ hub.json
 # Agent sign-in (holds its key) and its single-instance lock
 agent.json
 agent.lock
+# Chrome engine build bundled by the agent installers
+chrome_engine/builds/

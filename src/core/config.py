@@ -57,3 +57,18 @@ HUB_FILE = _env("HUB_FILE", "hub.json")
 ADMIN_PASSWORD = _env("ADMIN_PASSWORD", "")
 # Agent side: where the hub is and which operator this PC belongs to.
 HUB_URL = _env("HUB_URL", "").rstrip("/")
+# Agent installers in a private S3 bucket (RustFS, MinIO, AWS) instead of next to
+# HUB_FILE (hub/installers.py, boto3 from requirements-hub.txt). S3_ENDPOINT is how
+# the hub reaches the store; S3_PUBLIC_URL how browsers do, when that differs (a
+# presigned URL only works for the host it was signed for).
+S3_ENDPOINT = _env("S3_ENDPOINT", "").rstrip("/")
+S3_PUBLIC_URL = _env("S3_PUBLIC_URL", "").rstrip("/") or S3_ENDPOINT
+S3_BUCKET = _env("S3_BUCKET", "")
+S3_ACCESS_KEY = _env("S3_ACCESS_KEY", "")
+S3_SECRET_KEY = _env("S3_SECRET_KEY", "")
+S3_REGION = _env("S3_REGION", "us-east-1")
+# The bucket is shared with other apps: FoxProfile keeps to fox-profiles/<dev|prod>/.
+S3_ENV = _env("S3_ENV", "prod").strip().lower()
+if S3_ENV not in ("dev", "prod"):
+    raise ValueError(f"FOXPROFILE_S3_ENV must be dev or prod, not {S3_ENV!r}")
+S3_PREFIX = f"fox-profiles/{S3_ENV}/installers/"

@@ -47,7 +47,12 @@ def load_or_create(profile_dir: str, os_type: str) -> dict[str, Any]:
 
 # The Chrome engine's equivalent of fingerprint.json (chrome_engine/persona.py).
 CHROME_PERSONA_FILE = "chrome_persona.json"
-_NAVIGATOR_PLATFORM = {"windows": "Win32", "macos": "MacIntel", "linux": "Linux x86_64"}
+_NAVIGATOR_PLATFORM = {
+    "windows": "Win32",
+    "macos": "MacIntel",
+    "linux": "Linux x86_64",
+    "android": "Linux armv81",
+}
 
 
 def reset(profile_dir: str) -> bool:
@@ -112,11 +117,12 @@ def _read_chrome_summary(path: pathlib.Path) -> dict[str, Any] | None:
     except (OSError, ValueError):
         return None
     platform = data.get("platform")
+    # The Chrome engine sets a desktop screen only when headless (headed it is
+    # the real monitor); an android persona always carries its phone's.
+    screen = data.get("screen")
     return {
         "os": platform,
         "platform": _NAVIGATOR_PLATFORM.get(platform),
-        # The Chrome engine sets the screen only when headless; headed it is the
-        # real monitor, so there is no stored value to report.
-        "screen": None,
+        "screen": f"{int(screen[0])}x{int(screen[1])}" if screen else None,
         "hardware_concurrency": data.get("hardware_concurrency"),
     }

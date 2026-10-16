@@ -125,6 +125,7 @@ class App:
             on_new_profile=lambda _: self.h.open_add_dialog(),
             on_import=self.h.on_import,
             on_export=lambda _: self.h.on_export_open(),
+            on_adspower=lambda _: self.h.on_adspower(),
             on_mcp=lambda _: open_mcp_guide(self.page, self.clipboard),
             on_toggle_log=lambda _: self.h.toggle_log(),
             on_fullscreen_log=lambda _: self.h.open_log_fullscreen(),

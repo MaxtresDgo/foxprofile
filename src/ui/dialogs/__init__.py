@@ -1,3 +1,4 @@
+from .adspower import open_adspower_dialog
 from .automation import open_run_steps_dialog, open_sync_dialog
 from .confirm import open_confirm_dialog
 from .cookies import open_cookie_dialog
@@ -6,6 +7,7 @@ from .log import open_log_dialog
 from .profile import open_profile_dialog
 
 __all__ = [
+    "open_adspower_dialog",
     "open_confirm_dialog",
     "open_cookie_dialog",
     "open_export_dialog",

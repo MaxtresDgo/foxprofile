@@ -63,6 +63,7 @@ def build_sidebar(
     on_new_profile: Callable,
     on_import: Callable,
     on_export: Callable,
+    on_adspower: Callable,
     on_toggle_log: Callable,
     on_mcp: Callable,
     on_fullscreen_log: Callable,
@@ -138,6 +139,15 @@ def build_sidebar(
                             on_click=on_export,
                         ),
                     ],
+                ),
+                ft.Container(height=8),
+                ft.OutlinedButton(
+                    get_string("adspower_button"),
+                    icon=ft.Icons.MOVE_DOWN,
+                    width=208,
+                    height=36,
+                    style=RAIL_STYLE,
+                    on_click=on_adspower,
                 ),
                 ft.Container(height=22),
                 ft.Container(

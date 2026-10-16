@@ -5,6 +5,13 @@ canvas/audio noise, fonts, client rects); the persona adds what the seed does
 not choose: OS, OS version, browser brand, CPU cores, timezone and language.
 It is generated once and stored in the profile directory, so a profile shows
 the same device on every launch, like Camoufox's fingerprint.json.
+
+An android persona is a phone: fingerprint-chromium has no Android platform, so
+it keeps the seed (desktop GPU strings, noise) and the engine adds the rest
+itself: the User-Agent from the persona (a --user-agent switch, which also
+reaches service and shared workers), mobile emulation (screen, touch) and
+navigator.platform / client hints over CDP. Used to carry Android profiles over
+from other anti-detect browsers with the User-Agent sites already know.
 """
 
 from __future__ import annotations
@@ -18,7 +25,7 @@ from random import Random
 from typing import Any
 
 PERSONA_FILE = "chrome_persona.json"
-PLATFORMS = ("windows", "macos", "linux")
+PLATFORMS = ("windows", "macos", "linux", "android")
 BRANDS = ("Chrome", "Edge")
 SEED_MAX = 2**31 - 1
 
@@ -34,6 +41,20 @@ _CORES: dict[str, list[tuple[int, float]]] = {
     "macos": [(8, 0.45), (10, 0.25), (12, 0.20), (14, 0.10)],
     "linux": [(4, 0.20), (8, 0.35), (12, 0.20), (16, 0.25)],
 }
+
+# Phone screens (CSS width, height, devicePixelRatio) for android personas
+# without one of their own.
+_PHONE_SCREENS: list[tuple[tuple[int, int, float], float]] = [
+    ((412, 915, 2.625), 0.4),
+    ((393, 873, 2.75), 0.3),
+    ((360, 800, 3.0), 0.3),
+]
+_ANDROID_UA = (
+    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/{major}.0.0.0 Mobile Safari/537.36"
+)
+_UA_CHROME = re.compile(r"Chrome/(\d+)\.(\d+)\.(\d+)\.(\d+)")
+_UA_ANDROID = re.compile(r"Android (\d+(?:\.\d+){0,2})(?:; ([^;)]*))?")
 
 _LOCALE = re.compile(r"^[a-z]{2,3}(-[A-Z]{2})?$")
 _VERSION = re.compile(r"^\d+\.\d+\.\d+$")
@@ -56,6 +77,11 @@ _COMPATIBILITY: dict[tuple[str, str], tuple[str, str]] = {
     ),
     ("macos", "linux"): (UNSUPPORTED, "WebGL still reports the host's Apple GPU renderer"),
 }
+# Every host presents a phone the same way, with the same gaps.
+_ANDROID_GAPS = (
+    "the PC's desktop fonts are visible to font probes and navigator.platform "
+    "inside workers is the PC's"
+)
 
 
 class PersonaError(ValueError):
@@ -72,6 +98,9 @@ class Persona:
     # None: follow the proxy's exit IP (or the host when there is no proxy).
     timezone: str | None = None
     locale: str | None = None
+    # android only: the exact User-Agent and the screen as [width, height, dpr].
+    user_agent: str | None = None
+    screen: list[float] | None = None
 
     def __post_init__(self) -> None:
         validate(self)
@@ -82,13 +111,25 @@ class Persona:
 
     def to_args(self) -> list[str]:
         """fingerprint-chromium switches for this persona."""
-        args = [
-            f"--fingerprint={self.seed}",
-            f"--fingerprint-platform={self.platform}",
-            f"--fingerprint-platform-version={self.platform_version}",
-            f"--fingerprint-brand={self.brand}",
-            f"--fingerprint-hardware-concurrency={self.hardware_concurrency}",
-        ]
+        if self.platform == "android":
+            # No --fingerprint-platform: it would pin navigator.platform and the
+            # client hints to a desktop OS, beyond the engine's CDP override.
+            assert self.user_agent is not None
+            args = [
+                f"--fingerprint={self.seed}",
+                f"--fingerprint-brand={self.brand}",
+                f"--fingerprint-brand-version={chrome_version(self.user_agent)}",
+                f"--fingerprint-hardware-concurrency={self.hardware_concurrency}",
+                f"--user-agent={self.user_agent}",
+            ]
+        else:
+            args = [
+                f"--fingerprint={self.seed}",
+                f"--fingerprint-platform={self.platform}",
+                f"--fingerprint-platform-version={self.platform_version}",
+                f"--fingerprint-brand={self.brand}",
+                f"--fingerprint-hardware-concurrency={self.hardware_concurrency}",
+            ]
         if self.timezone:
             args.append(f"--timezone={self.timezone}")
         if self.locale:
@@ -114,8 +155,19 @@ def validate(p: Persona) -> None:
         raise PersonaError("platform_version must look like 15.0.0")
     if p.brand not in BRANDS:
         raise PersonaError(f"brand must be one of {', '.join(BRANDS)}")
-    if p.brand == "Edge" and p.platform == "linux":
+    if p.brand == "Edge" and p.platform in ("linux", "android"):
         raise PersonaError("Edge personas are Windows or macOS only")
+    if p.platform == "android":
+        if not p.user_agent or "Android" not in p.user_agent or not _UA_CHROME.search(p.user_agent):
+            raise PersonaError("an android persona needs an Android Chrome User-Agent")
+        if not (
+            isinstance(p.screen, list)
+            and len(p.screen) == 3
+            and all(isinstance(v, (int, float)) and v > 0 for v in p.screen)
+        ):
+            raise PersonaError("an android persona needs a screen [width, height, dpr]")
+    elif p.user_agent is not None or p.screen is not None:
+        raise PersonaError("user_agent and screen are for android personas only")
     if not isinstance(p.hardware_concurrency, int) or not 1 <= p.hardware_concurrency <= 64:
         raise PersonaError("hardware_concurrency must be 1..64")
     if p.timezone is not None:
@@ -149,18 +201,78 @@ def _pick(rng: Random, weighted: list[tuple[Any, float]]) -> Any:
     return rng.choices(values, weights=weights, k=1)[0]
 
 
+def chrome_version(user_agent: str) -> str:
+    """141.0.7390.122 from a Chrome User-Agent."""
+    match = _UA_CHROME.search(user_agent)
+    if not match:
+        raise PersonaError("the User-Agent has no Chrome version")
+    return ".".join(match.groups())
+
+
+def client_hints(p: Persona) -> dict[str, Any]:
+    """CDP userAgentMetadata for an android persona: what Chrome on that phone reports."""
+    assert p.user_agent is not None
+    full = chrome_version(p.user_agent)
+    major = full.split(".")[0]
+    android = _UA_ANDROID.search(p.user_agent)
+    model = (android.group(2) or "").strip() if android else ""
+    brands = [
+        ("Google Chrome" if p.brand == "Chrome" else p.brand, major, full),
+        ("Not?A_Brand", "8", "8.0.0.0"),
+        ("Chromium", major, full),
+    ]
+    return {
+        "brands": [{"brand": b, "version": v} for b, v, _ in brands],
+        "fullVersionList": [{"brand": b, "version": f} for b, _, f in brands],
+        "fullVersion": full,
+        "platform": "Android",
+        "platformVersion": p.platform_version,
+        "architecture": "",
+        "model": model,
+        "mobile": True,
+        "bitness": "",
+        "wow64": False,
+    }
+
+
+def _android_version(user_agent: str) -> str:
+    match = _UA_ANDROID.search(user_agent)
+    parts = (match.group(1) if match else "10").split(".")
+    return ".".join((parts + ["0", "0"])[:3])
+
+
 def generate(
     platform: str,
     seed: int | None = None,
     brand: str = "Chrome",
     timezone: str | None = None,
     locale: str | None = None,
+    user_agent: str | None = None,
+    screen: list[float] | None = None,
 ) -> Persona:
-    """A new persona. The same seed and platform always give the same persona."""
+    """A new persona. The same seed and platform always give the same persona.
+
+    android: `user_agent` keeps the phone a profile had elsewhere; without one
+    it is a reduced Chrome-on-Android User-Agent of this engine's version."""
     if platform not in PLATFORMS:
         raise PersonaError(f"platform must be one of {', '.join(PLATFORMS)}")
     seed = seed if seed is not None else 1 + secrets.randbelow(SEED_MAX)
     rng = Random(f"{seed}:{platform}")
+    if platform == "android":
+        from .release import DEFAULT_VERSION
+
+        user_agent = user_agent or _ANDROID_UA.format(major=DEFAULT_VERSION.split(".")[0])
+        return Persona(
+            seed=seed,
+            platform=platform,
+            platform_version=_android_version(user_agent),
+            brand=brand,
+            hardware_concurrency=8,
+            timezone=timezone,
+            locale=locale,
+            user_agent=user_agent,
+            screen=list(screen) if screen else list(_pick(rng, _PHONE_SCREENS)),
+        )
     return Persona(
         seed=seed,
         platform=platform,
@@ -210,6 +322,8 @@ def load_or_create(profile_dir: str | Path, platform: str, **overrides: Any) -> 
 
 def compatibility(host: str, platform: str) -> tuple[str, str]:
     """(OK | WARN | UNSUPPORTED, reason) for presenting `platform` on a `host` OS."""
+    if platform == "android":
+        return WARN, _ANDROID_GAPS
     if host == platform:
         return OK, ""
     return _COMPATIBILITY.get((host, platform), (WARN, "untested combination"))

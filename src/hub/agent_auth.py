@@ -10,10 +10,13 @@ When the agent does not know the hub yet, /setup asks for its URL first.
 
 from __future__ import annotations
 
+import contextlib
 import hmac
 import html
 import secrets
 import socket
+import subprocess
+import sys
 import threading
 import urllib.parse
 from collections.abc import Callable
@@ -22,6 +25,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ..core.strings import get_string
 
 MAX_FORM = 16 * 1024
+
+
+def pc_name() -> str:
+    """The name people know this computer by. On macOS the hostname follows the
+    network (often an IP); the computer name is the one set in System Settings."""
+    if sys.platform == "darwin":
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            name = subprocess.run(
+                ["scutil", "--get", "ComputerName"], capture_output=True, text=True, timeout=2
+            ).stdout.strip()
+            if name:
+                return name
+    return socket.gethostname()
 
 
 def normalize_hub_url(url: str) -> str | None:
@@ -63,7 +79,7 @@ class SignIn:
         if not self.hub:
             return f"http://{self.local}/setup?state={self.state}"
         fragment = urllib.parse.urlencode(
-            {"agent": self.port, "state": self.state, "pc": socket.gethostname()}
+            {"agent": self.port, "state": self.state, "pc": pc_name()}
         )
         return f"{self.hub}/#{fragment}"
 

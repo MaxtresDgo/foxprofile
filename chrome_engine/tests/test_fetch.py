@@ -263,3 +263,17 @@ def test_unpack_never_removes_a_finished_install(tmp_path, fake_release, monkeyp
     again = fetch.unpack(rel, rel.assets["test"], archive, home)
     assert again == first
     assert first.read_bytes() == b"MZ"
+
+
+def test_a_bundled_build_comes_first_and_is_never_downloaded(tmp_path, fake_release, monkeypatch):
+    archive = tmp_path / "b.zip"
+    _zip(archive, {"chrome-win/chrome.exe": b"MZ"})
+    rel = fake_release(_release(archive, "zip", "chrome-win/chrome.exe"))
+    bundled = tmp_path / "bundled"
+    exe = fetch.install(rel.version, home=bundled, host="test")  # what an installer ships
+    monkeypatch.setattr(fetch, "BUNDLED_HOME", bundled)
+    monkeypatch.setenv("FOXPROFILE_CHROME_HOME", str(tmp_path / "user"))
+    monkeypatch.setattr(fetch, "download", lambda *a, **k: pytest.fail("downloaded"))
+    assert fetch.installed_executable(rel.version) == exe
+    assert fetch.install(rel.version) == exe
+    assert not (tmp_path / "user").exists()

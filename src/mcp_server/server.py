@@ -137,7 +137,7 @@ async def get_profile(name: str) -> dict:
 @mcp.tool()
 async def create_profile(
     name: str,
-    os_type: Literal["windows", "macos", "linux"] = "windows",
+    os_type: Literal["windows", "macos", "linux", "android"] = "windows",
     proxy: str | None = None,
     timezone: str | None = None,
     locale: str | None = None,
@@ -166,7 +166,7 @@ async def update_profile(
     name: str,
     new_name: str | None = None,
     proxy: str | None = None,
-    os_type: Literal["windows", "macos", "linux"] | None = None,
+    os_type: Literal["windows", "macos", "linux", "android"] | None = None,
     timezone: str | None = None,
     locale: str | None = None,
 ) -> dict:

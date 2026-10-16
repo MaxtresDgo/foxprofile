@@ -15,6 +15,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 
 from ..core.logging import get_logger
 from ..core.strings import get_string
@@ -29,6 +30,14 @@ _NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 MIN_PASSWORD = 8
 KEY_PREFIX = "fpk_"
 KEY_FIELDS = ("key", "agent_key")
+
+
+def group_name_for(text: str) -> str:
+    """A valid group name for free text, such as an AdsPower group: accents
+    dropped, anything else outside A-Z, 0-9, - and _ turned into "-"."""
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    name = re.sub(r"[^A-Za-z0-9_-]+", "-", plain).strip("-")[:32].strip("-")
+    return name or "adspower"
 
 
 class HubError(ValueError):

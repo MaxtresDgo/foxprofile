@@ -1,4 +1,4 @@
-name: Agent MSI
+name: Agent installers
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     tags: ["v*"]
   pull_request:
     paths:
-      - "installer/windows/**"
+      - "installer/**"
       - "requirements.txt"
       - ".github/workflows/agent-msi.yml"
 
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  msi:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,3 +25,14 @@ jobs:
         with:
           name: FoxProfileAgent-msi
           path: dist/*.msi
+
+  pkg:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: installer/macos/build-pkg.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FoxProfileAgent-pkg
+          path: dist/*.pkg

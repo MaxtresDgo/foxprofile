@@ -19,7 +19,12 @@ from .actions.bulk import (
 from .actions.cookies import manage_cookies
 from .actions.profile import add_profile, delete_profile, edit_profile
 from .actions.transfer import export_profile, import_profile
-from .dialogs import open_log_dialog, open_run_steps_dialog, open_sync_dialog
+from .dialogs import (
+    open_adspower_dialog,
+    open_log_dialog,
+    open_run_steps_dialog,
+    open_sync_dialog,
+)
 from .refs import UIRefs
 from .state import AppState
 
@@ -87,6 +92,11 @@ class AppHandlers:
         refs = self._get_refs()
         assert refs is not None
         await import_profile(refs.file_picker, self._pm, self._log, self._refresh)
+
+    def on_adspower(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        open_adspower_dialog(page, self._pm, self._bl, self._log, self._refresh)
 
     def on_export_open(self) -> None:
         page = self._get_page()

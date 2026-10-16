@@ -39,6 +39,10 @@ class RemoteLauncher:
         self._busy: set[str] = set()
         # Requests waiting for an agent's answer: id -> (user, event, answer).
         self._pending: dict[str, tuple[str, threading.Event, dict]] = {}
+        # Agent updates (hub/agent_code.py, hub/routes.poll): what each user's agent
+        # reported on its last poll, and who an admin asked to update right away.
+        self.agents: dict[str, dict] = {}
+        self.update_now: set[str] = set()
 
     # --- hub side --------------------------------------------------------------
 

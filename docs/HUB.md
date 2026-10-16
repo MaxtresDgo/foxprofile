@@ -61,13 +61,31 @@ El panel arranca en español; cada usuario puede cambiarlo en **Settings → Gen
 
 ### Windows: instalador MSI (recomendado)
 
-`FoxProfileAgent-<versión>.msi` trae todo lo necesario (Python incluido), así que la PC no necesita nada instalado. Se descarga de los artefactos del workflow *Agent MSI* en GitHub Actions, o se arma con `installer/windows/build-msi.sh` (Linux/macOS con `uv` y `msitools`).
+`FoxProfileAgent-<versión>.msi` trae todo lo necesario (Python y el navegador del motor Chrome incluidos), así que la PC no necesita nada instalado. Se descarga de los artefactos del workflow *Agent installers* en GitHub Actions, o se arma con `installer/windows/build-msi.sh` (Linux/macOS con `uv` y `msitools`).
 
 - Instalar con doble clic (pide permisos de administrador), o sin preguntas: `msiexec /i FoxProfileAgent-<versión>.msi /qn`.
-- El agente arranca solo **cada vez que un usuario inicia sesión en Windows**, sin ventana de consola: queda como icono del zorro en la bandeja del sistema. También está en el menú Inicio como *FoxProfile Agent*.
-- La primera vez descarga Camoufox (el icono muestra *Descargando el navegador…*) y abre el navegador para iniciar sesión (ver [Inicio de sesión del agente](#inicio-de-sesión-del-agente)). Si el hub no responde (por ejemplo, la red todavía no está lista), reintenta cada 10 segundos.
+- Al terminar una instalación con doble clic el agente arranca enseguida (una instalación silenciosa `/qn` lo deja para el siguiente inicio de sesión). Después arranca solo **cada vez que un usuario inicia sesión en Windows**, sin ventana de consola: queda como icono del zorro en la bandeja del sistema. También está en el menú Inicio como *FoxProfile Agent*.
+- La primera vez descarga Camoufox (~1.3 GB; el icono muestra el porcentaje y avisa con una notificación cuando está listo) mientras abre el navegador para iniciar sesión, las dos cosas a la vez (ver [Inicio de sesión del agente](#inicio-de-sesión-del-agente)). Si el hub no responde (por ejemplo, la red todavía no está lista), reintenta cada 10 segundos.
 - Los datos de cada usuario de Windows quedan en `%LOCALAPPDATA%\FoxProfile` (`.env`, `agent.json`, `logs`, copias locales de perfiles); desinstalar no los borra.
+- Para actualizar, abrir el `.msi` nuevo con doble clic: detecta la versión instalada y la reemplaza (también si tiene el mismo número de versión; no instala una versión más vieja encima de una nueva). Antes de copiar archivos cierra el agente y los navegadores que tenía abiertos, sin pedir reiniciar; los datos de esos perfiles se suben al hub cuando arranca el agente nuevo. La sesión del agente se conserva.
 - No es un servicio de Windows: los servicios corren sin escritorio y no podrían mostrar los navegadores al operador.
+
+### macOS: instalador .pkg (recomendado)
+
+`FoxProfileAgent-<versión>-macos.pkg` trae su propio Python y el navegador del motor Chrome, así que el Mac no necesita nada instalado. Requiere **Apple silicon (M1 o posterior) y macOS 15 o superior**; el instalador rechaza otros Mac (la librería que usa Camoufox para generar fingerprints no tiene versión funcional para Intel ni para macOS anteriores). Se descarga de los artefactos del workflow *Agent installers* o se arma con `installer/macos/build-pkg.sh` (en un Mac, con `uv`).
+
+- El paquete no está firmado: la primera vez, clic derecho sobre el `.pkg` → Abrir → Abrir. Pide la contraseña de administrador.
+- Instala *FoxProfile Agent* en Aplicaciones y lo arranca enseguida para el usuario actual, y luego **en cada inicio de sesión** de cualquier usuario del Mac (macOS avisa de un nuevo ítem en segundo plano). Queda como icono del zorro en la barra de menú, sin ventana ni icono en el Dock. Si se cerró con *Salir*, se vuelve a abrir desde Aplicaciones.
+- La primera vez descarga Camoufox (~1.3 GB, con el porcentaje en el icono y una notificación al terminar) mientras abre el navegador para iniciar sesión (ver [Inicio de sesión del agente](#inicio-de-sesión-del-agente)).
+- Los datos de cada usuario quedan en `~/Library/Application Support/FoxProfile` (`.env`, `agent.json`, `logs`, copias locales de perfiles).
+- Para actualizar, abrir el `.pkg` nuevo: el instalador ofrece *Actualizar*, cierra el agente y los navegadores que tenía abiertos, reemplaza la app entera (sin dejar archivos de la versión anterior) y vuelve a arrancar el agente. Los datos de los perfiles abiertos se suben al hub cuando arranca el agente nuevo, y la sesión se conserva.
+- Desinstalar (en Terminal):
+
+  ```bash
+  launchctl bootout gui/$(id -u) /Library/LaunchAgents/io.github.chienbm98.foxprofile-agent.plist
+  sudo rm -rf "/Applications/FoxProfile Agent.app" /Library/LaunchAgents/io.github.chienbm98.foxprofile-agent.plist
+  sudo pkgutil --forget io.github.chienbm98.foxprofile-agent
+  ```
 
 ### Script (Windows y macOS)
 
@@ -93,10 +111,41 @@ Menú del icono:
 - el estado: *Conectado como ana · hub*, *Inicia sesión para conectar*, *Sin conexión con el hub*…
 - **Iniciar sesión… / Cambiar cuenta…**: repite el inicio de sesión en el navegador. Al cambiar de cuenta, los navegadores abiertos se cierran y se suben antes.
 - **Abrir panel**
-- **Ver logs**: abre una terminal (PowerShell en Windows, Terminal en macOS) que sigue el log del agente.
+- **Ver logs**: abre una ventana que muestra el log del agente y sigue las líneas nuevas (se puede seleccionar y copiar).
 - **Salir**: cierra los navegadores; lo que quede sin subir se sube al volver a abrir el agente.
 
 Un agente por usuario: si el mismo usuario abre el agente en dos PCs, cada orden la recibe la primera que consulte al hub. Para trabajar los mismos perfiles desde varias PCs, cree un usuario por PC u operador y póngalos en un mismo **grupo**.
+
+### Actualizaciones del agente (desde el panel)
+
+Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: **actualizar el hub actualiza los agentes**, sin repartir instaladores.
+
+- En cada consulta el agente le dice al hub qué código tiene. Si el hub corre otro, el agente lo descarga (`/api/v1/hub/agent/code`), lo guarda en su carpeta de datos (`agent-code/`) y se reinicia. Lo hace en cuanto no tiene perfiles abiertos, así que nadie pierde una sesión a mitad de trabajo.
+- Solo viaja el código (`src/` y `chrome_engine/`). Python y las librerías vienen con el instalador. Si la versión nueva necesita otras librerías (cambió `requirements.txt`), el agente no se actualiza: avisa con una notificación de que hace falta el instalador nuevo.
+- **Ajustes › Agentes** en el panel:
+  - Cualquier usuario descarga ahí el instalador de Windows o de macOS para un PC nuevo. La descarga no necesita sesión, así que el enlace se puede compartir.
+  - Los administradores suben los instaladores (uno por sistema; el nuevo reemplaza al anterior). Sin bucket quedan en `installers/`, junto a `hub.json` (`./data/installers` con Docker); detrás de nginx, esa subida necesita el bloque `location /api/v1/hub/installers/` de [deploy/nginx-foxprofile.conf](../deploy/nginx-foxprofile.conf), porque supera el límite general de 20 MB. Con bucket, ver abajo.
+  - Los administradores ven cada agente con su PC y su estado: *Al día*, *Se actualiza al cerrar sus perfiles*, *Necesita el instalador nuevo*, *Versión anterior* (instalado antes de que existieran las actualizaciones: necesita el instalador nuevo una vez) o *Corre con el script* (se actualiza con `git pull`). *Actualizar ahora* lo actualiza aunque tenga perfiles abiertos: se cierran y sus datos se suben al hub cuando arranca el agente nuevo.
+- **Instaladores en un bucket S3 (RustFS, MinIO, AWS).** Con `FOXPROFILE_S3_ENDPOINT`, `FOXPROFILE_S3_BUCKET`, `FOXPROFILE_S3_ACCESS_KEY` y `FOXPROFILE_S3_SECRET_KEY` en el `.env` del hub (ver `.env.hub.example`), los instaladores se guardan en `<bucket>/fox-profiles/<entorno>/installers/windows/` y `…/installers/macos/`, donde `<entorno>` es `prod` o `dev` según `FOXPROFILE_S3_ENV` (`prod` si no se indica). FoxProfile no toca nada fuera de `fox-profiles/`, así que el bucket se puede compartir con otras apps, y un hub de pruebas con `dev` no pisa los instaladores de producción. El bucket sigue privado: el hub firma URLs temporales (prefirmadas), así que el archivo va directo entre el navegador y el bucket, sin pasar por el hub ni por nginx.
+  - **Descargar**: el enlace del panel redirige a una URL firmada válida 15 minutos.
+  - **Subir desde el panel**: la subida va por partes de 64 MB (multipart de S3). El hub abre la subida y firma un `PUT` por parte; el navegador sube cada parte directo al bucket y, al terminar, el hub las une y borra el instalador anterior. Si algo falla, el hub cancela la subida para que las partes no ocupen espacio. Las partes existen porque un proxy delante del bucket suele limitar el tamaño de cada petición: Cloudflare corta en 100 MB en sus planes Free y Pro, y lo hace sin cabeceras CORS, así que el navegador lo ve como un error de red.
+  - El bucket necesita una regla **CORS** que permita `PUT` desde la dirección del panel y que **exponga `ETag`** (el navegador necesita leer el ETag de cada parte para unirlas). Sin ella el panel avisa de que el navegador no pudo subir. Ejemplo (`aws s3api put-bucket-cors --bucket foxprofile --cors-configuration file://cors.json --endpoint-url …`):
+
+    ```json
+    {"CORSRules": [{"AllowedOrigins": ["https://foxprofile.example.com"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["*"], "ExposeHeaders": ["ETag"], "MaxAgeSeconds": 3600}]}
+    ```
+
+  - Si el bucket está detrás de Cloudflare, su protección contra bots puede bloquear clientes que no son navegadores (por ejemplo `curl` recibe *Attention Required*); el panel no se ve afectado.
+
+  - **Subir con otra herramienta**: un archivo `.msi` o `.pkg` puesto en esas carpetas (por ejemplo `fox-profiles/prod/installers/windows/`) con la consola de RustFS, `mc` o `aws s3 cp` también aparece en el panel (se ofrece el más reciente). No necesita CORS.
+  - Si los navegadores llegan al bucket por otra dirección que el hub (por ejemplo, el hub usa `http://rustfs:9000` dentro de Docker), poner esa dirección pública en `FOXPROFILE_S3_PUBLIC_URL`: una URL firmada solo vale para el host con el que se firmó.
+  - La clave de acceso solo necesita listar, leer, escribir y borrar en ese bucket. La imagen Docker ya incluye `boto3`; fuera de Docker, `pip install -r requirements-hub.txt`.
+- Instalar un instalador más nuevo encima vuelve a usar su propio código, hasta que el hub mande uno distinto.
+- El agente ejecuta el código que le da el hub. Quien controle el hub controla los agentes, así que conviene protegerlo como un servidor de despliegue (HTTPS, contraseñas fuertes).
+
+### Importar desde AdsPower
+
+*Importar desde AdsPower* (Ajustes del panel) lee el AdsPower del PC de quien lo usa a través de su agente, porque el hub no puede llegar a él: el agente debe estar conectado y AdsPower abierto con la API local activada. Los perfiles se crean en el hub con su dueño y su persona Android, y las cookies se cargan en ese mismo PC. La lista se agrupa por grupo de AdsPower, con el recuento de importados, pendientes y errores de cada uno, y cada perfil entra al grupo del hub con ese nombre: si no existe, lo crea un admin al importar; un operador solo puede llenar grupos de los que es líder. Los nombres se reducen a letras, números, `-` y `_` ("Ventas México" pasa a `Ventas-Mexico`). Reimportar coloca en su grupo también los perfiles importados antes. Detalles de lo que se migra en el [README](../README.md#migrating-from-adspower).
 
 ## Problemas frecuentes
 
@@ -112,6 +161,7 @@ Un agente por usuario: si el mismo usuario abre el agente en dos PCs, cada orden
 
 - El panel va por HTTP dentro de la LAN: las contraseñas viajan sin cifrar. Si la red no es de confianza, ponga el hub detrás de HTTPS (nginx, ver [DEPLOY.md](DEPLOY.md)).
 - Los perfiles contienen sesiones iniciadas (cookies). `./data` y las copias de seguridad deben tratarse como credenciales.
+- Los agentes instalados ejecutan el código que reciben del hub (ver [Actualizaciones del agente](#actualizaciones-del-agente-desde-el-panel)): un hub comprometido llega a todas las PCs. Sirva el hub por HTTPS.
 - `agent.json` contiene la clave del agente: quien la copie puede actuar como ese operador. Para revocarla, autorice de nuevo el agente.
 - `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`). Cambiarlo cierra todas las sesiones.
 

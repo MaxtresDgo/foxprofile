@@ -48,15 +48,18 @@ logger = get_logger("api.profiles")
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
-_OS_TYPES = ("windows", "macos", "linux")
+_OS_TYPES = ("windows", "macos", "linux", "android")
 
 
-def _require_os(os_type: str) -> None:
+def _require_os(os_type: str, engine: str) -> None:
     if os_type not in _OS_TYPES:
         raise HTTPException(
             status_code=400,
             detail=get_string("err_os_type", values=", ".join(_OS_TYPES)),
         )
+    if os_type == "android" and engine != "chrome":
+        # Camoufox is Firefox: it has no Android device to present.
+        raise HTTPException(status_code=400, detail=get_string("err_android_chrome"))
 
 
 def _require_engine(engine: str, here: bool = True) -> None:
@@ -111,7 +114,7 @@ def create_profile(
     valid, msg = validate_profile_name(body.name)
     if not valid:
         raise HTTPException(status_code=400, detail=msg)
-    _require_os(body.os_type)
+    _require_os(body.os_type, body.engine)
     hub = hub_store(request)
     _require_engine(body.engine, here=hub is None)
     _require_geo(body.timezone, body.locale)
@@ -192,7 +195,7 @@ def update_profile(
             detail=get_string("err_engine_locked"),
         )
     if "os_type" in supplied:
-        _require_os(new_os)
+        _require_os(new_os, profile.engine)
     _require_geo(supplied.get("timezone"), supplied.get("locale"))
 
     if "proxy" in supplied and new_proxy:

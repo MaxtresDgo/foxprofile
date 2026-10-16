@@ -155,6 +155,12 @@ def open_profile_dialog(
                 page.update()
                 return
 
+        if os_type == "android" and engine != "chrome":
+            name_error.value = get_string("err_android_chrome")
+            name_error.visible = True
+            page.update()
+            return
+
         error = on_save(name, proxy, os_type, timezone, locale, engine)
         if error:
             name_error.value = error

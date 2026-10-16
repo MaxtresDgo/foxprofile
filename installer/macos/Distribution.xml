@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FoxProfile Agent installer; build-pkg.sh fills in the version. Apple silicon and
+     macOS 15+ only: fpgen's indexed_zstd has no working wheel for older macOS or Intel. -->
+<installer-gui-script minSpecVersion="2">
+  <title>FoxProfile Agent</title>
+  <options customize="never" require-scripts="false" hostArchitectures="arm64" />
+  <allowed-os-versions>
+    <os-version min="15.0" />
+  </allowed-os-versions>
+  <domains enable_localSystem="true" />
+  <choices-outline>
+    <line choice="agent" />
+  </choices-outline>
+  <choice id="agent" visible="false">
+    <pkg-ref id="io.github.chienbm98.foxprofile-agent" />
+  </choice>
+  <pkg-ref id="io.github.chienbm98.foxprofile-agent" version="__VERSION__" onConclusion="none">agent.pkg</pkg-ref>
+</installer-gui-script>

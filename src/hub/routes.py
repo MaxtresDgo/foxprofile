@@ -7,20 +7,27 @@ Agent protocol (all as the operator the agent belongs to):
   POST /hub/status/{name}      {"ok": bool, "error": str|null} once the launch settles
   PUT  /hub/bundle/{name}?release=1   upload the browser data back, ending the lease
   POST /hub/release/{name}     end the lease without data
+  GET  /hub/agent/code         this hub's code, for installed agents to update to
+
+The poll also carries the agent's code id, its installer's requirements and PC
+name; the answer can be {"op": "update", "code": id} (see hub/agent_code.py).
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import pathlib
 import shutil
 import tempfile
+import time
+import urllib.parse
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
@@ -30,6 +37,7 @@ from ..core.config import DATA_DIR
 from ..core.logging import get_logger
 from ..core.strings import get_string
 from ..services.profile.transfer import export_to_zip, import_from_zip
+from . import agent_code, installers
 from .remote import POLL_WAIT
 from .store import HubError
 
@@ -261,11 +269,20 @@ def set_profile_group(name: str, body: ProfileGroupBody, request: Request) -> di
 
 
 @router.get("/poll")
-async def poll(request: Request, running: str = "") -> Response:
+async def poll(
+    request: Request, running: str = "", code: str = "", req: str = "", pc: str = ""
+) -> Response:
     user, bl = _user(request)["name"], _launcher(request)
     store = hub_store(request)
     names = {n for n in running.split(",") if n and store.can(_user(request), n)}
     bl.touch(user, names)
+    bl.agents[user] = {**bl.agents.get(user, {}), "code": code, "req": req, "pc": pc[:64]}
+    bl.agents[user]["running"] = len(names)
+    if code and req:
+        hub = await run_in_threadpool(agent_code.hub_code)
+        offer = _agent_update(bl, user, hub[0], bool(names))
+        if offer is not None:
+            return JSONResponse(offer)
     # ponytail: 0.1 s polling of an in-memory queue; an asyncio.Event per user if it ever costs.
     for _ in range(POLL_WAIT * 10):
         # A restarted or dropped agent leaves this poll running; a command taken here
@@ -279,6 +296,183 @@ async def poll(request: Request, running: str = "") -> Response:
         await asyncio.sleep(0.1)
         bl.touch(user, set())
     return Response(status_code=204)
+
+
+# An agent that got an update but still reports its old code (the download failed)
+# is offered it again after this long.
+UPDATE_RETRY = 600
+
+
+def _agent_update(bl, user: str, hub_code: str, busy: bool) -> dict | None:
+    """What an installed agent should do about this hub's code, if anything: update
+    once its browsers are closed (or now, when an admin asked), or install the new
+    installer when the libraries changed."""
+    info = bl.agents[user]
+    if info["code"] == hub_code:
+        bl.update_now.discard(user)
+        return None
+    if info["req"] != agent_code.hub_requirements():
+        if info.get("told") == hub_code:
+            return None
+        info["told"] = hub_code
+        return {"op": "installer_needed"}
+    forced = user in bl.update_now
+    if not forced and (
+        busy or time.monotonic() - info.get("offered", -UPDATE_RETRY) < UPDATE_RETRY
+    ):
+        return None
+    bl.update_now.discard(user)
+    info["offered"] = time.monotonic()
+    logger.info("Updating %s's agent to %s", user, hub_code)
+    return {"op": "update", "code": hub_code}
+
+
+@router.get("/agent/code")
+async def agent_code_zip() -> Response:
+    code, data = await run_in_threadpool(agent_code.hub_code)
+    return Response(data, media_type="application/zip", headers={"X-Code-Id": code})
+
+
+def _agent_state(info: dict, hub_code: str, hub_req: str | None) -> str:
+    if not info.get("code"):
+        return "old"  # an agent from before updates: needs the new installer once
+    if not info.get("req"):
+        return "script"
+    if info["code"] == hub_code:
+        return "current"
+    return "pending" if info["req"] == hub_req else "installer"
+
+
+@router.get("/agents", dependencies=[Depends(_admin)])
+async def list_agents(request: Request) -> dict:
+    bl = _launcher(request)
+    hub_code, _ = await run_in_threadpool(agent_code.hub_code)
+    hub_req = agent_code.hub_requirements()
+    return {
+        "code": hub_code,
+        "agents": [
+            {
+                "user": user,
+                "pc": info.get("pc", ""),
+                "code": info.get("code", ""),
+                "online": bl.online(user),
+                "running": info.get("running", 0),
+                "state": _agent_state(info, hub_code, hub_req),
+                "update_now": user in bl.update_now,
+            }
+            for user, info in sorted(bl.agents.items())
+        ],
+    }
+
+
+@router.post("/agents/{user}/update", dependencies=[Depends(_admin)])
+def update_agent_now(user: str, request: Request) -> dict:
+    """Update that agent on its next poll even with profiles open (they close)."""
+    bl = _launcher(request)
+    if user not in bl.agents:
+        raise HTTPException(status_code=404, detail=get_string("err_no_agent"))
+    bl.update_now.add(user)
+    bl.agents[user].pop("offered", None)
+    return {"user": user}
+
+
+# --- installers: served by the panel to set up new PCs (hub/installers.py) -------
+
+
+@contextlib.contextmanager
+def _installer_errors():
+    try:
+        yield
+    except installers.InstallerError as e:
+        code = 404 if e.key == "err_no_installer" else 400
+        raise HTTPException(status_code=code, detail=get_string(e.key, **e.fields)) from e
+    except Exception as e:
+        if type(e).__module__.startswith(("botocore", "boto3")):  # the bucket answered badly
+            logger.warning("Installer storage: %s", e)
+            raise HTTPException(status_code=502, detail=get_string("err_storage", error=e)) from e
+        raise
+
+
+@router.get("/installers")
+def list_installers() -> list[dict]:
+    with _installer_errors():
+        return installers.listing()
+
+
+@public_router.get("/installers/{platform}")
+def download_installer(platform: str) -> Response:
+    """Public: the installers hold no secrets, and a new PC has no session yet.
+    From a bucket, a redirect to a short-lived presigned URL."""
+    with _installer_errors():
+        installers.check(platform)
+        if installers.in_bucket():
+            url = installers.download_url(platform)
+            if url is None:
+                raise installers.InstallerError("err_no_installer")
+            return RedirectResponse(url, status_code=307)
+        path = installers.local_file(platform)
+        if path is None:
+            raise installers.InstallerError("err_no_installer")
+    return FileResponse(path, filename=path.name, media_type=installers.CONTENT_TYPE)
+
+
+@router.post("/installers/{platform}/upload-url", dependencies=[Depends(_admin)])
+def installer_upload_url(platform: str, name: str = Query(...), size: int = Query(...)) -> dict:
+    """Where the panel PUTs the file: the bucket, a presigned URL per part (no hub
+    session), or this hub's own upload route."""
+    with _installer_errors():
+        installers.check(platform, name)
+        if installers.in_bucket():
+            return {"direct": True, **installers.start_upload(platform, name, size)}
+    query = urllib.parse.urlencode({"name": name})
+    return {"url": f"/api/v1/hub/installers/{platform}?{query}", "direct": False}
+
+
+class UploadBody(BaseModel):
+    name: str
+    upload_id: str
+    etags: list[str] = []
+
+
+@router.post("/installers/{platform}/uploaded", dependencies=[Depends(_admin)])
+def installer_uploaded(platform: str, body: UploadBody) -> dict:
+    with _installer_errors():
+        installers.check(platform, body.name)
+        result = installers.finish_upload(platform, body.name, body.upload_id, body.etags)
+    logger.info("Installer for %s uploaded to the bucket: %s", platform, body.name)
+    return result
+
+
+@router.post("/installers/{platform}/abort", dependencies=[Depends(_admin)])
+def installer_abort(platform: str, body: UploadBody) -> dict:
+    with _installer_errors():
+        installers.check(platform, body.name)
+        installers.abort_upload(platform, body.name, body.upload_id)
+    return {"aborted": body.upload_id}
+
+
+@router.put("/installers/{platform}", dependencies=[Depends(_admin)])
+async def upload_installer(platform: str, request: Request, name: str = Query(...)) -> dict:
+    """Upload into the hub's folder (no bucket set)."""
+    with _installer_errors():
+        installers.check(platform, name)
+        if installers.in_bucket():
+            raise installers.InstallerError("err_installer_bucket")
+    folder = installers.folder(platform)
+    folder.mkdir(parents=True, exist_ok=True)
+    tmp = folder / f".upload-{os.getpid()}-{time.monotonic_ns()}"
+    try:
+        with open(tmp, "wb") as f:
+            async for chunk in request.stream():
+                f.write(chunk)
+        for old in folder.iterdir():  # one installer per platform
+            if old != tmp:
+                old.unlink()
+        tmp.rename(folder / name)
+    finally:
+        tmp.unlink(missing_ok=True)
+    logger.info("Installer for %s uploaded: %s", platform, name)
+    return {"platform": platform, "name": name, "size": (folder / name).stat().st_size}
 
 
 def _require_lease(request: Request, name: str, allow_free: bool = False) -> None:

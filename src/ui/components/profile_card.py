@@ -9,7 +9,7 @@ from ..theme.colors import COLORS, FONT_DATA, FONT_SEMIBOLD
 from ..theme.styles import DANGER_ICON_STYLE, ICON_STYLE
 from .launch_button import build_launch_button
 
-_OS_LABELS = {"windows": "WIN", "macos": "MAC", "linux": "LIN"}
+_OS_LABELS = {"windows": "WIN", "macos": "MAC", "linux": "LIN", "android": "AND"}
 
 # One column grid for the header and every row: (expand, fixed width).
 COLUMNS = {

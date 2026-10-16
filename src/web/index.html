@@ -98,7 +98,7 @@ svg.i.s { width: 16px; height: 16px; }
 .icon-btn:disabled { opacity: .35; cursor: default; }
 
 /* Fields */
-input[type=text], input[type=search], input[type=password], input:not([type]), select, textarea {
+input[type=text], input[type=search], input[type=password], input[type=number], input:not([type]), select, textarea {
   width: 100%; height: 40px; padding: 0 12px; font-size: 14px; background-color: var(--paper-raised); border: 1px solid var(--rule-strong); border-radius: 8px; outline: none; transition: border-color .15s, box-shadow .15s; }
 textarea { height: auto; padding: 10px 12px; }
 select { appearance: none; -webkit-appearance: none; font-size: 14px; padding-right: 36px; cursor: pointer;
@@ -167,6 +167,34 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent.on::before { background: var(--ok); border-color: var(--ok); }
 .user-row { display: grid; grid-template-columns: minmax(70px, 1fr) 110px minmax(200px, 1.6fr) 34px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
 .user-row input, .user-row select, .user-form input, .user-form select { height: 34px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--paper-raised); min-width: 0; }
+.ads-form { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: end; }
+.ads-form .field { margin: 0; }
+.ads-list { max-height: min(52vh, 480px); overflow-y: auto; margin-top: 14px; border-top: 1px solid var(--rule); }
+.ads-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) minmax(0, 0.9fr) minmax(110px, auto); gap: 12px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--rule); }
+.ads-row .sub, .ads-row .proxy { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ads-row .proxy { font-family: var(--data); }
+.ads-row .state { font-size: 12px; text-align: right; color: var(--ink-2); }
+.ads-row .state.ok { color: var(--ok); } .ads-row .state.err { color: var(--err); white-space: normal; }
+.ads-all { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; }
+.ads-total { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.ads-group { border-bottom: 1px solid var(--rule); }
+.ads-group-head { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 2px; }
+.ads-toggle { display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; padding: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ads-toggle b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ads-toggle svg { flex: none; transform: rotate(-90deg); transition: transform .15s; color: var(--ink-3); }
+.ads-toggle[aria-expanded="true"] svg { transform: none; }
+.ads-target { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.ads-sum { font-size: 12px; color: var(--ink-3); text-align: right; }
+.ads-sum.err { color: var(--err); }
+.ads-group-body { padding-left: 28px; }
+.ads-group-body .ads-row:last-child { border-bottom: 0; }
+@media (max-width: 560px) { .ads-form { grid-template-columns: 1fr; } .ads-row { grid-template-columns: 16px minmax(0, 1fr) auto; } .ads-row .proxy { display: none; } }
+.inst-row a.btn { text-decoration: none; }
+.agent-row, .inst-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.agent-row .sub, .inst-row .sub { grid-column: 1; font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
+.agent-row .acts, .inst-row .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
+.agent-row .err { color: var(--err); } .agent-row .ok { color: var(--ok); }
+.modal-body h3 { margin: 18px 0 2px; font-size: 14px; } .modal-body h3:first-child { margin-top: 0; }
 .user-form { display: grid; grid-template-columns: 1fr 1fr 110px auto; gap: 8px; margin-top: 14px; }
 /* General settings page */
 .settings-sheet { max-width: 760px; padding: 0 22px; }
@@ -440,7 +468,9 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
       <div class="nav-title" data-t="administration"></div>
       <button class="rail-link hidden" id="users-btn"><svg class="i"><use href="#i-user"/></svg><span data-t="users"></span></button>
       <button class="rail-link hidden" id="groups-btn"><svg class="i"><use href="#i-users"/></svg><span data-t="groups"></span></button>
+      <button class="rail-link hidden" id="agents-btn"><svg class="i"><use href="#i-monitor"/></svg><span data-t="agents_button"></span></button>
       <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
+      <button class="rail-link" id="ads-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="ads_button"></span></button>
       <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
     </nav>
     <div class="grow"></div>
@@ -562,12 +592,26 @@ const I18N = {
     username: "Tên đăng nhập", password: "Mật khẩu", bad_login: "Sai tên đăng nhập hoặc mật khẩu",
     login_side_hub: "Server FoxProfile của nhóm. Profile mở trên máy tính của bạn qua FoxProfile agent.",
     login_hint_hub: "Đăng nhập bằng tài khoản quản trị viên đã tạo cho bạn.",
+    ads_button: "Nhập từ AdsPower", ads_sub: "Mang theo tên, proxy, User-Agent và cookie. Profile dùng engine Chrome; fingerprint (canvas, audio, WebGL) là mới.",
+    ads_hint_local: "AdsPower phải đang mở trên máy này và bật Local API (Settings › API).", ads_hint_hub: "Đọc từ AdsPower trên máy của bạn qua agent: AdsPower đang mở và bật Local API.",
+    ads_port: "Cổng API", ads_key: "API key (nếu AdsPower yêu cầu)", ads_find: "Tìm profile", ads_none: "AdsPower không có profile nào.",
+    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_working: "Đang nhập {i}/{n}…",
+    ads_done: "Đã tạo {created}, bỏ qua {skipped}, lỗi {failed}", ads_no_proxy: "Không proxy", ads_no_group: "Không có nhóm", ads_summary: "{total} profile · đã nhập {done} · còn {pending} · lỗi {failed}", ads_hub_group: "→ nhóm {group}",
     agent_auth_title: "Cấp quyền đăng nhập cho agent", agent_auth_hint: "FoxProfile agent trên {pc} sẽ mở các profile của tài khoản này trên máy đó.",
     agent_auth_this_pc: "máy tính này", agent_auth_role: "Vai trò", agent_auth_hub: "Hub",
     agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
     agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
     agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
     agent_on: "Máy của bạn: đã kết nối", agent_off: "Máy của bạn: chưa chạy agent",
+    agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
+    agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Chưa có bộ cài",
+    agents_download: "Tải về", agents_upload: "Tải lên bộ cài", agents_uploading: "Đang tải lên… {pct}%", agents_uploaded: "Đã tải lên {name}",
+    agents_upload_failed: "Không tải lên được bộ cài", agents_upload_cors: "Trình duyệt không tải lên được bucket. Kiểm tra quy tắc CORS của bucket (cho phép PUT từ địa chỉ panel này) và proxy phía trước bucket.", agents_upload_etag: "Bucket không cho trình duyệt đọc ETag: thêm ExposeHeaders: [\"ETag\"] vào quy tắc CORS.", agents_list: "Agent đã kết nối", agents_none: "Chưa có agent nào kết nối từ khi hub khởi động.",
+    agents_hub_code: "Phiên bản code của hub: {code}", agents_running: "{n} profile đang mở", agents_refresh: "Làm mới", agents_online: "đang kết nối", agents_offline: "mất kết nối",
+    agents_update_now: "Cập nhật ngay", agents_update_hint: "Đóng các profile đang mở trên máy đó và cập nhật agent", agents_update_queued: "Sẽ cập nhật trong vài giây",
+    agent_state_current: "Đã cập nhật", agent_state_pending: "Sẽ cập nhật khi đóng hết profile", agent_state_installer: "Cần bộ cài mới (thư viện đã thay đổi)",
+    agent_state_script: "Chạy bằng script: cập nhật bằng git", agent_state_old: "Bản cũ: cài bộ cài mới một lần",
     users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên", add_user: "Thêm",
     new_password: "Mật khẩu mới", set_password: "Đổi", owner: "Người dùng", unassigned: "Chưa giao",
     confirm_delete_user: "Xoá người dùng “{name}”? Profile của họ vẫn còn, chỉ quản trị viên thấy cho đến khi giao lại.",
@@ -643,12 +687,26 @@ const I18N = {
     username: "User name", password: "Password", bad_login: "Wrong user name or password",
     login_side_hub: "Your team's FoxProfile server. Profiles open on your own computer through the FoxProfile agent.",
     login_hint_hub: "Log in with the account your admin created for you.",
+    ads_button: "Import from AdsPower", ads_sub: "Brings name, proxy, User-Agent and cookies. Profiles use the Chrome engine; the fingerprint (canvas, audio, WebGL) is new.",
+    ads_hint_local: "AdsPower must be open on this PC with its Local API on (Settings › API).", ads_hint_hub: "Read from AdsPower on your PC through the agent: AdsPower open with its Local API on.",
+    ads_port: "API port", ads_key: "API key (if AdsPower asks for one)", ads_find: "Find profiles", ads_none: "AdsPower has no profiles.",
+    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_working: "Importing {i} of {n}…",
+    ads_done: "{created} created, {skipped} already here, {failed} failed", ads_no_proxy: "No proxy", ads_no_group: "No group", ads_summary: "{total} profiles · {done} imported · {pending} pending · {failed} failed", ads_hub_group: "→ group {group}",
     agent_auth_title: "Authorize the agent sign-in", agent_auth_hint: "The FoxProfile agent on {pc} will open this account's profiles on that PC.",
     agent_auth_this_pc: "this computer", agent_auth_role: "Role", agent_auth_hub: "Hub",
     agent_authorize: "Authorize", agent_switch: "Switch account",
     agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
     agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
     agent_on: "Your PC: connected", agent_off: "Your PC: agent not running",
+    agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
+    agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "No installer yet",
+    agents_download: "Download", agents_upload: "Upload installer", agents_uploading: "Uploading… {pct}%", agents_uploaded: "{name} uploaded",
+    agents_upload_failed: "The installer could not be uploaded", agents_upload_cors: "The browser could not upload to the bucket. Check the bucket\u2019s CORS rule (PUT from this panel\u2019s address) and the proxy in front of the bucket.", agents_upload_etag: "The bucket hides the ETag from the browser: add ExposeHeaders: [\"ETag\"] to its CORS rule.", agents_list: "Connected agents", agents_none: "No agent has connected since the hub started.",
+    agents_hub_code: "Hub code version: {code}", agents_running: "{n} profiles open", agents_refresh: "Refresh", agents_online: "connected", agents_offline: "offline",
+    agents_update_now: "Update now", agents_update_hint: "Closes the profiles open on that PC and updates its agent", agents_update_queued: "Updating in a few seconds",
+    agent_state_current: "Up to date", agent_state_pending: "Updates once its profiles are closed", agent_state_installer: "Needs the new installer (libraries changed)",
+    agent_state_script: "Runs from a script: update it with git", agent_state_old: "Older version: install the new installer once",
     users: "Users", role_admin: "Admin", role_operator: "Operator", add_user: "Add",
     new_password: "New password", set_password: "Set", owner: "Operator", unassigned: "Unassigned",
     confirm_delete_user: "Delete user “{name}”? Their profiles stay, visible to admins until reassigned.",
@@ -724,12 +782,26 @@ const I18N = {
     username: "Usuario", password: "Contraseña", bad_login: "Usuario o contraseña incorrectos",
     login_side_hub: "El servidor FoxProfile de tu equipo. Los profiles se abren en tu propia computadora a través del agente de FoxProfile.",
     login_hint_hub: "Inicia sesión con la cuenta que te creó tu administrador.",
+    ads_button: "Importar desde AdsPower", ads_sub: "Trae nombre, proxy, User-Agent y cookies. Se crean con el motor Chrome; el fingerprint (canvas, audio, WebGL) es nuevo.",
+    ads_hint_local: "AdsPower debe estar abierto en este PC con la API local activada (Ajustes › API).", ads_hint_hub: "Se lee del AdsPower de tu PC a través del agente: AdsPower abierto y con la API local activada.",
+    ads_port: "Puerto de la API", ads_key: "API key (si AdsPower la pide)", ads_find: "Buscar perfiles", ads_none: "AdsPower no tiene perfiles.",
+    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_working: "Importando {i} de {n}…",
+    ads_done: "{created} creados, {skipped} ya existían, {failed} con error", ads_no_proxy: "Sin proxy", ads_no_group: "Sin grupo", ads_summary: "{total} perfiles · {done} importados · {pending} pendientes · {failed} con error", ads_hub_group: "→ grupo {group}",
     agent_auth_title: "Autorizar el inicio de sesión en el agente", agent_auth_hint: "El agente de FoxProfile en {pc} abrirá los profiles de esta cuenta en ese PC.",
     agent_auth_this_pc: "esta computadora", agent_auth_role: "Rol", agent_auth_hub: "Hub",
     agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
     agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
     agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
     agent_on: "Tu PC: conectada", agent_off: "Tu PC: el agente no está en ejecución",
+    agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
+    agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene perfiles abiertos.",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Todavía no hay instalador",
+    agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo… {pct}%", agents_uploaded: "{name} subido",
+    agents_upload_failed: "No se pudo subir el instalador", agents_upload_cors: "El navegador no pudo subir al bucket. Revisa la regla CORS del bucket (PUT desde la dirección de este panel) y el proxy que tenga delante.", agents_upload_etag: "El bucket no deja al navegador leer el ETag: añade ExposeHeaders: [\"ETag\"] a su regla CORS.", agents_list: "Agentes conectados", agents_none: "Ningún agente se ha conectado desde que arrancó el hub.",
+    agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} perfiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
+    agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los perfiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
+    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus perfiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)",
+    agent_state_script: "Corre con el script: actualizar con git", agent_state_old: "Versión anterior: instalar el instalador nuevo una vez",
     users: "Usuarios", role_admin: "Administrador", role_operator: "Operador", add_user: "Agregar",
     new_password: "Nueva contraseña", set_password: "Cambiar", owner: "Operador", unassigned: "Sin asignar",
     confirm_delete_user: "¿Eliminar al usuario “{name}”? Sus profiles se conservan y solo los administradores los ven hasta que se reasignen.",
@@ -980,7 +1052,7 @@ function row(p) {
   const on = running.has(p.name);
   const fp = fingerprints[p.name];
   const isBusy = busy.has(p.name);
-  const os = { windows: "WIN", macos: "MAC", linux: "LIN" }[p.os_type] || "OS";
+  const os = { windows: "WIN", macos: "MAC", linux: "LIN", android: "AND" }[p.os_type] || "OS";
   const engine = p.engine === "chrome" ? "Chrome" : "Camoufox";
   const box = h("input", { type: "checkbox", "aria-label": t("select_row", { name: p.name }),
     onchange: (e) => { e.target.checked ? selected.add(p.name) : selected.delete(p.name); render(); } });
@@ -1180,7 +1252,7 @@ function field(label, input, hint) {
 function openEditor(p) {
   modal((close) => {
     const name = h("input", { id: "f-name", value: p ? p.name : "", required: true, maxlength: 64, autocomplete: "off" });
-    const os = h("select", { id: "f-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"]].map(([v, label]) =>
+    const os = h("select", { id: "f-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"], ["android", "Android (Chrome)"]].map(([v, label]) =>
       h("option", { value: v, selected: (p ? p.os_type : "windows") === v }, label)));
     // The engine is fixed once a profile exists: the two keep incompatible browser data.
     const engine = h("select", { id: "f-engine", disabled: !!p },
@@ -1370,6 +1442,7 @@ function renderMe(who) {
   el.textContent = `${me.name} · ${t(me.agent_online ? "agent_on" : "agent_off")}`;
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
+  $("agents-btn").classList.remove("hidden");
 }
 function showSettings(on) {
   $("rail").classList.toggle("settings", on);
@@ -1438,6 +1511,238 @@ function openUsers() {
         } }, name, pass, role, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_user"))),
         msg),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
+// --- Agents: installers for new PCs, and (admins) each PC's version -------------
+// Installed agents update themselves to the hub's code (src/hub/agent_code.py).
+function openAgents() {
+  modal((close) => {
+    const admin = me.role === "admin";
+    const installs = h("div"), agents = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const say = (text, cls = "info") => { msg.className = "msg " + cls; msg.textContent = text; };
+    const mb = (n) => (n / 1048576).toFixed(0) + " MB";
+    // One PUT, with progress (XHR): resolves with the response's ETag. `done` is
+    // what earlier PUTs of this upload already sent.
+    const put = (url, body, headers, done, total) => new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", url);
+      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.upload.onprogress = (e) => say(t("agents_uploading", { pct: Math.floor(100 * (done + e.loaded) / total) }));
+      xhr.onload = () => {
+        if (xhr.status < 300) return resolve(xhr.getResponseHeader("ETag"));
+        let detail = `${t("agents_upload_failed")} (${xhr.status})`;
+        try { detail = JSON.parse(xhr.responseText).detail || detail; } catch {}
+        reject(new Error(detail));
+      };
+      xhr.onerror = () => reject(new Error(""));
+      xhr.send(body);
+    });
+    const upload = async (platform, file) => {
+      // The hub says where to PUT: its own route, or a bucket through a presigned
+      // URL per part (proxies such as Cloudflare refuse bodies over 100 MB).
+      let target;
+      try { target = await api("POST", `/hub/installers/${platform}/upload-url?name=${enc(file.name)}&size=${file.size}`); } catch (e) { return say(e.message, "err"); }
+      say(t("agents_uploading", { pct: 0 }));
+      const done = { name: file.name, upload_id: target.upload_id };
+      try {
+        if (!target.direct) {
+          await put(target.url, file, { Authorization: "Bearer " + token, "Accept-Language": lang }, 0, file.size);
+        } else {
+          const etags = [];
+          for (const [i, url] of target.parts.entries()) {
+            const start = i * target.part_size;
+            const etag = await put(url, file.slice(start, start + target.part_size), {}, start, file.size);
+            // Without ExposeHeaders: ETag in the bucket's CORS rule the browser hides it.
+            if (!etag) throw new Error(t("agents_upload_etag"));
+            etags.push(etag);
+          }
+          await api("POST", `/hub/installers/${platform}/uploaded`, { ...done, etags });
+        }
+      } catch (e) {
+        if (target.direct) api("POST", `/hub/installers/${platform}/abort`, done).catch(() => {});
+        // A network error (no status): a bucket without a CORS rule for this origin,
+        // or a proxy in front of it closing the connection.
+        return say(e.message || t(target.direct ? "agents_upload_cors" : "agents_upload_failed"), "err");
+      }
+      say(t("agents_uploaded", { name: file.name }), "ok");
+      loadInstallers();
+    };
+    const loadInstallers = async () => {
+      let files;
+      try { files = await api("GET", "/hub/installers"); } catch (e) { return say(e.message, "err"); }
+      installs.replaceChildren(...[["windows", ".msi"], ["macos", ".pkg"]].map(([platform, ext]) => {
+        const f = files.find((x) => x.platform === platform);
+        const pick = h("input", { type: "file", accept: ext, class: "hidden", "aria-label": t("agents_upload") });
+        pick.onchange = () => pick.files[0] && upload(platform, pick.files[0]);
+        return h("div", { class: "inst-row" },
+          h("b", {}, t("agents_" + platform)),
+          h("div", { class: "sub" }, f ? `${f.name} · ${mb(f.size)}` : t("agents_no_file")),
+          h("div", { class: "acts" },
+            f ? h("a", { class: "btn btn-act", href: `/api/v1/hub/installers/${platform}`, download: f.name }, icon("download", true), t("agents_download")) : null,
+            admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => pick.click() }, icon("upload", true), t("agents_upload")) : null,
+            pick));
+      }));
+    };
+    const loadAgents = async () => {
+      let res;
+      try { res = await api("GET", "/hub/agents"); } catch (e) { return say(e.message, "err"); }
+      if (!res.agents.length) { agents.replaceChildren(h("p", { class: "muted" }, t("agents_none"))); return; }
+      agents.replaceChildren(h("p", { class: "muted" }, t("agents_hub_code", { code: res.code.slice(0, 7) })), ...res.agents.map((a) => {
+        const state = a.update_now ? t("agents_update_queued") : t("agent_state_" + a.state);
+        const cls = a.state === "current" ? "ok" : a.state === "installer" || a.state === "old" ? "err" : "";
+        const where = [a.pc, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
+        return h("div", { class: "agent-row" },
+          h("b", {}, a.user),
+          h("div", { class: "sub" }, where, " · ", h("span", { class: cls }, state)),
+          h("div", { class: "acts" }, a.state === "pending" && a.online && !a.update_now
+            ? h("button", { type: "button", class: "btn btn-line", title: t("agents_update_hint"), onclick: async () => {
+                try { await api("POST", `/hub/agents/${enc(a.user)}/update`); loadAgents(); } catch (e) { say(e.message, "err"); }
+              } }, icon("sync", true), t("agents_update_now"))
+            : null));
+      }));
+    };
+    loadInstallers();
+    if (admin) loadAgents();
+    return h("div", {},
+      modalHead(t("agents_title"), null, close),
+      h("div", { class: "modal-body" },
+        h("h3", {}, t("agents_install")), h("p", { class: "muted" }, t("agents_install_hint")), installs,
+        admin ? h("h3", {}, t("agents_list")) : null, admin ? agents : null,
+        msg),
+      h("div", { class: "modal-foot" },
+        admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => { loadInstallers(); loadAgents(); } }, icon("reload", true), t("agents_refresh")) : null,
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
+// --- Import from AdsPower (src/api/routes/adspower.py) ----------------------------
+function openAdsPower() {
+  modal((close) => {
+    // AdsPower's profiles by AdsPower group. With thousands of them, a group's
+    // rows are built only when it is opened; each row's state lives in its data.
+    let groups = [], busyImport = false;
+    const port = h("input", { id: "ads-port", type: "number", min: 1, max: 65535, value: store.get("foxprofile.adsPort") || "50325", required: true });
+    const key = h("input", { id: "ads-key", type: "password", autocomplete: "off" });
+    const msg = h("div", { class: "msg", role: "status" });
+    const list = h("div", { class: "ads-list hidden" });
+    const total = h("div", { class: "ads-total" });
+    const all = h("input", { type: "checkbox", id: "ads-all" });
+    const allRow = h("label", { class: "ads-all hidden", for: "ads-all" }, all, t("ads_select_all"), total);
+    const go = h("button", { class: "btn btn-act", type: "button", disabled: true }, t("ads_import_n", { n: 0 }));
+    const access = () => ({ port: Number(port.value), api_key: key.value });
+    const rows = () => groups.flatMap((g) => g.rows);
+    const open = (r) => r.status !== "exists" && r.status !== "created";
+    const counts = (rs) => {
+      const done = rs.filter((r) => !open(r)).length;
+      return { total: rs.length, done, pending: rs.length - done, failed: rs.filter((r) => r.status === "failed").length };
+    };
+    const stateText = (r) => ({ exists: t("ads_exists"), created: t("ads_created", { n: r.cookies }), failed: r.error, working: "…" }[r.status] || "");
+    const drawRow = (r) => {
+      if (!r.el) return;
+      r.box.checked = r.picked; r.box.disabled = !open(r) || busyImport;
+      r.state.className = "state" + (r.status === "failed" ? " err" : r.status === "created" ? " ok" : "");
+      r.state.textContent = stateText(r);
+      r.state.title = (r.warnings || []).join("\n");
+    };
+    const buildRow = (r) => {
+      r.box = h("input", { type: "checkbox", "aria-label": r.target });
+      r.box.onchange = () => { r.picked = r.box.checked; sync(); };
+      r.state = h("div", { class: "state" });
+      r.el = h("label", { class: "ads-row" }, r.box,
+        h("div", {}, h("div", {}, r.target), h("div", { class: "sub" }, r.name !== r.target ? r.name : " ")),
+        h("div", { class: "proxy" }, r.proxy || t("ads_no_proxy")), r.state);
+      drawRow(r);
+      return r.el;
+    };
+    const drawGroup = (g) => {
+      const c = counts(g.rows), openRows = g.rows.filter(open);
+      g.sum.textContent = t("ads_summary", c);
+      g.sum.classList.toggle("err", c.failed > 0);
+      g.box.checked = openRows.length > 0 && openRows.every((r) => r.picked);
+      g.box.indeterminate = !g.box.checked && openRows.some((r) => r.picked);
+      g.box.disabled = !openRows.length || busyImport;
+      g.rows.forEach(drawRow);
+    };
+    const sync = () => {
+      groups.forEach(drawGroup);
+      const n = rows().filter((r) => r.picked && open(r)).length;
+      go.textContent = t("ads_import_n", { n });
+      go.disabled = busyImport || !n;
+      const openRows = rows().filter(open);
+      all.checked = openRows.length > 0 && openRows.every((r) => r.picked);
+      all.indeterminate = !all.checked && openRows.some((r) => r.picked);
+      all.disabled = busyImport;
+      total.textContent = t("ads_summary", counts(rows()));
+    };
+    const pick = (rs, value) => { rs.filter(open).forEach((r) => { r.picked = value; }); sync(); };
+    all.onchange = () => pick(rows(), all.checked);
+    const buildGroup = (g) => {
+      g.box = h("input", { type: "checkbox", "aria-label": g.label });
+      g.box.onchange = () => pick(g.rows, g.box.checked);
+      g.sum = h("span", { class: "ads-sum" });
+      g.body = h("div", { class: "ads-group-body hidden" });
+      const toggle = h("button", { type: "button", class: "ads-toggle", "aria-expanded": "false" },
+        icon("down", true), h("b", {}, g.label),
+        g.hubGroup ? h("span", { class: "ads-target" }, t("ads_hub_group", { group: g.hubGroup })) : null);
+      toggle.onclick = () => {
+        const opened = g.body.classList.toggle("hidden") === false;
+        toggle.setAttribute("aria-expanded", String(opened));
+        if (opened && !g.body.childElementCount) g.body.append(...g.rows.map(buildRow));
+      };
+      return h("section", { class: "ads-group" }, h("div", { class: "ads-group-head" }, g.box, toggle, g.sum), g.body);
+    };
+    const find = async (e) => {
+      e.preventDefault();
+      msg.className = "msg info"; msg.textContent = "…";
+      store.set("foxprofile.adsPort", port.value);
+      let res;
+      try { res = await api("POST", "/adspower/profiles", access()); }
+      catch (err) { msg.className = "msg err"; msg.textContent = err.message; return; }
+      msg.textContent = res.profiles.length ? "" : t("ads_none");
+      const byGroup = new Map();
+      for (const p of res.profiles) {
+        const r = { ...p, status: p.exists ? "exists" : "pending", picked: !p.exists };
+        if (!byGroup.has(p.group)) byGroup.set(p.group, { label: p.group || t("ads_no_group"), hubGroup: p.hub_group, rows: [] });
+        byGroup.get(p.group).rows.push(r);
+      }
+      // By name, "no group" last.
+      groups = [...byGroup.entries()].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b)).map(([, g]) => g);
+      list.replaceChildren(...groups.map(buildGroup));
+      list.classList.toggle("hidden", !groups.length);
+      allRow.classList.toggle("hidden", !groups.length);
+      sync();
+    };
+    go.onclick = async () => {
+      const todo = rows().filter((r) => r.picked && open(r));
+      busyImport = true;
+      for (const [i, r] of todo.entries()) {
+        msg.className = "msg info"; msg.textContent = t("ads_working", { i: i + 1, n: todo.length });
+        r.status = "working"; sync();
+        try {
+          const res = await api("POST", "/adspower/import", { ...access(), profile_id: r.id, name: r.target, group: r.group || "" });
+          Object.assign(r, { status: res.status, cookies: res.cookies || 0, warnings: res.warnings || [] });
+        } catch (err) {
+          Object.assign(r, { status: "failed", error: err.message });
+        }
+        r.picked = false;
+      }
+      busyImport = false; sync();
+      const c = counts(todo);
+      msg.className = c.failed ? "msg err" : "msg ok";
+      msg.textContent = t("ads_done", { created: todo.filter((r) => r.status === "created").length, skipped: todo.filter((r) => r.status === "exists").length, failed: c.failed });
+      refresh();
+    };
+    return h("div", {},
+      modalHead(t("ads_button"), t("ads_sub"), close),
+      h("div", { class: "modal-body" },
+        h("p", { class: "minor", style: "margin:0 0 12px" }, t(hub ? "ads_hint_hub" : "ads_hint_local")),
+        h("form", { class: "ads-form", onsubmit: find },
+          field(t("ads_port"), port), field(t("ads_key"), key),
+          h("button", { class: "btn btn-line" }, icon("search", true), t("ads_find"))),
+        msg, allRow, list),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close")), go));
   }, { wide: true });
 }
 
@@ -1727,8 +2032,10 @@ $("login-form").onsubmit = async (e) => {
 $("logout-btn").onclick = () => { token = ""; store.set("foxprofile.token", null); showLogin(); };
 $("new-btn").onclick = () => openEditor(null);
 $("mcp-btn").onclick = openMcpGuide;
+$("ads-btn").onclick = openAdsPower;
 $("users-btn").onclick = openUsers;
 $("groups-btn").onclick = openGroups;
+$("agents-btn").onclick = openAgents;
 $("settings-btn").onclick = () => showSettings(true);
 $("general-btn").onclick = () => showGeneral(true);
 document.querySelectorAll("[data-theme-pick]").forEach((b) => {

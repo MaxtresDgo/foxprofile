@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Starts the agent at every user's login (/Library/LaunchAgents). Not kept alive:
+     Quit in its menu stops it until the next login or until the app is opened. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>io.github.chienbm98.foxprofile-agent</string>
+  <key>ProgramArguments</key>
+  <array><string>/Applications/FoxProfile Agent.app/Contents/MacOS/foxprofile-agent</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>LimitLoadToSessionType</key><string>Aqua</string>
+  <key>ProcessType</key><string>Interactive</string>
+</dict>
+</plist>
