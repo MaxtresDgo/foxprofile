@@ -5,8 +5,13 @@
 ## [Unreleased]
 
 ### Thêm
+- Chạy bước và đồng bộ cửa sổ (RPA đơn giản): nút "Run steps" chạy một script ngắn (navigate, click, type, select, press, wait, sleep…) song song trên các profile đang chạy đã chọn; nút "Sync" lặp lại thao tác ở profile chính (click, chữ đã gõ, select, Enter/Tab/Escape, địa chỉ) sang tab đang mở của các profile khác khi chúng ở cùng trang web. Có trong app desktop, web panel, API (`/automation/run`, `/automation/sync`) và MCP (`run_steps`). Thêm hành động trang `select` (`/browser/{name}/page/select`).
 - Chế độ hub (`FOXPROFILE_HUB=true`, `Dockerfile`, `compose.yaml`): server trung tâm lưu profile và tài khoản người dùng, không chạy trình duyệt. Mỗi nhân viên đăng nhập bằng tài khoản riêng, chỉ thấy profile được giao; profile mở trên máy của họ qua agent `python -m src.agent` (`foxprofile-agent.bat` / `.command`), dữ liệu được tải về khi mở và đồng bộ lại khi đóng. Xem màn hình từ xa, xuất/nhập cookie và MCP (key cá nhân cho từng người) chạy qua agent trên máy của nhân viên. Xem `docs/HUB.md`.
+- Web panel: trang Settings → General (giao diện Sáng / Tối / Hệ thống và ngôn ngữ, lưu theo trình duyệt) và giao diện tối "night paper" theo cùng hệ thống thiết kế.
+- Tiếng Tây Ban Nha (`es`) là ngôn ngữ thứ ba trong web panel, app desktop, thông báo lỗi của API và agent. Web panel mặc định tiếng Tây Ban Nha và chọn ngôn ngữ trong Settings → General (Settings giờ dành cho mọi người dùng). Lỗi API theo `Accept-Language` của yêu cầu, agent dùng ngôn ngữ của hub (`/info` trả về `language`).
+- Chế độ hub: nhóm profile. Admin tạo nhóm và thêm người dùng (thành viên hoặc trưởng nhóm); mỗi profile thuộc tối đa một nhóm, và mọi thành viên thấy và mở được profile của nhóm trên máy của họ (vẫn chỉ một người mở cùng lúc). Trưởng nhóm thêm/bớt thành viên và chuyển profile vào nhóm của mình. Web panel có bộ chọn nhóm kèm ô tìm kiếm (kết hợp với các bộ lọc trạng thái) và API `/hub/groups`, `/hub/profile-group/{name}`.
 - Bộ cài MSI cho agent trên Windows (`installer/windows/build-msi.sh`, workflow `Agent MSI`): kèm Python embeddable và mọi thư viện, cài vào Program Files và tự chạy agent mỗi khi người dùng đăng nhập Windows; dữ liệu và `.env` của từng người nằm trong `%LOCALAPPDATA%\FoxProfile`.
+- Agent của hub đăng nhập qua trình duyệt: agent mở panel, nhân viên đăng nhập (hoặc dùng phiên đang mở) và bấm "Cấp quyền" trên trang "Cấp quyền đăng nhập cho agent" (có Đổi tài khoản / Huỷ). Agent nhận key riêng (`POST /hub/me/agent-key`, lưu trong `agent.json`), không còn hỏi mật khẩu trong console. Agent chạy nền với biểu tượng ở khay hệ thống (Windows) / thanh menu (macOS): trạng thái, Đăng nhập / Đổi tài khoản, Mở panel, Xem log (mở terminal theo dõi log) và Thoát. Bộ cài MSI chạy agent bằng `pythonw` (không có cửa sổ console). Thêm phụ thuộc `pystray` (LGPL-3.0) và `Pillow` trên Windows và macOS.
 - Chế độ hub: "Check proxy" và "Check IP" chạy trên máy của người dùng qua agent (nơi trình duyệt dùng proxy), nên kiểm tra được cả proxy chỉ truy cập được từ máy đó, ví dụ địa chỉ Tailscale.
 
 ### Thay đổi
@@ -14,6 +19,8 @@
 
 ### Sửa
 - File `.env` được tìm từ thư mục làm việc thay vì thư mục chứa mã nguồn.
+- Chế độ hub: lệnh gửi tới agent (mở profile, điều khiển trang…) không còn bị mất khi agent khởi động lại hoặc rớt mạng; trước đây yêu cầu chờ cũ của agent đã đóng vẫn có thể nhận lệnh và profile bị kẹt ở trạng thái "Running".
+- Trình duyệt đóng giữa chừng một thao tác điều khiển trang trả về lỗi 504 thay vì lỗi 500 (ở chế độ hub, agent không còn bị treo luồng và hub chờ tới hết thời gian).
 - "Check proxy" hoạt động với proxy SOCKS5/SOCKS4 (trước đây luôn báo lỗi vì gửi HTTP tới proxy SOCKS).
 - Engine Camoufox mở được profile dùng proxy SOCKS5 có user/pass (Firefox không tự xác thực SOCKS5; giờ đi qua cầu nối loopback như engine Chrome).
 - Agent và MCP gửi User-Agent riêng, nên dùng được hub sau Cloudflare (Browser Integrity Check chặn `Python-urllib` với lỗi 1010). Cổng của hub trong `compose.yaml` đổi được bằng `FOXPROFILE_HUB_PORT`.

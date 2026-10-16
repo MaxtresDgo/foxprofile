@@ -12,6 +12,7 @@ import socket
 from fastapi import HTTPException, Request
 
 from ..core.config import API_TOKEN
+from ..core.strings import get_string
 
 
 def _presented_token(request: Request) -> str:
@@ -43,14 +44,14 @@ def _require_hub_user(request: Request, store) -> None:
     if user is None:
         raise HTTPException(
             status_code=401,
-            detail="Missing or invalid session",
+            detail=get_string("err_session"),
             headers={"WWW-Authenticate": "Bearer"},
         )
     request.state.user = user
     name = request.path_params.get("name")
     if name is not None and not store.can(user, name):
         # Same answer as a missing profile: others' profile names stay private.
-        raise HTTPException(status_code=404, detail=f"Profile '{name}' not found")
+        raise HTTPException(status_code=404, detail=get_string("err_not_found", name=name))
 
 
 def require_token(request: Request) -> None:
@@ -67,7 +68,7 @@ def require_token(request: Request) -> None:
     if not secrets.compare_digest(_presented_token(request), API_TOKEN):
         raise HTTPException(
             status_code=401,
-            detail="Missing or invalid API token",
+            detail=get_string("err_token"),
             headers={"WWW-Authenticate": "Bearer"},
         )
 

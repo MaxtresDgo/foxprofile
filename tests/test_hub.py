@@ -53,6 +53,12 @@ def _zip(name, files):
 
 def test_sessions(hub):
     client, container, admin = hub
+    # Errors follow the caller's Accept-Language (the panel sends its own).
+    bad = {"username": "ana", "password": "nope"}
+    r = client.post("/api/v1/hub/login", json=bad, headers={"Accept-Language": "es"})
+    assert r.json()["detail"] == "Usuario o contraseña incorrectos"
+    r = client.get("/api/v1/profiles/nope", headers={**admin, "Accept-Language": "es-MX,es;q=0.9"})
+    assert r.json()["detail"] == "No se encontró el profile 'nope'"
     assert (
         client.post("/api/v1/hub/login", json={"username": "ana", "password": "nope"}).status_code
         == 401
@@ -293,6 +299,22 @@ def test_proxy_checks_run_on_the_callers_pc(hub):
     assert r.status_code == 502 and r.json()["detail"] == "On ana's PC: boom"
 
 
+def test_agent_key_is_separate_from_the_personal_key(hub):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    personal = {
+        "Authorization": "Bearer " + client.post("/api/v1/hub/me/key", headers=ana).json()["key"]
+    }
+    r = client.post("/api/v1/hub/me/agent-key", headers=ana)
+    assert r.json()["name"] == "ana" and r.json()["role"] == "operator"
+    agent = {"Authorization": "Bearer " + r.json()["key"]}
+    assert client.get("/api/v1/hub/me", headers=agent).json()["name"] == "ana"
+    # Authorizing the agent again revokes its old key, never the personal one.
+    client.post("/api/v1/hub/me/agent-key", headers=ana)
+    assert client.get("/api/v1/hub/me", headers=agent).status_code == 401
+    assert client.get("/api/v1/hub/me", headers=personal).status_code == 200
+
+
 def test_personal_key_for_mcp(hub):
     client, container, _ = hub
     ana = _login(client, "ana", "anaanaanaana")
@@ -322,3 +344,108 @@ def test_personal_key_for_mcp(hub):
         assert live.post("/mcp", json=init, headers=mcp_headers).status_code == 401
         r = live.post("/mcp", json=init, headers={**mcp_headers, "Authorization": "Bearer " + key})
         assert r.status_code == 200, r.text
+
+
+def test_automation_only_reaches_the_callers_profiles(hub, monkeypatch):
+    client, container, _ = hub
+    ana, bob = _login(client, "ana", "anaanaanaana"), _login(client, "bob", "bobbobbobbob")
+    client.post("/api/v1/profiles", json={"name": "ana-1"}, headers=ana)
+    client.post("/api/v1/profiles", json={"name": "bob-1"}, headers=bob)
+    bl = container.browser_launcher
+    calls = []
+    monkeypatch.setattr(bl, "is_running", lambda name: True)
+    monkeypatch.setattr(bl, "control", lambda name, *a, **k: calls.append(name) or {})
+
+    # Names in the body skip the {name} path check, so the route checks each one.
+    run = {"profiles": ["ana-1", "bob-1"], "script": "back"}
+    r = client.post("/api/v1/automation/run", json=run, headers=ana)
+    assert r.status_code == 404 and "bob-1" in r.json()["detail"]
+    sync = {"leader": "ana-1", "followers": ["bob-1"]}
+    assert client.post("/api/v1/automation/sync", json=sync, headers=ana).status_code == 404
+    assert calls == []
+    r = client.post("/api/v1/automation/run", json={**run, "profiles": ["ana-1"]}, headers=ana)
+    assert r.status_code == 200 and calls == ["ana-1"]
+
+
+def test_a_dropped_agent_poll_leaves_commands_for_the_next_one(hub):
+    """An agent restart leaves its old long-poll open on the hub; it must not eat commands."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from src.hub.routes import poll
+
+    _, container, _ = hub
+    bl = container.browser_launcher
+    bl._queues["ana"].put({"op": "launch", "name": "shop-01"})
+
+    async def gone():
+        return True
+
+    request = SimpleNamespace(
+        state=SimpleNamespace(user={"name": "ana", "role": "operator"}),
+        app=SimpleNamespace(state=SimpleNamespace(container=container)),
+        is_disconnected=gone,
+    )
+    assert asyncio.run(poll(request)).status_code == 204
+    assert bl.next_command("ana") == {"op": "launch", "name": "shop-01"}
+
+
+def test_groups_share_profiles_and_leads_manage_their_own(hub):
+    client, container, admin = hub
+    api = "/api/v1/hub"
+    client.post(f"{api}/users", json={"name": "cid", "password": "cid" * 4}, headers=admin)
+    ana, bob = _login(client, "ana", "anaanaanaana"), _login(client, "bob", "bobbobbobbob")
+    cid = _login(client, "cid", "cidcidcidcid")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=admin)
+
+    def names(h):
+        return [p["name"] for p in client.get("/api/v1/profiles", headers=h).json()["profiles"]]
+
+    # Only admins create groups and promote leads.
+    assert client.post(f"{api}/groups", json={"name": "sales"}, headers=ana).status_code == 403
+    assert client.post(f"{api}/groups", json={"name": "sales"}, headers=admin).status_code == 201
+    assert client.post(f"{api}/groups", json={"name": "sales"}, headers=admin).status_code == 400
+    assert client.put(f"{api}/groups/sales/members/ana", headers=ana).status_code == 403
+    r = client.put(f"{api}/groups/sales/members/ana", json={"role": "lead"}, headers=admin)
+    assert r.status_code == 200
+
+    # The lead adds a member and moves a profile they can see into the group.
+    assert client.get(f"{api}/users", headers=ana).status_code == 200
+    assert client.get(f"{api}/users", headers=bob).status_code == 403
+    assert client.put(f"{api}/groups/sales/members/bob", headers=ana).status_code == 200
+    put = client.put(f"{api}/groups/sales/members/bob", json={"role": "lead"}, headers=ana)
+    assert put.status_code == 403
+    assert (
+        client.put(f"{api}/profile-group/shop-01", json={"group": "sales"}, headers=ana).status_code
+        == 404
+    )
+    client.put(f"{api}/profile-group/shop-01", json={"group": "sales"}, headers=admin)
+    assert names(ana) == names(bob) == ["shop-01"] and names(cid) == []
+    me = client.get(f"{api}/me", headers=bob).json()
+    assert me["groups"] == {"shop-01": "sales"} and me["my_groups"] == {"sales": "member"}
+
+    # A plain member cannot manage the group or move its profiles.
+    assert client.put(f"{api}/groups/sales/members/cid", headers=bob).status_code == 403
+    r = client.put(f"{api}/profile-group/shop-01", json={"group": None}, headers=bob)
+    assert r.status_code == 403
+    assert client.delete(f"{api}/groups/sales/members/ana", headers=bob).status_code == 403
+
+    # Members on different PCs share the profile; the lease keeps it exclusive.
+    bl = container.browser_launcher
+    bl.touch("ana", set())
+    bl.touch("bob", set())
+    assert client.post("/api/v1/browser/shop-01/launch?wait=false", headers=bob).status_code == 202
+    assert client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana).status_code == 409
+
+    # Rename follows the group; deleting the user or group cleans up.
+    store = container.hub_store
+    store.rename_profile("shop-01", "shop-02")
+    assert store.profile_groups == {"shop-02": "sales"}
+    store.delete_user("bob")
+    assert store.groups["sales"] == {"ana": "lead"}
+    assert client.delete(f"{api}/groups/sales", headers=admin).status_code == 200
+    assert store.profile_groups == {}
+    # Everything survives a reload, and an old hub.json without groups still loads.
+    assert HubStore("hub.json", SECRET).groups == {}
+    pathlib.Path("old.json").write_text(json.dumps({"users": {}, "owners": {}}))
+    assert HubStore("old.json", SECRET).profile_groups == {}

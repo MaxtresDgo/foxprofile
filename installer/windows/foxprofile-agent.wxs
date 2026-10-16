@@ -15,15 +15,21 @@
       <Directory Id="ProgramMenuFolder" />
     </Directory>
 
+    <Icon Id="FoxIcon" SourceFile="$(var.Stage)/app/src/assets/icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="FoxIcon" />
+
     <!-- Not a Windows service: services run in session 0 and cannot show the
-         browsers to the operator, so the agent starts with each user's logon. -->
+         browsers to the operator, so the agent starts with each user's logon.
+         pythonw: no console window; the agent lives in the tray and works from
+         %LOCALAPPDATA%\FoxProfile (its home option, see src/agent.py). -->
     <DirectoryRef Id="INSTALLDIR">
       <Component Id="Autostart" Guid="CFA8D8C2-F1C1-428B-9B53-1163048E946E" Win64="yes">
         <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run"
                        Name="FoxProfile Agent" Type="string"
-                       Value="&quot;[INSTALLDIR]foxprofile-agent.cmd&quot;" KeyPath="yes" />
+                       Value="&quot;[INSTALLDIR]python\pythonw.exe&quot; -m src.agent --home" KeyPath="yes" />
         <Shortcut Id="StartMenu" Directory="ProgramMenuFolder" Name="FoxProfile Agent"
-                  Target="[INSTALLDIR]foxprofile-agent.cmd" WorkingDirectory="INSTALLDIR" />
+                  Target="[INSTALLDIR]python\pythonw.exe" Arguments="-m src.agent --home"
+                  WorkingDirectory="INSTALLDIR" Icon="FoxIcon" />
       </Component>
     </DirectoryRef>
 

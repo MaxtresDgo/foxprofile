@@ -48,6 +48,12 @@ class Container:
         return self._get("bl", BrowserLauncher)
 
     @property
+    def sync(self):
+        from ..services.browser.sync import SyncManager
+
+        return self._get("sync", lambda: SyncManager(self.browser_launcher, self.event_bus.emit))
+
+    @property
     def hub_store(self):
         from ..hub.store import HubStore
         from . import config

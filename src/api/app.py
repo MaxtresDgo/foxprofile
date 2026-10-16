@@ -8,13 +8,16 @@ from typing import TYPE_CHECKING
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ..core.config import API_PORT, API_TOKEN, HEADLESS
 from ..core.logging import get_logger
+from ..core.strings import current_language, request_language
 from . import mcp_http
 from .auth import require_token
 from .guard import LocalOnlyGuard
 from .routes import (
+    automation_router,
     browser_router,
     mcp_setup_router,
     page_router,
@@ -47,6 +50,22 @@ def _hub_check(container: Container):
     return check
 
 
+class RequestLanguage:
+    """Error messages follow the caller's Accept-Language (the panel sends its own)."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        header = dict(scope["headers"]).get(b"accept-language", b"").decode("latin-1")
+        # ponytail: first tag only, no q-weights; the panel sends exactly one.
+        code = header.split(",")[0].split(";")[0].split("-")[0].strip().lower()
+        with request_language(code):
+            await self.app(scope, receive, send)
+
+
 def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     """Build the FastAPI application.
 
@@ -74,6 +93,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
         version=VERSION,
     )
     app.state.container = container
+    app.add_middleware(RequestLanguage)
     if not API_TOKEN:
         # Token-less means local-only: block CSRF and DNS rebinding from websites.
         app.add_middleware(LocalOnlyGuard)
@@ -83,6 +103,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     app.include_router(browser_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(proxy_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(automation_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
     app.router.routes.append(mcp_route)
     if container.hub:
@@ -107,6 +128,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
             "headless": HEADLESS,
             "mcp_path": mcp_http.MCP_PATH,
             "mode": "hub" if container.hub else "local",
+            "language": current_language(),
         }
 
     @app.get("/", include_in_schema=False)

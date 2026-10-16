@@ -16,6 +16,7 @@ from collections import defaultdict
 from collections.abc import Iterator
 from typing import Any
 
+from ..core.strings import get_string
 from ..models.profile import Profile
 from ..services.browser.launcher import BrowserControlError, ProfileBusyError, _LaunchResult
 
@@ -68,7 +69,7 @@ class RemoteLauncher:
         self._queues[user].put({**command, "id": request_id})
         try:
             if not done.wait(timeout):
-                raise BrowserControlError("The operator's PC did not answer in time", status=504)
+                raise BrowserControlError(get_string("err_pc_timeout"), status=504)
         finally:
             with self._lock:
                 self._pending.pop(request_id, None)
@@ -206,9 +207,9 @@ class RemoteLauncher:
         """Run a page action in the browser on the PC that holds the profile."""
         user = self.holder(profile_name)
         if user is None:
-            raise BrowserControlError("Browser is not running", status=409)
+            raise BrowserControlError(get_string("err_browser_not_running"), status=409)
         if not self.online(user):
-            raise BrowserControlError(f"{user}'s PC is not connected", status=503)
+            raise BrowserControlError(get_string("err_user_pc_offline", user=user), status=503)
         command = {"op": "control", "name": profile_name, "action": action}
         return self._call(user, {**command, "params": params or {}}, timeout + 5)
 

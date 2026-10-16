@@ -35,6 +35,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - [Timezone, locale and Check IP](#timezone-locale-and-check-ip)
 - [Server mode and web panel](#server-mode-and-web-panel)
 - [MCP: let AI agents drive the browser](#mcp-let-ai-agents-drive-the-browser)
+- [Run steps and sync](#run-steps-and-sync)
 - [Chrome engine (experimental)](#chrome-engine-experimental)
 - [Cookies and fingerprints](#cookies-and-fingerprints)
 - [Configuration](#configuration)
@@ -58,6 +59,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - **A profile table built for scanning**: every row shows the engine, the emulated device, the proxy (credentials hidden), timezone/locale and the state. States differ in shape as well as colour: a violet double-ruled stamp with the launch time means running, a grey rule means starting, a struck red stamp means the launch failed.
 - **Filters and search**: filter by running, with/without proxy and Chrome engine (with counts); search by name or proxy.
 - **Bulk actions**: launch, stop or delete many profiles at once.
+- **Run steps and sync** (light RPA): run a short script (navigate, click, type…) on many running profiles in parallel, or mirror what you do in one profile to the others in real time.
 - **MCP server** so AI agents (Claude, Cursor...) can launch profiles, browse, click, type and take screenshots.
 - **Server mode + web panel** for VPS deployments: manage profiles and view their screens remotely, protected by a token.
 - **REST API** with Swagger docs for scripting.
@@ -91,7 +93,7 @@ Run the app:
 python -m src.main
 ```
 
-On Windows you can also double-click `run_foxprofile.bat`. The app opens the manager window and serves the API on `http://127.0.0.1:8000`; API docs are at `http://127.0.0.1:8000/docs`. Set `FOXPROFILE_LANG=vi` for the Vietnamese UI.
+On Windows you can also double-click `run_foxprofile.bat`. The app opens the manager window and serves the API on `http://127.0.0.1:8000`; API docs are at `http://127.0.0.1:8000/docs`. Set `FOXPROFILE_LANG=vi` or `FOXPROFILE_LANG=es` for the Vietnamese or Spanish UI.
 
 ## Timezone, locale and Check IP
 
@@ -131,7 +133,7 @@ On a VPS, put the server behind an HTTPS reverse proxy (Caddy, Nginx) so the tok
 
 Full deployment guide (Ubuntu, systemd, nginx, HTTPS; in Vietnamese): [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Hub mode (team server, browsers on each PC):** `docker compose up -d` runs a central panel with per-operator logins; every operator runs `foxprofile-agent.bat` / `foxprofile-agent.command` (or, on Windows, the `FoxProfileAgent-<version>.msi` installer, which bundles Python and starts the agent at logon) and their profiles open on their own computer. Guide (Spanish): [docs/HUB.md](docs/HUB.md).
+**Hub mode (team server, browsers on each PC):** `docker compose up -d` runs a central panel with per-operator logins; every operator runs `foxprofile-agent.bat` / `foxprofile-agent.command` (or, on Windows, the `FoxProfileAgent-<version>.msi` installer, which bundles Python and starts the agent at logon) and their profiles open on their own computer. The agent signs in through the browser (the panel asks the operator to authorize it, no password on the PC) and runs in the tray / menu bar, with a menu to switch account or show its log. Groups let several operators share a set of profiles from different PCs. Guide (Spanish): [docs/HUB.md](docs/HUB.md).
 
 ## MCP: let AI agents drive the browser
 
@@ -165,8 +167,36 @@ Then just ask, e.g. *"Open profile tiktok-us-02, go to tiktok.com and send me a 
 | Cookies & fingerprints | `export_cookies`, `import_cookies`, `get_fingerprint`, `reset_fingerprint`, `check_proxy`, `check_profile_ip` |
 | Page | `browser_navigate`, `browser_back`, `browser_snapshot`, `browser_get_text`, `browser_click`, `browser_click_at`, `browser_type`, `browser_press`, `browser_wait_for`, `browser_screenshot`, `browser_evaluate` |
 | Tabs | `browser_tabs`, `browser_tab_new`, `browser_tab_select`, `browser_tab_close` |
+| Several profiles | `run_steps` |
 
 There is deliberately **no** delete tool, so an agent cannot wipe an account's cookies by mistake. Only `http`, `https` and `about:blank` can be opened; `file://` and `about:config` are blocked.
+
+## Run steps and sync
+
+Select running profiles in the table (desktop app or web panel) and use the bulk bar:
+
+**Run steps** runs a short script on every selected profile at once, one step per line. Two-part arguments are split by ` | `, and lines starting with `//` are comments:
+
+```text
+navigate https://example.com
+click text=Sign in
+type input[name="email"] | user@example.com
+select select[name="country"] | VN
+press Enter
+wait #dashboard
+sleep 2000
+```
+
+Steps: `navigate <url>`, `back`, `click <selector>`, `type <selector> | <text>`, `select <selector> | <value>`, `press <key> [| <selector>]`, `wait <selector>`, `sleep <ms>` (up to 60000), `keyboard <text>`, `click_at <x> <y>`, `evaluate <js>`, `tab_new [url]`, `tab_select <i>`, `tab_close <i>`. Selectors are Playwright selectors, as in the page API. Up to 100 steps per run. Within a profile the steps run in order; a profile stops at its first failed step, and the others carry on. The result lists the failed step for each profile.
+
+**Sync** picks one selected profile as the leader. While it runs, clicks, typed text, `<select>` changes and Enter/Tab/Escape in the leader's pages, plus addresses typed into the leader, are repeated in the active tab of the other selected profiles. It works with hidden browsers too: act on the leader through the remote screen view. Worth knowing:
+
+- Elements are matched by selector (id, `name`, `aria-label`…, else their position in the page). A follower whose page differs (another language, an A/B test) fails that step, and its errors show on the sync chip.
+- A step is only replayed in a follower that is on the **same site** (origin) as the leader, so a follower that wandered off is never clicked into another site.
+- One sync per profile at a time, and a profile cannot lead one sync and follow another.
+- Sync installs a small listener in the leader's pages, which stays until that browser restarts (idle when not syncing). With the Chrome engine a page script can see it; with Camoufox it is isolated from the page.
+
+Over the API: `POST /api/v1/automation/run` with `{"profiles": [...], "script": "..."}` (or JSON `steps`), and `POST` / `GET` / `DELETE /api/v1/automation/sync`. The MCP tool `run_steps` runs scripts too; sync is only for people, not for MCP.
 
 ## Chrome engine (experimental)
 
@@ -189,7 +219,7 @@ Everything is optional. To override defaults, copy `.env.example` to `.env`.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `FOXPROFILE_LANG` | `en` | UI language: `en` or `vi` |
+| `FOXPROFILE_LANG` | `en` | UI language: `en`, `vi` or `es`. Hub agents follow the hub's language unless set on the PC |
 | `FOXPROFILE_PROFILES_FILE` | `profiles.json` | Profile list file |
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Data directory, one subdirectory per profile |
 | `FOXPROFILE_LOG_DIR` | `logs` | Log directory |
@@ -250,6 +280,9 @@ Prefix `/api/v1`. The full reference is at `/docs` while the app is running.
 | `POST` | `/browser/{name}/page/evaluate` | Run JavaScript |
 | `GET` / `POST` | `/browser/{name}/page/tabs` | List tabs / open a new tab |
 | `POST` / `DELETE` | `/browser/{name}/page/tabs/{index}/select` · `/page/tabs/{index}` | Select / close a tab |
+| `POST` | `/browser/{name}/page/select` | Pick an option of a `<select>` |
+| `POST` | `/automation/run` | Run steps on several running profiles |
+| `GET` / `POST` / `DELETE` | `/automation/sync` · `/automation/sync/{leader}` | List / start / stop window sync |
 | `GET` | `/mcp/setup?base_url=...` | MCP configs for each AI app (used by the Connect AI dialog) |
 
 With `FOXPROFILE_API_TOKEN` set, every request except `/health` and `/info` needs `Authorization: Bearer <token>`.

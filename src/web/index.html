@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>FoxProfile</title>
+<script>/* Apply the saved theme before the first paint. */ try { const t = localStorage.getItem("foxprofile.theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23D9481A' d='M256 190H200L104 64 82 262 256 456Z'/%3E%3Cpath fill='%23FF6B2C' d='M256 190h56l96-126 22 198-174 194Z'/%3E%3Cpath fill='%23FFF4EC' d='M82 262l114 38 60 156ZM430 262l-114 38-60 156Z'/%3E%3C/svg%3E">
 <style>
 @font-face { font-family: "Be Vietnam Pro"; src: url("/assets/fonts/BeVietnamPro-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
@@ -25,9 +26,43 @@
   --live: #5B3FA8; --live-tint: #EFECF6; --ok: #1F7A50; --err: #B42330; --err-tint: #F7E7E8; --warn: #8A5A00; --warn-tint: #F6EEDB;
   --ui: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
   --data: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  /* Surfaces that differ between the light and dark themes */
+  color-scheme: light;
+  --row-hover: #F6F7F2; --row-live-hover: #E9E5F3; --row-selected: #E4EBE2;
+  --chrome-ink: var(--cover); --chrome-line: #9DB7AE; --chrome-tint: #E6EEEA; --warn-ink: #5E3E00;
+  --solid: #1E2422; --solid-hover: #000; --on-solid: #fff; --toast-icon: #9FD8B9;
+  --focus: var(--cover); --focus-ring: rgba(23, 51, 46, .14); --picked: var(--cover); --danger: #B42330; --danger-hover: #951c27;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2348514C' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --row-h: 58px;
   --cols: 32px minmax(150px, 1.15fr) minmax(170px, 1.05fr) minmax(170px, 1.15fr) minmax(150px, 1fr) 112px 232px;
   --ease-out: cubic-bezier(.16, 1, .3, 1);
+}
+/* Night paper: same system, inverted paper and ink; the cover rail stays as it is. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #141917; --paper-raised: #1B211E; --paper-sunk: #101412; --rule: #2A322E; --rule-strong: #3A443F;
+    --ink: #E4E9E5; --ink-2: #B3BCB6; --ink-3: #8C968F;
+    --act: #D0591A; --act-hover: #E06A2A; --act-soft: #3A2315;
+    --live: #A994F0; --live-tint: #241E38; --ok: #43B884; --err: #F07F88; --err-tint: #3B1E22; --warn: #E2B04F; --warn-tint: #312811;
+    --row-hover: #1F2522; --row-live-hover: #2B2442; --row-selected: #1E2B26;
+    --chrome-ink: #8FC3B3; --chrome-line: #35574E; --chrome-tint: #18302A; --warn-ink: #F0D28E;
+    --solid: #E4E9E5; --solid-hover: #FFFFFF; --on-solid: #141917; --toast-icon: #1F7A50;
+    --focus: #7FB3A4; --focus-ring: rgba(127, 179, 164, .22); --picked: #2F6457; --danger-hover: #C93442;
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23B3BCB6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #141917; --paper-raised: #1B211E; --paper-sunk: #101412; --rule: #2A322E; --rule-strong: #3A443F;
+  --ink: #E4E9E5; --ink-2: #B3BCB6; --ink-3: #8C968F;
+  --act: #D0591A; --act-hover: #E06A2A; --act-soft: #3A2315;
+  --live: #A994F0; --live-tint: #241E38; --ok: #43B884; --err: #F07F88; --err-tint: #3B1E22; --warn: #E2B04F; --warn-tint: #312811;
+  --row-hover: #1F2522; --row-live-hover: #2B2442; --row-selected: #1E2B26;
+  --chrome-ink: #8FC3B3; --chrome-line: #35574E; --chrome-tint: #18302A; --warn-ink: #F0D28E;
+  --solid: #E4E9E5; --solid-hover: #FFFFFF; --on-solid: #141917; --toast-icon: #1F7A50;
+  --focus: #7FB3A4; --focus-ring: rgba(127, 179, 164, .22); --picked: #2F6457; --danger-hover: #C93442;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23B3BCB6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -49,12 +84,12 @@ svg.i.s { width: 16px; height: 16px; }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn-act { background: var(--act); color: #fff; }
 .btn-act:hover:not(:disabled) { background: var(--act-hover); }
-.btn-ink { background: var(--ink); color: #fff; }
-.btn-ink:hover:not(:disabled) { background: #000; }
+.btn-ink { background: var(--solid); color: var(--on-solid); }
+.btn-ink:hover:not(:disabled) { background: var(--solid-hover); }
 .btn-line { border-color: var(--rule-strong); color: var(--ink); background: var(--paper-raised); font-weight: 500; }
 .btn-line:hover:not(:disabled) { border-color: var(--ink-2); }
-.btn-danger { background: var(--err); color: #fff; }
-.btn-danger:hover:not(:disabled) { background: #951c27; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
 .btn-ghost { color: var(--ink-2); font-weight: 500; }
 .btn-ghost:hover:not(:disabled) { background: var(--paper-sunk); color: var(--ink); }
 .icon-btn { width: 34px; height: 34px; padding: 0; border-radius: 8px; color: var(--ink-2); background: transparent; border: 0; display: inline-grid; place-items: center; cursor: pointer; }
@@ -67,12 +102,12 @@ input[type=text], input[type=search], input[type=password], input:not([type]), s
   width: 100%; height: 40px; padding: 0 12px; font-size: 14px; background-color: var(--paper-raised); border: 1px solid var(--rule-strong); border-radius: 8px; outline: none; transition: border-color .15s, box-shadow .15s; }
 textarea { height: auto; padding: 10px 12px; }
 select { appearance: none; -webkit-appearance: none; font-size: 14px; padding-right: 36px; cursor: pointer;
-  background: var(--paper-raised) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2348514C' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; }
+  background: var(--paper-raised) var(--chevron) no-repeat right 12px center; }
 select:disabled { cursor: default; }
 input::placeholder { color: var(--ink-3); }
-input:focus, select:focus, textarea:focus { border-color: var(--cover); box-shadow: 0 0 0 3px rgba(23, 51, 46, .14); }
+input:focus, select:focus, textarea:focus { border-color: var(--focus); box-shadow: 0 0 0 3px var(--focus-ring); }
 select:disabled { color: var(--ink-3); background-color: var(--paper-sunk); }
-input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--cover); cursor: pointer; }
+input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--picked); cursor: pointer; }
 .field { margin-top: 14px; }
 .field > label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
 .field .hint { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
@@ -98,7 +133,32 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .nav button .count { margin-left: auto; font-family: var(--data); font-size: 12px; opacity: .8; }
 .nav button.active .count { opacity: 1; }
 .rail .grow { flex: 1; }
+.rail { overflow-y: auto; }
+/* Hub group picker: one line in the rail, the list lives in a popover with its own search. */
+.group-pick { display: flex; flex-direction: column; }
+.group-btn { display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--cover-line); border-radius: 7px; background: var(--cover-deep); color: var(--cover-ink); cursor: pointer; font-weight: 600; text-align: left; }
+.group-btn:hover { border-color: var(--cover-muted); }
+.group-btn .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-btn .count { font-family: var(--data); font-size: 12px; font-weight: 500; opacity: .8; }
+.group-pop { inset: auto; margin: 0; padding: 8px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-raised); color: var(--ink); box-shadow: 0 24px 60px -12px rgba(16, 38, 34, .45), 0 2px 8px rgba(16, 38, 34, .12); flex-direction: column; gap: 6px; }
+.group-pop:popover-open { display: flex; }
+.group-pop .search { width: 100%; }
+.group-list { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; }
+.group-list button { flex: none; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer; text-align: left; font-weight: 500; }
+.group-list button:hover, .group-list button:focus-visible { background: var(--paper-sunk); }
+.group-list button.active { background: var(--picked); color: var(--cover-ink); font-weight: 600; }
+.group-list .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-list .tag { margin-left: 0; }
+.group-list button.active .tag { color: var(--cover-ink); border-color: var(--cover-muted); }
+.group-list .count { margin-left: auto; font-family: var(--data); font-size: 12px; opacity: .8; }
+.group-list .minor { padding: 8px 10px; font-size: 12.5px; color: var(--ink-3); }
 .rail-foot { display: flex; flex-direction: column; gap: 8px; }
+/* Settings replaces the rail's filters: General (language) and Administration (tools). */
+.settings-nav { gap: 8px; }
+.settings-nav .nav-title { padding-top: 10px; padding-bottom: 0; }
+.settings-nav #settings-back { font-weight: 700; }
+.rail.settings > #new-btn, .rail.settings > #group-pick, .rail.settings > #filters, .rail.settings #settings-btn { display: none; }
+.rail:not(.settings) > #settings-nav { display: none; }
 .rail-link { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 7px; border: 0; background: transparent; color: var(--cover-ink); text-decoration: none; cursor: pointer; font-weight: 500; }
 .rail-link:hover { background: var(--cover-deep); }
 .agent { display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 12.5px; color: var(--cover-muted); }
@@ -108,9 +168,14 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .user-row { display: grid; grid-template-columns: minmax(70px, 1fr) 110px minmax(200px, 1.6fr) 34px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
 .user-row input, .user-row select, .user-form input, .user-form select { height: 34px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--paper-raised); min-width: 0; }
 .user-form { display: grid; grid-template-columns: 1fr 1fr 110px auto; gap: 8px; margin-top: 14px; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 8px; background: var(--cover-deep); }
-.seg button { height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--cover-muted); cursor: pointer; font-size: 13px; font-weight: 500; }
-.seg button.active { background: var(--cover); color: var(--cover-ink); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+/* General settings page */
+.settings-sheet { max-width: 760px; padding: 0 22px; }
+.setting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.setting:last-child { border-bottom: 0; }
+.setting b { display: block; font-weight: 600; }
+.setting p { margin: 2px 0 0; max-width: 380px; font-size: 13px; color: var(--ink-2); }
+.setting .chips { margin-top: 0; }
+.rail-link[aria-current="page"], .rail-link[aria-current="page"]:hover { background: var(--cover-ink); color: var(--cover); font-weight: 600; }
 
 main { min-width: 0; padding: 26px 32px 40px; }
 .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -123,28 +188,32 @@ main { min-width: 0; padding: 26px 32px 40px; }
 
 /* Table */
 .sheet { container: sheet / inline-size; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 10px; }
-.bulk { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-sunk); border-radius: 10px 10px 0 0; }
+.bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-sunk); border-radius: 10px 10px 0 0; }
 .bulk .n { font-weight: 600; margin-right: 6px; }
 .bulk .btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.sync-chip { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
+.results { margin: 10px 0 0; padding: 0; list-style: none; font-size: 12.5px; max-height: 180px; overflow: auto; }
+.results li { padding: 3px 0; overflow-wrap: anywhere; }
 .row { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 16px; min-height: var(--row-h); padding: 0 14px; border-bottom: 1px solid var(--rule); }
 .row:last-child { border-bottom: 0; }
 .row.head-row { min-height: 40px; color: var(--ink-3); font-size: 12px; font-weight: 600; background: var(--paper); border-radius: 10px 10px 0 0; }
 .bulk + .row.head-row { border-radius: 0; }
-.row.body:hover { background: #F6F7F2; }
+.row.body:hover { background: var(--row-hover); }
 .row.live { background: var(--live-tint); }
-.row.live:hover { background: #E9E5F3; }
-.row.selected { background: #E4EBE2; }
+.row.live:hover { background: var(--row-live-hover); }
+.row.selected { background: var(--row-selected); }
 .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell.sub { color: var(--ink-2); }
 .stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
 .stack > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stack .minor { font-size: 11.5px; color: var(--ink-3); }
+.modal-body .minor { font-size: 12px; color: var(--ink-3); }
 .geo-inline { display: none; }
 .name { font-weight: 600; font-size: 14.5px; }
 .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; margin-left: 8px; border-radius: 5px; border: 1px solid var(--rule-strong); color: var(--ink-2); font-size: 11.5px; font-weight: 600; vertical-align: 1px; }
-.tag.chrome { border-color: #9DB7AE; color: var(--cover); background: #E6EEEA; }
+.tag.chrome { border-color: var(--chrome-line); color: var(--chrome-ink); background: var(--chrome-tint); }
 .engine { font-weight: 500; font-size: 13px; }
-.engine.chrome { color: var(--cover); font-weight: 600; }
+.engine.chrome { color: var(--chrome-ink); font-weight: 600; }
 .device { display: flex; align-items: center; gap: 8px; }
 .os { display: inline-grid; place-items: center; width: 38px; height: 22px; border-radius: 4px; border: 1px solid var(--ink-2); font-family: var(--data); font-size: 11px; font-weight: 600; color: var(--ink); flex: none; }
 .muted { color: var(--ink-3); }
@@ -178,7 +247,7 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .inline-btns .btn { height: 34px; padding: 0 12px; font-size: 13px; }
 .msg { font-size: 13px; margin-top: 10px; min-height: 0; }
 .msg.err { color: var(--err); } .msg.ok { color: var(--ok); } .msg.info { color: var(--ink-2); }
-.note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-tint); color: #5E3E00; }
+.note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-tint); color: var(--warn-ink); }
 .note svg { margin-top: 1px; color: var(--warn); }
 .note.calm { background: var(--paper-sunk); color: var(--ink-2); }
 .note.calm svg { color: var(--ink-3); }
@@ -186,7 +255,7 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .geo .line { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-top: 1px solid var(--rule); }
 .geo .line:first-child { border-top: 0; }
 .geo .line.lead { background: var(--paper); font-weight: 600; }
-.geo .line.warn { color: #6B4500; background: var(--warn-tint); }
+.geo .line.warn { color: var(--warn-ink); background: var(--warn-tint); }
 .geo .line.warn svg { color: var(--warn); }
 .geo .line.ok { color: var(--ok); }
 .geo .line.src { color: var(--ink-2); }
@@ -201,17 +270,17 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .fp-card dt { color: var(--ink-3); }
 .fp-card dd { margin: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.chips button { height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--rule-strong); background: var(--paper-raised); cursor: pointer; font-weight: 500; font-size: 13px; }
-.chips button.active { background: var(--cover); border-color: var(--cover); color: var(--cover-ink); }
+.chips button { height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--rule-strong); background: var(--paper-raised); color: var(--ink); cursor: pointer; font-weight: 500; font-size: 13px; }
+.chips button.active { background: var(--picked); border-color: var(--picked); color: var(--cover-ink); }
 .step { margin-top: 18px; font-weight: 600; }
 pre.code { margin: 8px 0 0; padding: 12px 14px; border-radius: 8px; background: var(--cover-deep); color: #DDE8E3; font: 12px/1.55 var(--data); white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
 .where-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
 code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk); padding: 1px 5px; border-radius: 4px; }
 
 /* Toast */
-.toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; display: flex; align-items: center; gap: 10px; max-width: 440px; padding: 12px 16px; border-radius: 10px; background: var(--ink); color: #F2F4F1; box-shadow: 0 12px 30px -8px rgba(0,0,0,.4); animation: rise .2s var(--ease-out); }
-.toast svg { color: #9FD8B9; }
-.toast.error { background: var(--err); }
+.toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; display: flex; align-items: center; gap: 10px; max-width: 440px; padding: 12px 16px; border-radius: 10px; background: var(--solid); color: var(--on-solid); box-shadow: 0 12px 30px -8px rgba(0,0,0,.4); animation: rise .2s var(--ease-out); }
+.toast svg { color: var(--toast-icon); }
+.toast.error { background: var(--danger); color: #fff; }
 .toast.error svg { color: #fff; }
 
 /* Login */
@@ -222,6 +291,13 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 .login form { align-self: center; justify-self: center; width: min(380px, 100% - 40px); }
 .login h1 { margin: 0 0 6px; font-size: 24px; }
 .login .btn { width: 100%; margin-top: 18px; height: 42px; }
+.login .agent-card { align-self: center; justify-self: center; width: min(400px, 100% - 40px); }
+.login .agent-card h1:focus { outline: none; }
+.agent-who { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; margin: 18px 0 0; padding: 14px 16px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-raised); }
+.agent-who dt { color: var(--ink-3); }
+.agent-who dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.login .agent-actions { display: flex; gap: 8px; margin-top: 8px; }
+.login .agent-actions .btn { margin-top: 0; flex: 1; }
 
 /* Remote viewer */
 .viewer { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; background: var(--paper-sunk); }
@@ -237,7 +313,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 .viewer-bar .btn-line { background: transparent; color: var(--cover-ink); border-color: var(--cover-line); }
 .viewer-tabs { display: flex; gap: 6px; padding: 8px 14px; overflow-x: auto; background: var(--paper); border-bottom: 1px solid var(--rule); }
 .viewer-tabs button { max-width: 220px; height: 30px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 7px; background: var(--paper-raised); color: var(--ink-2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.viewer-tabs button.active { border-color: var(--cover); color: var(--ink); font-weight: 600; }
+.viewer-tabs button.active { border-color: var(--focus); color: var(--ink); font-weight: 600; }
 .screen-wrap { flex: 1; overflow: auto; display: grid; place-items: start center; padding: 18px; }
 .screen-wrap img:not([src]) { display: none; }
 .screen-wrap img { max-width: 100%; border-radius: 8px; background: #fff; cursor: crosshair; box-shadow: 0 10px 30px -10px rgba(16,38,34,.35); }
@@ -273,10 +349,9 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   .rail .btn-act { width: auto; order: 2; margin-left: auto; height: 38px; }
   .rail .nav { order: 3; flex-direction: row; overflow-x: auto; width: 100%; min-width: 0; scrollbar-width: none; mask-image: linear-gradient(to right, #000 85%, transparent); }
   .rail .nav button { width: auto; flex: none; }
+  .rail .group-pick { order: 3; width: 100%; }
   .nav-title, .rail .grow { display: none; }
   .rail-foot { order: 4; flex-direction: row; flex-wrap: wrap; width: 100%; }
-  .seg { width: 200px; }
-  .seg button { white-space: nowrap; }
   main { padding: 18px 14px 32px; }
   .search { width: 100%; }
   .login { grid-template-columns: 1fr; }
@@ -317,6 +392,11 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
   <symbol id="i-fingerprint" viewBox="0 0 24 24"><path d="M12 10a2 2 0 0 0-2 2c0 1-.1 2.5-.3 4M14 13.1c0 2.4 0 6.4-1 8.9M17.3 21c.1-.6.4-2.3.5-3M2 12a10 10 0 0 1 18-6M21.8 16c.2-2 .1-5.4 0-6M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .3-2M8.7 22c.2-.7.4-1.3.6-2M9 6.8a6 6 0 0 1 9 5.2v2"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 4v4h-4M20 15a8 8 0 0 1-14 3l-2-2M4 20v-4h4"/></symbol>
+  <symbol id="i-steps" viewBox="0 0 24 24"><path d="M4 6h9M4 12h9M4 18h6M15 14.5v7l5.5-3.5Z"/></symbol>
   <symbol id="i-tab" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M12 13v4M10 15h4"/></symbol>
 </svg>
 
@@ -333,34 +413,64 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
     <div class="msg err" id="login-err" role="alert"></div>
     <button class="btn btn-act" type="submit" data-t="login"></button>
   </form>
+  <div id="agent-card" class="agent-card hidden" aria-live="polite"></div>
 </div>
 
 <div id="app" class="layout hidden">
-  <aside class="rail">
+  <aside class="rail" id="rail">
     <div class="brand">
       <svg aria-hidden="true"><use href="#fox"/></svg>
       <div><b>FoxProfile</b><span data-t="tagline"></span></div>
     </div>
     <button class="btn btn-act" id="new-btn"><svg class="i"><use href="#i-plus"/></svg><span data-t="new_profile"></span></button>
+    <div class="group-pick hidden" id="group-pick">
+      <div class="nav-title" data-t="group"></div>
+      <button class="group-btn" id="group-btn" popovertarget="group-pop" aria-haspopup="listbox"><svg class="i"><use href="#i-users"/></svg><span class="label" id="group-label"></span><span class="count" id="group-count"></span><svg class="i s" aria-hidden="true"><use href="#i-down"/></svg></button>
+    </div>
+    <div class="group-pop" id="group-pop" popover>
+      <label class="search"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg><input id="group-q" type="search" autocomplete="off"></label>
+      <div class="group-list" id="group-list" role="listbox"></div>
+    </div>
     <nav class="nav" id="filters" aria-label="Filters">
       <div class="nav-title" data-t="filters"></div>
+    </nav>
+    <nav class="nav settings-nav" id="settings-nav" aria-label="Settings">
+      <button class="rail-link" id="settings-back"><svg class="i"><use href="#i-back"/></svg><span data-t="settings"></span></button>
+      <button class="rail-link" id="general-btn"><svg class="i"><use href="#i-settings"/></svg><span data-t="general"></span></button>
+      <div class="nav-title" data-t="administration"></div>
+      <button class="rail-link hidden" id="users-btn"><svg class="i"><use href="#i-user"/></svg><span data-t="users"></span></button>
+      <button class="rail-link hidden" id="groups-btn"><svg class="i"><use href="#i-users"/></svg><span data-t="groups"></span></button>
+      <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
+      <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
     </nav>
     <div class="grow"></div>
     <div class="rail-foot">
       <div class="agent hidden" id="agent-status" role="status"></div>
-      <button class="rail-link hidden" id="users-btn"><svg class="i"><use href="#i-user"/></svg><span data-t="users"></span></button>
-      <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
-      <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
+      <button class="rail-link" id="settings-btn"><svg class="i"><use href="#i-settings"/></svg><span data-t="settings"></span></button>
       <button class="rail-link hidden" id="logout-btn"><svg class="i"><use href="#i-logout"/></svg><span data-t="logout"></span></button>
-      <div class="seg" role="group" aria-label="Language"><button data-lang="vi">Tiếng Việt</button><button data-lang="en">English</button></div>
     </div>
   </aside>
   <main>
+    <section class="hidden" id="general-page" aria-labelledby="general-h">
+      <div class="head"><div><h1 id="general-h" tabindex="-1" data-t="general"></h1><div class="counts" data-t="general_sub"></div></div></div>
+      <div class="sheet settings-sheet">
+        <div class="setting">
+          <div><b data-t="theme"></b><p data-t="theme_hint"></p></div>
+          <div class="chips" role="group" aria-labelledby="general-h"><button data-theme-pick="light" data-t="theme_light"></button><button data-theme-pick="dark" data-t="theme_dark"></button><button data-theme-pick="system" data-t="theme_system"></button></div>
+        </div>
+        <div class="setting">
+          <div><b data-t="language"></b><p data-t="language_hint"></p></div>
+          <div class="chips" role="group" aria-label="Language"><button data-lang="es">Español</button><button data-lang="en">English</button><button data-lang="vi">Tiếng Việt</button></div>
+        </div>
+      </div>
+    </section>
+    <div id="profiles-view">
     <div class="head">
       <div><h1 data-t="your_profiles"></h1><div class="counts" id="counts"></div></div>
       <label class="search"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg><input id="search" type="search" autocomplete="off"></label>
     </div>
     <div class="sheet" id="sheet" role="table"></div>
+    </div>
   </main>
 </div>
 
@@ -402,6 +512,13 @@ const I18N = {
     launch: "Mở", stop: "Dừng", view: "Xem màn hình", cookies: "Cookie & fingerprint", edit: "Sửa", delete: "Xoá",
     stamp_live: "Đang chạy", stamp_starting: "Đang mở", stamp_stopping: "Đang dừng", stamp_failed: "Lỗi", idle: "Đã dừng",
     direct: "Trực tiếp", follow_ip: "Theo IP", no_fp_short: "chưa có fingerprint", no_proxy_short: "không proxy", selected: "Đã chọn {n}", bulk_launch: "Mở", bulk_stop: "Dừng", bulk_delete: "Xoá", clear_sel: "Bỏ chọn",
+    run_steps: "Chạy bước", run_steps_title: "Chạy các bước", run_steps_sub: "Trên {n} profile đang chạy", run: "Chạy", running_steps: "Đang chạy...",
+    run_steps_hint: "Mỗi dòng một bước: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Dòng bắt đầu bằng // là chú thích.",
+    steps_done: "Xong: {ok} thành công, {failed} lỗi", need_running: "Hãy mở các profile đã chọn trước",
+    sync: "Đồng bộ", sync_title: "Đồng bộ cửa sổ", sync_leader: "Profile chính", sync_start: "Bắt đầu đồng bộ",
+    sync_hint: "Click, gõ phím, chọn và Enter/Tab/Escape ở profile chính được lặp lại ở tab đang mở của các profile khác khi chúng ở cùng trang web.",
+    sync_need_two: "Chọn ít nhất hai profile đang chạy", syncing: "Đang đồng bộ {leader} → {n} profile", sync_stop: "Dừng đồng bộ",
+    sync_started: "Đã bắt đầu đồng bộ từ {leader}", sync_stopped: "Đã dừng đồng bộ: {leader}",
     select_all: "Chọn tất cả", select_row: "Chọn {name}",
     confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile",
     login_side: "Server này chạy FoxProfile. Đăng nhập bằng API token để quản lý profile từ xa.",
@@ -445,11 +562,23 @@ const I18N = {
     username: "Tên đăng nhập", password: "Mật khẩu", bad_login: "Sai tên đăng nhập hoặc mật khẩu",
     login_side_hub: "Server FoxProfile của nhóm. Profile mở trên máy tính của bạn qua FoxProfile agent.",
     login_hint_hub: "Đăng nhập bằng tài khoản quản trị viên đã tạo cho bạn.",
+    agent_auth_title: "Cấp quyền đăng nhập cho agent", agent_auth_hint: "FoxProfile agent trên {pc} sẽ mở các profile của tài khoản này trên máy đó.",
+    agent_auth_this_pc: "máy tính này", agent_auth_role: "Vai trò", agent_auth_hub: "Hub",
+    agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
+    agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
+    agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
     agent_on: "Máy của bạn: đã kết nối", agent_off: "Máy của bạn: chưa chạy agent",
     users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên", add_user: "Thêm",
     new_password: "Mật khẩu mới", set_password: "Đổi", owner: "Người dùng", unassigned: "Chưa giao",
     confirm_delete_user: "Xoá người dùng “{name}”? Profile của họ vẫn còn, chỉ quản trị viên thấy cho đến khi giao lại.",
     user_saved: "Đã lưu {name}",
+    settings: "Cài đặt", general: "Chung", administration: "Quản trị",
+    general_sub: "Các cài đặt này chỉ áp dụng cho trình duyệt này.", theme: "Giao diện", theme_hint: "Hệ thống: theo cài đặt của máy tính.",
+    theme_light: "Sáng", theme_dark: "Tối", theme_system: "Hệ thống", language: "Ngôn ngữ", language_hint: "Cũng áp dụng cho thông báo lỗi từ server.",
+    groups: "Nhóm", group: "Nhóm", no_group: "Không có nhóm", all_groups: "Tất cả nhóm", search_groups: "Tìm nhóm", no_group_match: "Không có nhóm nào khớp", new_group: "Tên nhóm mới", add_group: "Tạo nhóm",
+    group_member: "Thành viên", group_lead: "Trưởng nhóm", add_member: "Thêm", pick_user: "Chọn người dùng",
+    group_profiles: "{n} profile", no_groups: "Chưa có nhóm nào.", group_hint: "Thành viên của nhóm thấy và mở được profile của nhóm trên máy của họ.",
+    confirm_delete_group: "Xoá nhóm “{name}”? Profile của nhóm vẫn còn, thuộc về người dùng của chúng.",
     mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
     mcp_key_note: "Key chỉ hiện một lần và thay thế key cũ. AI dùng key này chỉ thấy profile của bạn và mở chúng trên máy của bạn.",
   },
@@ -464,6 +593,13 @@ const I18N = {
     launch: "Launch", stop: "Stop", view: "View screen", cookies: "Cookies & fingerprint", edit: "Edit", delete: "Delete",
     stamp_live: "Running", stamp_starting: "Starting", stamp_stopping: "Stopping", stamp_failed: "Failed", idle: "Stopped",
     direct: "Direct", follow_ip: "Follows IP", no_fp_short: "no fingerprint yet", no_proxy_short: "no proxy", selected: "{n} selected", bulk_launch: "Launch", bulk_stop: "Stop", bulk_delete: "Delete", clear_sel: "Clear",
+    run_steps: "Run steps", run_steps_title: "Run steps", run_steps_sub: "On {n} running profile(s)", run: "Run", running_steps: "Running...",
+    run_steps_hint: "One step per line: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Lines starting with // are comments.",
+    steps_done: "Steps finished: {ok} OK, {failed} failed", need_running: "Launch the selected profiles first",
+    sync: "Sync", sync_title: "Sync windows", sync_leader: "Leader", sync_start: "Start sync",
+    sync_hint: "Clicks, typing, selects and Enter/Tab/Escape in the leader are repeated in the other profiles' active tab while they are on the same site.",
+    sync_need_two: "Select at least two running profiles", syncing: "Syncing {leader} → {n} profile(s)", sync_stop: "Stop sync",
+    sync_started: "Sync started from {leader}", sync_stopped: "Sync stopped: {leader}",
     select_all: "Select all", select_row: "Select {name}",
     confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}",
     login_side: "This server runs FoxProfile. Log in with the API token to manage profiles remotely.",
@@ -507,13 +643,106 @@ const I18N = {
     username: "User name", password: "Password", bad_login: "Wrong user name or password",
     login_side_hub: "Your team's FoxProfile server. Profiles open on your own computer through the FoxProfile agent.",
     login_hint_hub: "Log in with the account your admin created for you.",
+    agent_auth_title: "Authorize the agent sign-in", agent_auth_hint: "The FoxProfile agent on {pc} will open this account's profiles on that PC.",
+    agent_auth_this_pc: "this computer", agent_auth_role: "Role", agent_auth_hub: "Hub",
+    agent_authorize: "Authorize", agent_switch: "Switch account",
+    agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
+    agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
     agent_on: "Your PC: connected", agent_off: "Your PC: agent not running",
     users: "Users", role_admin: "Admin", role_operator: "Operator", add_user: "Add",
     new_password: "New password", set_password: "Set", owner: "Operator", unassigned: "Unassigned",
     confirm_delete_user: "Delete user “{name}”? Their profiles stay, visible to admins until reassigned.",
     user_saved: "Saved {name}",
+    settings: "Settings", general: "General", administration: "Administration",
+    general_sub: "These settings apply to this browser only.", theme: "Theme", theme_hint: "System follows your computer's setting.",
+    theme_light: "Light", theme_dark: "Dark", theme_system: "System", language: "Language", language_hint: "Server error messages follow it too.",
+    groups: "Groups", group: "Group", no_group: "No group", all_groups: "All groups", search_groups: "Search groups", no_group_match: "No group matches", new_group: "New group name", add_group: "Create group",
+    group_member: "Member", group_lead: "Lead", add_member: "Add", pick_user: "Pick a user",
+    group_profiles: "{n} profiles", no_groups: "No groups yet.", group_hint: "Group members see the group's profiles and open them on their own PC.",
+    confirm_delete_group: "Delete group “{name}”? Its profiles stay with their operators.",
     mcp_new_key: "Create my personal key and insert it",
     mcp_key_note: "The key is shown only now and replaces your previous one. An AI using it sees only your profiles and opens them on your PC.",
+  },
+  es: {
+    tagline: "Gestor de profiles anti-detect", new_profile: "Nuevo profile", filters: "Filtrar",
+    f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome",
+    api_docs: "Docs de la API", logout: "Cerrar sesión", your_profiles: "Profiles", search: "Buscar por nombre o proxy",
+    counts: "{n} profiles · {r} en ejecución", counts_none: "{n} profiles · ninguno en ejecución",
+    col_profile: "Profile", col_device: "Dispositivo", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Estado",
+    empty_title: "Aún no hay profiles", empty: "Cada profile es una identidad propia: su fingerprint, sus cookies y su proxy. Crea el primero para empezar.",
+    no_match_title: "No se encontró ningún profile", no_match: "Nada coincide con “{q}” en este filtro.", clear_filters: "Quitar filtros",
+    launch: "Abrir", stop: "Detener", view: "Ver pantalla", cookies: "Cookies y fingerprint", edit: "Editar", delete: "Eliminar",
+    stamp_live: "En ejecución", stamp_starting: "Iniciando", stamp_stopping: "Deteniendo", stamp_failed: "Falló", idle: "Detenido",
+    direct: "Directo", follow_ip: "Según la IP", no_fp_short: "sin fingerprint aún", no_proxy_short: "sin proxy", selected: "{n} seleccionados", bulk_launch: "Abrir", bulk_stop: "Detener", bulk_delete: "Eliminar", clear_sel: "Limpiar",
+    run_steps: "Ejecutar pasos", run_steps_title: "Ejecutar pasos", run_steps_sub: "En {n} profile(s) en ejecución", run: "Ejecutar", running_steps: "Ejecutando...",
+    run_steps_hint: "Un paso por línea: navigate <url> · click <selector> · type <selector> | <texto> · select <selector> | <valor> · press <tecla> · wait <selector> · sleep <ms>. Las líneas que empiezan con // son comentarios.",
+    steps_done: "Pasos terminados: {ok} OK, {failed} fallidos", need_running: "Primero abre los profiles seleccionados",
+    sync: "Sincronizar", sync_title: "Sincronizar ventanas", sync_leader: "Principal", sync_start: "Iniciar sincronización",
+    sync_hint: "Los clics, lo que se escribe, los select y Enter/Tab/Escape en el profile principal se repiten en la pestaña activa de los demás profiles mientras estén en el mismo sitio.",
+    sync_need_two: "Selecciona al menos dos profiles en ejecución", syncing: "Sincronizando {leader} → {n} profile(s)", sync_stop: "Detener sincronización",
+    sync_started: "Sincronización iniciada desde {leader}", sync_stopped: "Sincronización detenida: {leader}",
+    select_all: "Seleccionar todos", select_row: "Seleccionar {name}",
+    confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}",
+    login_side: "Este servidor ejecuta FoxProfile. Inicia sesión con el token de la API para gestionar los profiles a distancia.",
+    login_hint: "Introduce el token de la API del servidor (FOXPROFILE_API_TOKEN).", token: "Token de la API", login: "Iniciar sesión",
+    bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
+    name: "Nombre del profile", os: "Sistema operativo", engine: "Engine",
+    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "El engine no se puede cambiar después de crearlo.",
+    engine_note: "Engine Chromium experimental. Se descarga automáticamente en la máquina de FoxProfile la primera vez (~150 MB). Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
+    proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass o socks5://... Vacío = conexión directa.",
+    check_proxy: "Probar proxy", cancel: "Cancelar", save: "Guardar cambios", checking: "Comprobando...",
+    confirm_delete: "¿Eliminar el profile “{name}”? Sus cookies y datos se borran para siempre.", confirm_title: "Confirmar", stop_first: "Primero detén el navegador",
+    cookie_hint: "El navegador del profile debe estar detenido.", export_json: "Exportar cookies en JSON", export_json_hint: "Cookie-Editor, GoLogin, GPM",
+    export_txt: "Exportar cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Importar cookies", import_hint: "Desde un archivo JSON o cookies.txt",
+    reset_fp: "Nuevo fingerprint", reset_fp_hint: "Los sitios verán otro dispositivo en la próxima apertura", fp_title: "Fingerprint actual", no_fp: "Aún no hay fingerprint. Se crea la primera vez que se abre.",
+    fp_platform: "Plataforma", fp_screen: "Pantalla", fp_cpu: "CPU",
+    confirm_reset: "¿Crear un fingerprint nuevo para “{name}”? Los sitios verán otra máquina.", close: "Cerrar",
+    launching: "Abriendo {name}...", started: "{name} abierto", stopped: "{name} detenido", created: "{name} creado", saved: "Guardado",
+    deleted: "{name} eliminado", deleted_n: "{n} profiles eliminados", exported: "{n} cookies exportadas", imported: "{n} cookies importadas", fp_reset: "Nuevo fingerprint creado",
+    mcp_button: "Conectar IA (MCP)", mcp_title: "Conectar un agente de IA por MCP",
+    mcp_intro: "Deja que Claude, Cursor o VS Code gestionen profiles y naveguen por ti: abrir páginas, leerlas, hacer clic, escribir y tomar capturas.",
+    mcp_endpoint: "Endpoint MCP", mcp_pick: "1. Elige tu app de IA", mcp_paste: "2. Pega en: {where}",
+    mcp_copy: "Copiar", mcp_copied: "Copiado", mcp_insert_token: "Insertar el token con el que iniciaste sesión",
+    mcp_restart: "3. Reinicia la app de IA, deja FoxProfile abierto y prueba:",
+    mcp_example: "Abre el profile {name}, busca en google.com “clima en Ciudad de México” y mándame una captura.",
+    mcp_remote_note: "Claude Desktop solo inicia servidores MCP locales, así que esta configuración pasa por mcp-remote (requiere Node.js).",
+    mcp_security: "El contenido de las páginas no es de confianza: se le indica a la IA que nunca siga instrucciones encontradas en páginas web. Los profiles no se pueden eliminar por MCP.",
+    mcp_http_warn: "Estás en HTTP sin cifrar: el token puede interceptarse. Pon el servidor detrás de HTTPS.",
+    timezone: "Timezone", locale: "Locale", geo_hint: "Déjalo vacío para seguir la IP del proxy.", check_ip: "Comprobar IP", tz_hint: "America/Mexico_City", locale_hint: "es-MX",
+    geo_exit: "IP de salida {ip} · {country}", geo_tz: "Timezone: {v} ({m})", geo_locale: "Locale: {v} ({m})",
+    geo_auto: "automático", geo_pinned: "fijado", geo_random: "aleatorio en cada apertura", geo_ok: "No se encontraron discrepancias",
+    geo_failed: "No se pudo obtener la IP de salida: {e}", geo_use: "Usar {v}",
+    geo_warn_country_mismatch: "{source} ubica la IP en {got}; el navegador usa {expected}",
+    geo_warn_timezone_mismatch: "{source} indica la timezone {got}; el navegador usa {expected}",
+    geo_warn_hosting: "{source} marca esta IP como de datacenter/hosting: espera captchas y bloqueos",
+    geo_warn_ip_differs: "Proxy dual-stack: la timezone sigue a {exit_ip} pero los sitios ven {seen_ip}",
+    geo_warn_locale_country: "El locale {locale} no corresponde al país de la IP ({country})",
+    geo_warn_locale_random: "El locale automático se vuelve a sortear en cada apertura ({suggested} solo ~{share}% de las veces); fíjalo",
+    go: "Ir", new_tab: "Nueva pestaña", type: "Escribir", type_hint: "Escribe en el campo con foco (haz clic en la pantalla para enfocar uno)", working: "Procesando...",
+    back: "Atrás", reload: "Recargar",
+    retry: "Reintentar", boot_error: "No se puede conectar con el servidor",
+    username: "Usuario", password: "Contraseña", bad_login: "Usuario o contraseña incorrectos",
+    login_side_hub: "El servidor FoxProfile de tu equipo. Los profiles se abren en tu propia computadora a través del agente de FoxProfile.",
+    login_hint_hub: "Inicia sesión con la cuenta que te creó tu administrador.",
+    agent_auth_title: "Autorizar el inicio de sesión en el agente", agent_auth_hint: "El agente de FoxProfile en {pc} abrirá los profiles de esta cuenta en ese PC.",
+    agent_auth_this_pc: "esta computadora", agent_auth_role: "Rol", agent_auth_hub: "Hub",
+    agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
+    agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
+    agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
+    agent_on: "Tu PC: conectada", agent_off: "Tu PC: el agente no está en ejecución",
+    users: "Usuarios", role_admin: "Administrador", role_operator: "Operador", add_user: "Agregar",
+    new_password: "Nueva contraseña", set_password: "Cambiar", owner: "Operador", unassigned: "Sin asignar",
+    confirm_delete_user: "¿Eliminar al usuario “{name}”? Sus profiles se conservan y solo los administradores los ven hasta que se reasignen.",
+    user_saved: "{name} guardado",
+    settings: "Configuración", general: "General", administration: "Administración",
+    general_sub: "Estos ajustes solo se aplican a este navegador.", theme: "Tema", theme_hint: "Sistema sigue la configuración de tu computadora.",
+    theme_light: "Claro", theme_dark: "Oscuro", theme_system: "Sistema", language: "Idioma", language_hint: "Los mensajes de error del servidor también lo siguen.",
+    groups: "Grupos", group: "Grupo", no_group: "Sin grupo", all_groups: "Todos los grupos", search_groups: "Buscar grupos", no_group_match: "Ningún grupo coincide", new_group: "Nombre del nuevo grupo", add_group: "Crear grupo",
+    group_member: "Miembro", group_lead: "Líder", add_member: "Agregar", pick_user: "Elige un usuario",
+    group_profiles: "{n} profiles", no_groups: "Aún no hay grupos.", group_hint: "Los miembros del grupo ven sus profiles y los abren en su propia PC.",
+    confirm_delete_group: "¿Eliminar el grupo “{name}”? Sus profiles se quedan con sus operadores.",
+    mcp_new_key: "Crear mi clave personal e insertarla",
+    mcp_key_note: "La clave solo se muestra ahora y reemplaza a la anterior. Una IA que la use solo ve tus profiles y los abre en tu PC.",
   },
 };
 
@@ -521,16 +750,18 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
 };
-let lang = store.get("foxprofile.lang") || "en";
+let lang = store.get("foxprofile.lang") || "es";
 let token = store.get("foxprofile.token") || "";
 let profiles = [], running = new Set(), fingerprints = {};
 let hub = false, me = null;      // hub mode: browsers open on each operator's PC
 let filter = "all";
+let scope = store.get("foxprofile.group");  // hub: null = all groups, "" = no group, else a group name
 const busy = new Map();          // name -> "starting" | "stopping"
 const failed = new Map();        // name -> error message of the last failed launch
 const liveSince = new Map();     // name -> Date the profile was first seen running
 const justLanded = new Set();    // stamps to animate on the next render
 const selected = new Set();
+let syncs = [];                  // running window-sync sessions
 const $ = (id) => document.getElementById(id);
 
 function t(key, vars = {}) {
@@ -543,6 +774,8 @@ function applyI18n() {
   document.querySelectorAll("[data-title]").forEach((el) => { el.title = t(el.dataset.title); el.setAttribute("aria-label", t(el.dataset.title)); });
   $("search").placeholder = t("search");
   $("search").setAttribute("aria-label", t("search"));
+  $("group-q").placeholder = t("search_groups");
+  $("group-q").setAttribute("aria-label", t("search_groups"));
   $("sheet").setAttribute("aria-label", t("your_profiles"));
   $("v-text").placeholder = t("type_hint");
   document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
@@ -578,7 +811,7 @@ function toast(msg, isError = false) {
 
 class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 async function api(method, path, body, { raw = false } = {}) {
-  const headers = {};
+  const headers = { "Accept-Language": lang };  // server error messages follow the panel's language
   if (token) headers.Authorization = "Bearer " + token;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch("/api/v1" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -610,8 +843,10 @@ const hhmm = (d) => d.toTimeString().slice(0, 5);
 
 async function refresh() {
   try {
-    const [list, run, who] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"), hub ? api("GET", "/hub/me") : null]);
+    const [list, run, who, sync] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
+      hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync")]);
     profiles = list.profiles;
+    syncs = sync.sessions;
     if (hub) renderMe(who);
     const now = new Set(run.running);
     for (const name of now) if (!liveSince.has(name)) liveSince.set(name, new Date());
@@ -634,10 +869,15 @@ const FILTERS = [
   ["direct", "f_direct", (p) => !p.proxy],
   ["chrome", "f_chrome", (p) => p.engine === "chrome"],
 ];
+// Hub groups the user can see; the picked one scopes the list and the filter counts.
+function groupNames() {
+  return hub && me ? [...new Set([...Object.keys(me.my_groups), ...Object.values(me.groups)])].sort() : [];
+}
+const inGroup = (p, g) => g === null || !me || (me.groups[p.name] || "") === g;
 function visible() {
   const q = $("search").value.trim().toLowerCase();
   const pass = FILTERS.find((f) => f[0] === filter)[2];
-  return profiles.filter((p) => pass(p) && (!q || p.name.toLowerCase().includes(q) || (p.proxy || "").toLowerCase().includes(q)));
+  return profiles.filter((p) => inGroup(p, scope) && pass(p) && (!q || p.name.toLowerCase().includes(q) || (p.proxy || "").toLowerCase().includes(q)));
 }
 
 let lastRender = "";
@@ -646,8 +886,8 @@ function render() {
   const shown = visible();
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
-  const key = JSON.stringify([lang, q, filter, profiles, me, [...running].sort(), [...busy], [...failed], [...selected].sort(),
-    [...justLanded], shown.map((p) => fingerprints[p.name] || null)]);
+  const key = JSON.stringify([lang, q, filter, scope, profiles, me, [...running].sort(), [...busy], [...failed], [...selected].sort(),
+    [...justLanded], syncs, shown.map((p) => fingerprints[p.name] || null)]);
   if (key === lastRender) return;
   lastRender = key;
 
@@ -656,11 +896,12 @@ function render() {
     $("counts").replaceChildren(before, h("b", {}, String(running.size)), after);
   } else $("counts").replaceChildren(t("counts_none", { n: profiles.length }));
   renderFilters();
+  renderGroupPick();
 
   const sheet = $("sheet");
   sheet.replaceChildren();
   if (!profiles.length) return sheet.append(emptyState(false));
-  if (selected.size) sheet.append(bulkBar());
+  if (selected.size || syncs.length) sheet.append(bulkBar());
   sheet.append(headRow(shown));
   if (!shown.length) sheet.append(emptyState(true, q));
   for (const p of shown) sheet.append(row(p));
@@ -671,7 +912,33 @@ function renderFilters() {
   const nav = $("filters");
   nav.replaceChildren(h("div", { class: "nav-title" }, t("filters")),
     ...FILTERS.map(([id, label, pass]) => h("button", { class: filter === id ? "active" : "", "aria-pressed": String(filter === id),
-      onclick: () => { filter = id; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter(pass).length)))));
+      onclick: () => { filter = id; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, scope) && pass(p)).length)))));
+}
+
+function setScope(g) {
+  scope = g;
+  store.set("foxprofile.group", g);
+}
+function renderGroupPick() {
+  const names = groupNames();
+  if (scope && !names.includes(scope)) setScope(null);  // group deleted or user removed from it
+  $("group-pick").classList.toggle("hidden", !names.length);
+  $("group-label").textContent = scope === null ? t("all_groups") : scope || t("no_group");
+  $("group-count").textContent = String(profiles.filter((p) => inGroup(p, scope)).length);
+}
+// The list is drawn when the popover opens and on each keystroke, not by render(),
+// so a periodic refresh never wipes what the user is typing.
+function drawGroups() {
+  const q = $("group-q").value.trim().toLowerCase();
+  const opts = [[null, t("all_groups")], ["", t("no_group")], ...groupNames().map((g) => [g, g])]
+    .filter(([, label]) => !q || label.toLowerCase().includes(q));
+  const lead = (g) => g && me.role !== "admin" && me.my_groups[g] === "lead";
+  $("group-list").replaceChildren(...opts.map(([g, label]) => h("button", { type: "button", role: "option",
+    class: g === scope ? "active" : "", "aria-selected": String(g === scope),
+    onclick: () => { setScope(g); $("group-pop").hidePopover(); render(); } },
+    h("span", { class: "name" }, label), lead(g) ? h("span", { class: "tag" }, t("group_lead")) : null,
+    h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, g)).length)))));
+  if (!opts.length) $("group-list").append(h("div", { class: "minor" }, t("no_group_match")));
 }
 
 function emptyState(filtered, q = "") {
@@ -679,7 +946,7 @@ function emptyState(filtered, q = "") {
     h("h2", {}, filtered ? t("no_match_title") : t("empty_title")),
     h("p", {}, filtered ? t("no_match", { q }) : t("empty")),
     filtered
-      ? h("button", { class: "btn btn-line", onclick: () => { filter = "all"; $("search").value = ""; render(); } }, t("clear_filters"))
+      ? h("button", { class: "btn btn-line", onclick: () => { filter = "all"; setScope(null); $("search").value = ""; render(); } }, t("clear_filters"))
       : h("button", { class: "btn btn-act", onclick: () => openEditor(null) }, icon("plus"), t("new_profile")));
 }
 
@@ -750,12 +1017,83 @@ function row(p) {
 
 function bulkBar() {
   const names = [...selected];
+  // A running sync stays visible (and stoppable) with nothing selected.
+  const chips = syncs.map((s) => h("span", { class: "sync-chip", title: Object.entries(s.errors).map(([n, e]) => `${n}: ${e}`).join("\n") },
+    icon("sync", true), t("syncing", { leader: s.leader, n: s.followers.length }),
+    Object.keys(s.errors).length ? icon("alert", true) : null,
+    h("button", { class: "btn btn-line", onclick: () => stopSync(s.leader) }, icon("stop", true), t("sync_stop"))));
+  if (!names.length) return h("div", { class: "bulk" }, chips);
   return h("div", { class: "bulk" },
     h("span", { class: "n" }, t("selected", { n: names.length })),
     h("button", { class: "btn btn-act", onclick: () => bulk("launch") }, icon("play", true), t("bulk_launch")),
     h("button", { class: "btn btn-line", onclick: () => bulk("stop") }, icon("stop", true), t("bulk_stop")),
+    h("button", { class: "btn btn-line", onclick: openRunSteps }, icon("steps", true), t("run_steps")),
+    h("button", { class: "btn btn-line", onclick: openSync }, icon("sync", true), t("sync")),
     h("button", { class: "btn btn-line", onclick: () => bulk("delete") }, icon("trash", true), t("bulk_delete")),
+    chips,
     h("button", { class: "btn btn-ghost", style: "margin-left:auto", onclick: () => { selected.clear(); render(); } }, t("clear_sel")));
+}
+
+const selectedRunning = () => [...selected].filter((n) => running.has(n));
+
+function openRunSteps() {
+  const names = selectedRunning();
+  if (!names.length) return toast(t("need_running"), true);
+  modal((close) => {
+    const script = h("textarea", { id: "f-steps", class: "data", rows: 10, spellcheck: false });
+    script.value = store.get("foxprofile.steps") || "navigate https://example.com\n";
+    const msg = h("div", { class: "msg", role: "status" });
+    const results = h("ul", { class: "results data" });
+    return h("form", { onsubmit: async (e) => {
+      e.preventDefault();
+      const runBtn = e.currentTarget.querySelector(".modal-foot .btn-act");
+      runBtn.disabled = true; msg.className = "msg info"; msg.textContent = t("running_steps"); results.replaceChildren();
+      store.set("foxprofile.steps", script.value);
+      try {
+        const r = (await api("POST", "/automation/run", { profiles: names, script: script.value })).results;
+        const bad = Object.entries(r).filter(([, v]) => !v.ok);
+        msg.className = "msg " + (bad.length ? "err" : "ok");
+        msg.textContent = t("steps_done", { ok: names.length - bad.length, failed: bad.length });
+        results.replaceChildren(...bad.map(([n, v]) => h("li", {}, `${n}: ${v.error}`)));
+      } catch (ex) { msg.className = "msg err"; msg.textContent = ex.message; }
+      runBtn.disabled = false;
+    } },
+      modalHead(t("run_steps_title"), t("run_steps_sub", { n: names.length }), close),
+      h("div", { class: "modal-body" }, field(t("run_steps"), script, t("run_steps_hint")), msg, results),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
+        h("button", { class: "btn btn-act" }, icon("play", true), t("run"))));
+  }, { wide: true });
+}
+
+function openSync() {
+  const names = selectedRunning();
+  if (names.length < 2) return toast(t("sync_need_two"), true);
+  modal((close) => {
+    const leader = h("select", { id: "f-leader" }, names.map((n) => h("option", { value: n }, n)));
+    const msg = h("div", { class: "msg", role: "status" });
+    return h("form", { onsubmit: async (e) => {
+      e.preventDefault();
+      try {
+        await api("POST", "/automation/sync", { leader: leader.value, followers: names });
+        toast(t("sync_started", { leader: leader.value }));
+        close(); refresh();
+      } catch (ex) { msg.className = "msg err"; msg.textContent = ex.message; }
+    } },
+      modalHead(t("sync_title"), null, close),
+      h("div", { class: "modal-body" },
+        h("p", { style: "margin:4px 0 12px;color:var(--ink-2)" }, t("sync_hint")),
+        field(t("sync_leader"), leader), msg),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
+        h("button", { class: "btn btn-act" }, icon("sync", true), t("sync_start"))));
+  });
+}
+
+async function stopSync(leader) {
+  try { await api("DELETE", `/automation/sync/${enc(leader)}`); toast(t("sync_stopped", { leader })); }
+  catch (e) { toast(e.message, true); }
+  refresh();
 }
 
 async function bulk(action) {
@@ -863,6 +1201,14 @@ function openEditor(p) {
       api("GET", "/hub/users").then((users) => users.forEach((u) =>
         owner.append(h("option", { value: u.name, selected: u.name === current }, u.name))));
     }
+    // Admins and leads move profiles between the groups they lead; a group they
+    // only belong to stays as it is.
+    const led = hub ? Object.keys(me.my_groups).filter((g) => me.my_groups[g] === "lead") : [];
+    const currentGroup = p && hub ? me.groups[p.name] || "" : "";
+    const group = led.length && (!currentGroup || led.includes(currentGroup))
+      ? h("select", { id: "f-group" }, h("option", { value: "" }, t("no_group")),
+        led.map((g) => h("option", { value: g, selected: g === currentGroup }, g)))
+      : null;
     const say = (cls, text) => { msg.className = "msg " + cls; msg.textContent = text; };
     const checkIp = h("button", { type: "button", class: "btn btn-line", onclick: async () => {
       checkIp.disabled = true; geo.replaceChildren(h("div", { class: "msg info" }, t("checking")));
@@ -893,6 +1239,7 @@ function openEditor(p) {
         if (p) { await api("PATCH", `/profiles/${enc(p.name)}`, body); delete fingerprints[p.name]; toast(t("saved")); }
         else { await api("POST", "/profiles", body); toast(t("created", { name: body.name })); }
         if (owner) await api("PUT", `/hub/owners/${enc(body.name)}`, { user: owner.value || null });
+        if (group && group.value !== currentGroup) await api("PUT", `/hub/profile-group/${enc(body.name)}`, { group: group.value || null });
         close(); refresh();
       } catch (ex) { say("err", ex.message); }
       finally { if (submitBtn) submitBtn.disabled = false; }
@@ -900,7 +1247,7 @@ function openEditor(p) {
       modalHead(p ? t("edit_title") : t("create"), p ? t("edit_sub", { name: p.name }) : t("create_sub"), close),
       h("div", { class: "modal-body" },
         field(t("name"), name),
-        owner ? field(t("owner"), owner) : null,
+        owner || group ? h("div", { class: "field-row" }, owner ? field(t("owner"), owner) : null, group ? field(t("group"), group) : null) : null,
         h("div", { class: "field-row" }, field(t("engine"), engine, p ? t("engine_locked") : null), field(t("os"), os)),
         engineNote,
         field(t("proxy_label"), proxy, t("proxy_hint")),
@@ -1022,6 +1369,30 @@ function renderMe(who) {
   el.classList.toggle("on", me.agent_online);
   el.textContent = `${me.name} · ${t(me.agent_online ? "agent_on" : "agent_off")}`;
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
+  $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
+}
+function showSettings(on) {
+  $("rail").classList.toggle("settings", on);
+  if (on) $("settings-back").focus();
+  else showGeneral(false);
+}
+// The General page replaces the profile list while Settings is open.
+function showGeneral(on) {
+  $("profiles-view").classList.toggle("hidden", on);
+  $("general-page").classList.toggle("hidden", !on);
+  $("general-btn").setAttribute("aria-current", on ? "page" : "false");
+  if (on) $("general-h").focus();
+}
+
+// Theme: "light", "dark" or "system" (no data-theme: the CSS follows the OS).
+let theme = store.get("foxprofile.theme") || "system";
+function applyTheme() {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  document.querySelectorAll("[data-theme-pick]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.themePick === theme);
+    b.setAttribute("aria-pressed", String(b.dataset.themePick === theme));
+  });
 }
 
 function openUsers() {
@@ -1065,6 +1436,63 @@ function openUsers() {
             toast(t("user_saved", { name: name.value.trim() })); name.value = ""; pass.value = ""; msg.textContent = ""; load();
           } catch (ex) { fail(ex); }
         } }, name, pass, role, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_user"))),
+        msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
+function openGroups() {
+  modal((close) => {
+    const list = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
+    const admin = me.role === "admin";
+    const call = (method, path, body) => api(method, path, body)
+      .then(() => { msg.textContent = ""; load(); refresh(); return true; }, (e) => { fail(e); return false; });
+    const load = async () => {
+      let groups, users = [];
+      try {
+        groups = await api("GET", "/hub/groups");
+        if (groups.some((g) => g.my_role === "lead")) users = await api("GET", "/hub/users");
+      } catch (e) { return fail(e); }
+      if (!groups.length) return list.replaceChildren(h("p", { class: "minor" }, t("no_groups")));
+      list.replaceChildren(...groups.map((g) => {
+        const lead = g.my_role === "lead";
+        const base = `/hub/groups/${enc(g.name)}`;
+        const members = Object.entries(g.members).map(([u, r]) => {
+          // Only admins promote, demote or remove leads.
+          const role = admin
+            ? h("select", { "aria-label": `Role: ${u}`, onchange: (e) => call("PUT", `${base}/members/${enc(u)}`, { role: e.target.value }) },
+              ["member", "lead"].map((v) => h("option", { value: v, selected: v === r }, t("group_" + v))))
+            : h("span", {}, t("group_" + r));
+          return h("div", { class: "user-row" }, h("span", {}, u), role, h("span"),
+            lead ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u}`,
+              disabled: !admin && r === "lead", onclick: () => call("DELETE", `${base}/members/${enc(u)}`) }, icon("x")) : h("span"));
+        });
+        const pick = h("select", { "aria-label": t("pick_user") }, h("option", { value: "" }, t("pick_user")),
+          users.filter((u) => !(u.name in g.members)).map((u) => h("option", { value: u.name }, u.name)));
+        return h("section", { style: "margin-bottom:18px" },
+          h("div", { style: "display:flex;align-items:center;gap:10px" },
+            h("h3", { style: "margin:0" }, g.name), h("span", { class: "minor" }, t("group_profiles", { n: g.profiles })),
+            h("span", { style: "flex:1" }),
+            admin ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${g.name}`,
+              onclick: async () => {
+                if (await confirmDialog(t("confirm_delete_group", { name: g.name }), t("delete"), true)) call("DELETE", base);
+              } }, icon("trash")) : null),
+          ...members,
+          lead ? h("form", { style: "display:flex;gap:8px;margin-top:8px", onsubmit: (e) => {
+            e.preventDefault(); if (pick.value) call("PUT", `${base}/members/${enc(pick.value)}`, { role: "member" });
+          } }, pick, h("button", { class: "btn btn-line" }, icon("plus", true), t("add_member"))) : null);
+      }));
+    };
+    const name = h("input", { id: "g-name", placeholder: t("new_group"), autocomplete: "off", required: true });
+    load();
+    return h("div", {},
+      modalHead(t("groups"), t("group_hint"), close),
+      h("div", { class: "modal-body" }, list,
+        admin ? h("form", { style: "display:flex;gap:8px;margin-top:14px", onsubmit: (e) => {
+          e.preventDefault(); call("POST", "/hub/groups", { name: name.value.trim() }).then((ok) => { if (ok) name.value = ""; });
+        } }, name, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_group"))) : null,
         msg),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
@@ -1205,8 +1633,73 @@ document.querySelectorAll("[data-key]").forEach((b) => { b.onclick = () => act("
 let listTimer = null;
 function showLogin() {
   clearInterval(listTimer); listTimer = null;
+  showSettings(false);
   $("app").classList.add("hidden"); $("viewer").classList.add("hidden"); $("login").classList.remove("hidden");
+  $("agent-card").classList.add("hidden"); $("login-form").classList.remove("hidden");
   (hub ? $("username") : $("token")).focus();
+}
+
+// --- Agent sign-in (src/hub/agent_auth.py) ---------------------------------------
+// The PC agent opens #agent=<port>&state=<state>&pc=<host>. Authorize creates an
+// agent key and POSTs it as a form to the agent's loopback server, so the key never
+// sits in a URL or in history. Pending in sessionStorage so it survives the login.
+let agentAuth = (() => { try { return JSON.parse(sessionStorage.getItem("foxprofile.agent")); } catch { return null; } })();
+function saveAgentAuth(v) {
+  agentAuth = v;
+  try { v ? sessionStorage.setItem("foxprofile.agent", JSON.stringify(v)) : sessionStorage.removeItem("foxprofile.agent"); } catch {}
+}
+function takeAgentHash() {
+  if (!location.hash.startsWith("#agent")) return null;
+  const done = location.hash === "#agent-done", p = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, "", location.pathname + location.search);
+  if (done) return "done";
+  const port = p.get("agent") || "", state = p.get("state") || "";
+  if (!/^\d{1,5}$/.test(port) || !/^[\w-]{20,}$/.test(state)) return null;
+  saveAgentAuth({ port, state, pc: (p.get("pc") || "").slice(0, 64) });
+  return "pending";
+}
+// The agent reusing an open panel tab only changes the hash: boot again for it.
+addEventListener("hashchange", () => { if (location.hash.startsWith("#agent=")) location.reload(); });
+function showAgentCard(...children) {
+  clearInterval(listTimer); listTimer = null;
+  showSettings(false);
+  $("app").classList.add("hidden"); $("viewer").classList.add("hidden"); $("login").classList.remove("hidden");
+  $("login-form").classList.add("hidden");
+  const card = $("agent-card");
+  card.replaceChildren(...children); card.classList.remove("hidden");
+  card.querySelector("h1").focus();
+}
+function showAgentEnd(title, text) {
+  saveAgentAuth(null);
+  showAgentCard(h("h1", { tabindex: "-1" }, title), h("p", { class: "muted" }, text),
+    h("button", { class: "btn btn-line", type: "button", onclick: () => (token ? showApp(true) : showLogin()) }, t("agent_to_panel")));
+}
+async function showAgentAuth() {
+  const who = await api("GET", "/hub/me");  // a 401 shows the login, keeping agentAuth
+  const groups = Object.keys(who.my_groups || {});
+  const row = (k, v) => [h("dt", {}, t(k)), h("dd", {}, v)];
+  const err = h("div", { class: "msg err", role: "alert" });
+  const authorize = h("button", { class: "btn btn-act", type: "button", onclick: async () => {
+    authorize.disabled = true; err.textContent = "";
+    try {
+      const { key } = await api("POST", "/hub/me/agent-key");
+      const { port, state } = agentAuth;
+      saveAgentAuth({ ...agentAuth, user: who.name });  // for the #agent-done page
+      const form = h("form", { method: "post", action: `http://127.0.0.1:${port}/callback`, class: "hidden" },
+        h("input", { type: "hidden", name: "state", value: state }), h("input", { type: "hidden", name: "key", value: key }));
+      document.body.append(form);
+      form.submit();
+    } catch (e) { err.textContent = e.message; authorize.disabled = false; }
+  } }, t("agent_authorize"));
+  showAgentCard(
+    h("h1", { tabindex: "-1" }, t("agent_auth_title")),
+    h("p", { class: "muted" }, t("agent_auth_hint", { pc: agentAuth.pc || t("agent_auth_this_pc") })),
+    h("dl", { class: "agent-who" }, row("username", who.name), row("agent_auth_role", t("role_" + who.role)),
+      groups.length ? row("groups", groups.join(", ")) : null, row("agent_auth_hub", location.host)),
+    err, authorize,
+    h("div", { class: "agent-actions" },
+      h("button", { class: "btn btn-line", type: "button", onclick: () => { token = ""; store.set("foxprofile.token", null); showLogin(); } }, t("agent_switch")),
+      h("button", { class: "btn btn-ghost", type: "button", onclick: () => showAgentEnd(t("agent_cancelled_title"), t("agent_cancelled")) }, t("cancel"))));
 }
 async function showApp(authRequired) {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
@@ -1218,11 +1711,12 @@ $("login-form").onsubmit = async (e) => {
   e.preventDefault();
   if (hub) {
     try {
-      const res = await fetch("/api/v1/hub/login", { method: "POST", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/v1/hub/login", { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang },
         body: JSON.stringify({ username: $("username").value.trim(), password: $("token").value }) });
       if (!res.ok) throw new ApiError(res.status, t("bad_login"));
       token = (await res.json()).token;
-      store.set("foxprofile.token", token); $("token").value = ""; $("login-err").textContent = ""; showApp(true);
+      store.set("foxprofile.token", token); $("token").value = ""; $("login-err").textContent = "";
+      agentAuth ? showAgentAuth() : showApp(true);
     } catch (err) { $("login-err").textContent = err.message; }
     return;
   }
@@ -1234,6 +1728,37 @@ $("logout-btn").onclick = () => { token = ""; store.set("foxprofile.token", null
 $("new-btn").onclick = () => openEditor(null);
 $("mcp-btn").onclick = openMcpGuide;
 $("users-btn").onclick = openUsers;
+$("groups-btn").onclick = openGroups;
+$("settings-btn").onclick = () => showSettings(true);
+$("general-btn").onclick = () => showGeneral(true);
+document.querySelectorAll("[data-theme-pick]").forEach((b) => {
+  b.onclick = () => { theme = b.dataset.themePick; store.set("foxprofile.theme", theme === "system" ? null : theme); applyTheme(); };
+});
+applyTheme();
+$("settings-back").onclick = () => { showSettings(false); $("settings-btn").focus(); };
+$("group-pop").addEventListener("toggle", (e) => {
+  if (e.newState !== "open") return;
+  const r = $("group-btn").getBoundingClientRect(), pop = $("group-pop");
+  pop.style.left = `${r.left}px`;
+  pop.style.top = `${r.bottom + 6}px`;
+  pop.style.width = `${Math.min(Math.max(r.width, 280), innerWidth - r.left - 16)}px`;
+  pop.style.maxHeight = `${Math.max(200, innerHeight - r.bottom - 22)}px`;
+  $("group-q").value = "";
+  drawGroups();
+  $("group-q").focus();
+});
+$("group-q").oninput = drawGroups;
+$("group-q").onkeydown = (e) => {
+  const first = $("group-list").querySelector("button");
+  if (e.key === "Enter" && first) { e.preventDefault(); first.click(); }
+  if (e.key === "ArrowDown" && first) { e.preventDefault(); first.focus(); }
+};
+$("group-list").onkeydown = (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  e.preventDefault();
+  const next = e.key === "ArrowDown" ? document.activeElement.nextElementSibling : document.activeElement.previousElementSibling;
+  (next || (e.key === "ArrowUp" ? $("group-q") : null))?.focus();
+};
 $("search").oninput = render;
 document.querySelectorAll("[data-lang]").forEach((b) => { b.onclick = () => { lang = b.dataset.lang; store.set("foxprofile.lang", lang); applyI18n(); lastRender = ""; render(); }; });
 document.addEventListener("keydown", (e) => {
@@ -1259,6 +1784,8 @@ document.addEventListener("keydown", (e) => {
         document.querySelector(sel).dataset.t = key;
       applyI18n();
     }
+    if (hub && takeAgentHash() === "done") return showAgentEnd(t("agent_done_title"), t("agent_done", { user: (agentAuth && agentAuth.user) || "" }));
+    if (hub && agentAuth) return token ? showAgentAuth().catch(showLogin) : showLogin();
     if (info.auth_required && !token) return showLogin();
     try { await showApp(info.auth_required); } catch { showLogin(); }
   } catch (e) {

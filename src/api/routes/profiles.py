@@ -9,6 +9,7 @@ from fastapi.responses import PlainTextResponse
 
 from ...core.config import DATA_DIR
 from ...core.logging import get_logger
+from ...core.strings import get_string
 from ...models.profile import ENGINES
 from ...services.browser import chrome_prefetch, cookies, fingerprint
 from ...services.browser.launcher import BrowserControlError, ProfileBusyError
@@ -54,7 +55,7 @@ def _require_os(os_type: str) -> None:
     if os_type not in _OS_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"os_type must be one of: {', '.join(_OS_TYPES)}",
+            detail=get_string("err_os_type", values=", ".join(_OS_TYPES)),
         )
 
 
@@ -63,16 +64,18 @@ def _require_engine(engine: str, here: bool = True) -> None:
     if engine not in ENGINES:
         raise HTTPException(
             status_code=400,
-            detail=f"engine must be one of: {', '.join(ENGINES)}",
+            detail=get_string("err_engine", values=", ".join(ENGINES)),
         )
     if here and engine == "chrome" and (reason := chrome_prefetch.unsupported_reason()):
-        raise HTTPException(status_code=400, detail=f"Chrome engine unavailable here: {reason}")
+        raise HTTPException(
+            status_code=400, detail=get_string("err_chrome_unavailable", reason=reason)
+        )
 
 
 def _not_hub(request: Request) -> None:
     """Routes that need a browser or a file path on the server itself."""
     if hub_store(request) is not None:
-        raise HTTPException(status_code=501, detail="Not available in hub mode")
+        raise HTTPException(status_code=501, detail=get_string("err_hub_only"))
 
 
 def _require_geo(timezone: str | None, locale: str | None) -> None:
@@ -126,7 +129,7 @@ def create_profile(
         body.locale or None,
         body.engine,
     ):
-        raise HTTPException(status_code=409, detail="Profile already exists")
+        raise HTTPException(status_code=409, detail=get_string("err_profile_exists"))
 
     if hub is not None and request.state.user["name"] in hub.users:
         hub.set_owner(body.name, request.state.user["name"])
@@ -180,13 +183,13 @@ def update_profile(
         if new_name != name and bl.is_running(name):
             raise HTTPException(
                 status_code=409,
-                detail="Stop the browser before renaming",
+                detail=get_string("stop_before_rename"),
             )
 
     if supplied.get("engine") not in (None, profile.engine):
         raise HTTPException(
             status_code=400,
-            detail="A profile's engine cannot be changed; create a new profile instead",
+            detail=get_string("err_engine_locked"),
         )
     if "os_type" in supplied:
         _require_os(new_os)
@@ -200,7 +203,7 @@ def update_profile(
     if not pm.update_profile(
         name, new_name, new_proxy or "", new_os, new_timezone or None, new_locale or None
     ):
-        raise HTTPException(status_code=409, detail="Update failed (name conflict?)")
+        raise HTTPException(status_code=409, detail=get_string("err_update_failed"))
     if (store := hub_store(request)) is not None and new_name != name:
         store.rename_profile(name, new_name)
 
@@ -225,11 +228,11 @@ def delete_profile(
     if bl.is_running(name):
         raise HTTPException(
             status_code=409,
-            detail="Stop the browser before deleting",
+            detail=get_string("err_stop_delete"),
         )
     pm.delete_profile(name)
     if (store := hub_store(request)) is not None:
-        store.set_owner(name, None)
+        store.forget_profile(name)
     logger.info("API deleted profile: %s", name)
     bus.emit()
     return SuccessResponse(message=f"Profile '{name}' deleted")
@@ -266,7 +269,7 @@ def export_profile(
 ) -> ExportResponse:
     require_profile(name, pm)
     if not pathlib.Path(body.export_dir).is_dir():
-        raise HTTPException(status_code=400, detail="export_dir is not a directory")
+        raise HTTPException(status_code=400, detail=get_string("err_export_dir"))
 
     success, result = pm.export_profile(name, body.export_dir, body.include_data)
     if success:
@@ -287,7 +290,7 @@ def import_profile(
     bus: EventBus = Depends(get_event_bus),
 ) -> ImportResponse:
     if not pathlib.Path(body.zip_path).is_file():
-        raise HTTPException(status_code=400, detail="zip_path is not a file")
+        raise HTTPException(status_code=400, detail=get_string("err_zip_path"))
 
     success, result = pm.import_profile(body.zip_path, body.overwrite)
     if success:
@@ -297,12 +300,9 @@ def import_profile(
     return ImportResponse(success=False, error=result)
 
 
-def _require_stopped(name: str, bl: IBrowserLauncher, action: str) -> None:
+def _require_stopped(name: str, bl: IBrowserLauncher, key: str) -> None:
     if bl.is_running(name):
-        raise HTTPException(status_code=409, detail=f"Stop the browser before {action}")
-
-
-_BUSY_DETAIL = "Profile is running or busy with another operation"
+        raise HTTPException(status_code=409, detail=get_string(key))
 
 
 def _cookies_on_agent(request: Request, bl, profile, action: str, params: dict) -> dict:
@@ -312,9 +312,7 @@ def _cookies_on_agent(request: Request, bl, profile, action: str, params: dict) 
     try:
         return bl.cookies(request.state.user["name"], profile, action, params)
     except AgentOfflineError as e:
-        raise HTTPException(
-            status_code=409, detail="Your PC is not connected: start the FoxProfile agent on it"
-        ) from e
+        raise HTTPException(status_code=409, detail=get_string("err_agent_offline")) from e
 
 
 @router.get(
@@ -336,7 +334,7 @@ def export_cookies(
 ) -> PlainTextResponse:
     """Export cookies as Cookie-Editor JSON or Netscape cookies.txt."""
     profile = require_profile(name, pm)
-    _require_stopped(name, bl, "exporting cookies")
+    _require_stopped(name, bl, "err_stop_export_cookies")
     try:
         if hub_store(request) is not None:
             r = _cookies_on_agent(request, bl, profile, "export", {"format": format})
@@ -345,7 +343,7 @@ def export_cookies(
             with bl.exclusive(name):
                 text, count = cookies.export_cookies(name, profile.os_type, format, profile.engine)
     except ProfileBusyError as e:
-        raise HTTPException(status_code=409, detail=_BUSY_DETAIL) from e
+        raise HTTPException(status_code=409, detail=get_string("err_busy_other")) from e
     except (cookies.CookieError, BrowserControlError) as e:
         status = getattr(e, "status", 400)
         raise HTTPException(status_code=status, detail=str(e)) from e
@@ -367,7 +365,7 @@ def import_cookies(
 ) -> CookieImportResponse:
     """Import cookies from JSON or Netscape text into a stopped profile."""
     profile = require_profile(name, pm)
-    _require_stopped(name, bl, "importing cookies")
+    _require_stopped(name, bl, "err_stop_import_cookies")
     try:
         if hub_store(request) is not None:
             params = {"content": body.content}
@@ -376,7 +374,7 @@ def import_cookies(
             with bl.exclusive(name):
                 count = cookies.import_cookies(name, profile.os_type, body.content, profile.engine)
     except ProfileBusyError as e:
-        raise HTTPException(status_code=409, detail=_BUSY_DETAIL) from e
+        raise HTTPException(status_code=409, detail=get_string("err_busy_other")) from e
     except cookies.CookieError as e:
         return CookieImportResponse(success=False, error=str(e))
     except BrowserControlError as e:
@@ -416,7 +414,7 @@ def reset_fingerprint(
 ) -> SuccessResponse:
     """Discard the saved fingerprint; the next launch generates a new device."""
     require_profile(name, pm)
-    _require_stopped(name, bl, "resetting the fingerprint")
+    _require_stopped(name, bl, "err_stop_reset_fp")
     removed = fingerprint.reset(os.path.join(DATA_DIR, name))
     logger.info("API reset fingerprint for %s (existed=%s)", name, removed)
     return SuccessResponse(message=f"Fingerprint reset for '{name}'")

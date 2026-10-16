@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from ...core.config import LAUNCH_WAIT_TIMEOUT
 from ...core.logging import get_logger
+from ...core.strings import get_string
 from ...services.browser.launcher import ProfileBusyError
 from ..auth import can_see, hub_store
 from ..dependencies import get_browser_launcher, get_event_bus, get_profile_manager
@@ -80,7 +81,7 @@ def launch_browser(
 ) -> LaunchResponse:
     profile = require_profile(name, pm)
     if bl.is_running(name):
-        raise HTTPException(status_code=409, detail="Browser already running")
+        raise HTTPException(status_code=409, detail=get_string("err_already_running"))
 
     def _on_ready() -> None:
         bus.emit()
@@ -97,15 +98,15 @@ def launch_browser(
             except AgentOfflineError as e:
                 raise HTTPException(
                     status_code=409,
-                    detail="Your PC is not connected: start the FoxProfile agent on it",
+                    detail=get_string("err_agent_offline"),
                 ) from e
             started = True
         else:
             started = bl.start_thread(profile, _api_log, on_ready=_on_ready, on_stop=_on_stop)
     except ProfileBusyError as e:
-        raise HTTPException(status_code=409, detail="Profile is busy") from e
+        raise HTTPException(status_code=409, detail=get_string("err_busy")) from e
     if not started:
-        raise HTTPException(status_code=409, detail="Browser already running")
+        raise HTTPException(status_code=409, detail=get_string("err_already_running"))
     logger.info("API launched browser for: %s", name)
     bus.emit()
 
@@ -139,7 +140,7 @@ def stop_browser(
 ) -> SuccessResponse:
     require_profile(name, pm)
     if not bl.is_running(name):
-        raise HTTPException(status_code=409, detail="Browser is not running")
+        raise HTTPException(status_code=409, detail=get_string("err_browser_not_running"))
 
     bl.stop_profile(name)
     logger.info("API stopped browser for: %s", name)

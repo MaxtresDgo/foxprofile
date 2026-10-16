@@ -28,6 +28,12 @@ class PressRequest(BaseModel):
     selector: str | None = None
 
 
+class SelectRequest(BaseModel):
+    selector: str = Field(description="Selector of the <select> element")
+    value: str = Field(max_length=20_000, description="Option value or label")
+    timeout: int = Field(10_000, ge=100, le=120_000)
+
+
 class ClickAtRequest(BaseModel):
     x: float = Field(ge=0, description="Viewport X in CSS pixels, as on a screenshot")
     y: float = Field(ge=0, description="Viewport Y in CSS pixels, as on a screenshot")

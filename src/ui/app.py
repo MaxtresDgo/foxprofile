@@ -37,6 +37,7 @@ class App:
         self.pm: IProfileManager = c.profile_manager
         self.bl: IBrowserLauncher = c.browser_launcher
         self.ps: IProxyService = c.proxy_service
+        self.sync = c.sync
         self.state = AppState()
         self.page: ft.Page | None = None
         self._reconcile_started = False
@@ -56,6 +57,7 @@ class App:
             log_fn=self._log,
             refresh_fn=self._refresh_profiles,
             get_page_profiles=self._get_page_profiles,
+            sync=self.sync,
         )
 
     def run(self) -> None:
@@ -249,10 +251,14 @@ class App:
                 "launch": self.h.on_bulk_launch,
                 "stop": self.h.on_bulk_stop,
                 "delete": self.h.on_bulk_delete,
+                "run_steps": self.h.on_bulk_run_steps,
+                "sync": self.h.on_bulk_sync,
                 "select_page": self.h.on_select_all_page,
                 "deselect_page": self.h.on_deselect_page,
                 "clear": self.h.on_clear_selection,
             },
+            self.sync.sessions(),
+            self.h.on_sync_stop,
         )
         self._set_subtitle(r.content_subtitle)
         r.page_label.value = get_string(

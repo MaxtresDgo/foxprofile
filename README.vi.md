@@ -35,6 +35,7 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - [Timezone, locale và Kiểm tra IP](#timezone-locale-và-kiểm-tra-ip)
 - [Chế độ server và web panel](#chế-độ-server-và-web-panel)
 - [MCP: cho AI điều khiển trình duyệt](#mcp-cho-ai-điều-khiển-trình-duyệt)
+- [Chạy bước và đồng bộ](#chạy-bước-và-đồng-bộ)
 - [Engine Chrome (thử nghiệm)](#engine-chrome-thử-nghiệm)
 - [Cookie và fingerprint](#cookie-và-fingerprint)
 - [Cấu hình](#cấu-hình)
@@ -58,6 +59,7 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - **Bảng profile dễ quét**: mỗi dòng cho thấy engine, thiết bị đang giả lập, proxy (đã ẩn mật khẩu), timezone/locale và trạng thái. Trạng thái phân biệt bằng cả hình lẫn màu: dấu tím viền kép kèm giờ mở là đang chạy, viền xám là đang mở, dấu đỏ gạch ngang là mở lỗi.
 - **Lọc và tìm kiếm**: lọc theo đang chạy, có/không proxy, engine Chrome (kèm số đếm); tìm theo tên hoặc proxy.
 - **Thao tác hàng loạt**: chọn nhiều profile để mở, dừng hoặc xóa cùng lúc.
+- **Chạy bước và đồng bộ** (RPA đơn giản): chạy một đoạn script ngắn (navigate, click, type…) song song trên nhiều profile đang chạy, hoặc lặp lại thao tác của một profile sang các profile khác theo thời gian thực.
 - **MCP server**: Claude, Cursor... tự mở profile, lướt web, click, gõ, chụp màn hình.
 - **Chế độ server + web panel**: chạy trên VPS, quản lý và xem màn hình từ xa qua trình duyệt, có token bảo vệ.
 - **REST API** để điều khiển bằng script, có trang tài liệu Swagger.
@@ -91,7 +93,7 @@ Chạy ứng dụng:
 python -m src.main
 ```
 
-Trên Windows có thể bấm đúp `run_foxprofile.bat`. Ứng dụng mở cửa sổ quản lý và đồng thời chạy API tại `http://127.0.0.1:8000`; tài liệu API ở `http://127.0.0.1:8000/docs`. Đặt `FOXPROFILE_LANG=vi` để dùng giao diện tiếng Việt.
+Trên Windows có thể bấm đúp `run_foxprofile.bat`. Ứng dụng mở cửa sổ quản lý và đồng thời chạy API tại `http://127.0.0.1:8000`; tài liệu API ở `http://127.0.0.1:8000/docs`. Đặt `FOXPROFILE_LANG=vi` hoặc `FOXPROFILE_LANG=es` để dùng giao diện tiếng Việt hoặc tiếng Tây Ban Nha.
 
 ## Timezone, locale và Kiểm tra IP
 
@@ -131,7 +133,7 @@ Khi đưa lên VPS, nên đặt server sau reverse proxy có HTTPS (Caddy, Nginx
 
 Hướng dẫn triển khai đầy đủ (Ubuntu, systemd, nginx, HTTPS): [docs/DEPLOY.md](docs/DEPLOY.md).
 
-**Chế độ hub (server cho nhóm, trình duyệt chạy trên từng máy):** `docker compose up -d` chạy panel trung tâm với tài khoản riêng cho từng nhân viên; mỗi người chạy `foxprofile-agent.bat` / `foxprofile-agent.command` (hoặc, trên Windows, bộ cài `FoxProfileAgent-<version>.msi`, đã kèm Python và tự chạy agent khi đăng nhập) và profile mở trên chính máy của họ. Hướng dẫn (tiếng Tây Ban Nha): [docs/HUB.md](docs/HUB.md).
+**Chế độ hub (server cho nhóm, trình duyệt chạy trên từng máy):** `docker compose up -d` chạy panel trung tâm với tài khoản riêng cho từng nhân viên; mỗi người chạy `foxprofile-agent.bat` / `foxprofile-agent.command` (hoặc, trên Windows, bộ cài `FoxProfileAgent-<version>.msi`, đã kèm Python và tự chạy agent khi đăng nhập) và profile mở trên chính máy của họ. Agent đăng nhập qua trình duyệt (panel hỏi nhân viên cấp quyền cho agent, không cần mật khẩu trên máy) và chạy ở khay hệ thống / thanh menu, với menu để đổi tài khoản hoặc xem log. Nhóm cho phép nhiều nhân viên dùng chung một số profile từ các máy khác nhau. Hướng dẫn (tiếng Tây Ban Nha): [docs/HUB.md](docs/HUB.md).
 
 ## MCP: cho AI điều khiển trình duyệt
 
@@ -165,8 +167,36 @@ Sau đó chỉ cần nhắn AI, ví dụ: *"Mở profile tiktok-us-02, vào tikt
 | Cookie & fingerprint | `export_cookies`, `import_cookies`, `get_fingerprint`, `reset_fingerprint`, `check_proxy`, `check_profile_ip` |
 | Trang | `browser_navigate`, `browser_back`, `browser_snapshot`, `browser_get_text`, `browser_click`, `browser_click_at`, `browser_type`, `browser_press`, `browser_wait_for`, `browser_screenshot`, `browser_evaluate` |
 | Tab | `browser_tabs`, `browser_tab_new`, `browser_tab_select`, `browser_tab_close` |
+| Nhiều profile | `run_steps` |
 
 MCP **không** có tool xóa profile, để AI không thể vô tình xóa cookie của tài khoản. Trang chỉ mở được `http`, `https` và `about:blank`; `file://` và `about:config` bị chặn.
+
+## Chạy bước và đồng bộ
+
+Chọn các profile đang chạy trong bảng (app desktop hoặc web panel) rồi dùng thanh thao tác hàng loạt:
+
+**Chạy bước** chạy một đoạn script ngắn trên mọi profile đã chọn cùng lúc, mỗi dòng một bước. Tham số hai phần ngăn cách bằng ` | `, dòng bắt đầu bằng `//` là chú thích:
+
+```text
+navigate https://example.com
+click text=Sign in
+type input[name="email"] | user@example.com
+select select[name="country"] | VN
+press Enter
+wait #dashboard
+sleep 2000
+```
+
+Các bước: `navigate <url>`, `back`, `click <selector>`, `type <selector> | <text>`, `select <selector> | <value>`, `press <key> [| <selector>]`, `wait <selector>`, `sleep <ms>` (tối đa 60000), `keyboard <text>`, `click_at <x> <y>`, `evaluate <js>`, `tab_new [url]`, `tab_select <i>`, `tab_close <i>`. Selector là selector Playwright, giống API điều khiển trang. Tối đa 100 bước mỗi lần chạy. Trong một profile các bước chạy theo thứ tự; profile dừng ở bước lỗi đầu tiên, các profile khác vẫn chạy tiếp. Kết quả ghi bước lỗi của từng profile.
+
+**Đồng bộ** chọn một profile làm profile chính. Trong khi đồng bộ, click, chữ đã gõ, thay đổi `<select>` và Enter/Tab/Escape trên các trang của profile chính, cùng địa chỉ gõ vào profile chính, được lặp lại ở tab đang mở của các profile đã chọn còn lại. Dùng được cả với trình duyệt chạy ẩn: thao tác trên profile chính qua màn hình từ xa. Cần biết:
+
+- Phần tử được tìm theo selector (id, `name`, `aria-label`…, nếu không có thì theo vị trí trong trang). Profile có trang khác đi (ngôn ngữ khác, A/B test) sẽ lỗi ở bước đó, và lỗi hiện trên nhãn đồng bộ.
+- Một bước chỉ được lặp lại ở profile đang ở **cùng trang web** (origin) với profile chính, nên profile đã đi sang trang khác không bao giờ bị click nhầm vào trang đó.
+- Mỗi profile chỉ ở trong một phiên đồng bộ, và không thể vừa là profile chính của phiên này vừa là profile theo của phiên khác.
+- Đồng bộ cài một listener nhỏ vào các trang của profile chính, tồn tại đến khi trình duyệt đó khởi động lại (không làm gì khi không đồng bộ). Với engine Chrome, script của trang có thể thấy nó; với Camoufox nó tách biệt khỏi trang.
+
+Qua API: `POST /api/v1/automation/run` với `{"profiles": [...], "script": "..."}` (hoặc `steps` dạng JSON), và `POST` / `GET` / `DELETE /api/v1/automation/sync`. Tool MCP `run_steps` cũng chạy được script; đồng bộ chỉ dành cho người dùng, không có trong MCP.
 
 ## Engine Chrome (thử nghiệm)
 
@@ -189,7 +219,7 @@ Mọi cấu hình đều không bắt buộc. Muốn đổi thì sao chép `.env
 
 | Biến | Mặc định | Ý nghĩa |
 | --- | --- | --- |
-| `FOXPROFILE_LANG` | `en` | Ngôn ngữ giao diện: `en` hoặc `vi` |
+| `FOXPROFILE_LANG` | `en` | Ngôn ngữ giao diện: `en`, `vi` hoặc `es`. Agent của hub dùng ngôn ngữ của hub nếu máy không tự đặt |
 | `FOXPROFILE_PROFILES_FILE` | `profiles.json` | File lưu danh sách profile |
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Thư mục dữ liệu, mỗi profile một thư mục con |
 | `FOXPROFILE_LOG_DIR` | `logs` | Thư mục log |
@@ -250,6 +280,9 @@ Tiền tố: `/api/v1`. Xem đầy đủ tại `/docs` khi ứng dụng đang ch
 | `POST` | `/browser/{name}/page/evaluate` | Chạy JavaScript |
 | `GET` / `POST` | `/browser/{name}/page/tabs` | Liệt kê / mở tab mới |
 | `POST` / `DELETE` | `/browser/{name}/page/tabs/{index}/select` · `/page/tabs/{index}` | Chọn / đóng tab |
+| `POST` | `/browser/{name}/page/select` | Chọn một option của `<select>` |
+| `POST` | `/automation/run` | Chạy các bước trên nhiều profile đang chạy |
+| `GET` / `POST` / `DELETE` | `/automation/sync` · `/automation/sync/{leader}` | Liệt kê / bắt đầu / dừng đồng bộ cửa sổ |
 | `GET` | `/mcp/setup?base_url=...` | Cấu hình MCP cho từng ứng dụng AI (dùng bởi hộp thoại Kết nối AI) |
 
 Khi có `FOXPROFILE_API_TOKEN`, mọi request (trừ `/health` và `/info`) phải gửi header `Authorization: Bearer <token>`.

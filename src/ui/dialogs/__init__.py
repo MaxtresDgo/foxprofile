@@ -1,3 +1,4 @@
+from .automation import open_run_steps_dialog, open_sync_dialog
 from .confirm import open_confirm_dialog
 from .cookies import open_cookie_dialog
 from .export import open_export_dialog
@@ -10,4 +11,6 @@ __all__ = [
     "open_export_dialog",
     "open_log_dialog",
     "open_profile_dialog",
+    "open_run_steps_dialog",
+    "open_sync_dialog",
 ]

@@ -364,5 +364,18 @@ async def browser_tab_close(profile: str, index: int) -> dict:
     return await _arequest("DELETE", _page(profile, f"tabs/{index}"))
 
 
+@mcp.tool(annotations=_PAGE_ACT)
+async def run_steps(profiles: list[str], script: str, stop_on_error: bool = True) -> dict:
+    """Run the same steps on several running profiles at once, in parallel.
+
+    `script` has one step per line; two-part arguments split on " | ":
+    navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value>
+    · press <key> [| <selector>] · wait <selector> · sleep <ms> · back · keyboard <text>
+    · click_at <x> <y> · evaluate <js> · tab_new [url] · tab_select <i> · tab_close <i>.
+    Lines starting with // are comments. Returns {ok, done, error} per profile."""
+    body = {"profiles": profiles, "script": script, "stop_on_error": stop_on_error}
+    return await _arequest("POST", "/automation/run", body)
+
+
 def main() -> None:
     mcp.run(transport="stdio")

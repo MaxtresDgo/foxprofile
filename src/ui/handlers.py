@@ -6,12 +6,20 @@ import flet as ft
 
 from ..core.strings import get_string
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
+from ..services.browser.sync import SyncManager
 from .actions.browser import launch_or_stop
-from .actions.bulk import bulk_delete_profiles, bulk_launch_profiles, bulk_stop_profiles
+from .actions.bulk import (
+    bulk_delete_profiles,
+    bulk_launch_profiles,
+    bulk_run_steps,
+    bulk_stop_profiles,
+    start_sync,
+    stop_sync,
+)
 from .actions.cookies import manage_cookies
 from .actions.profile import add_profile, delete_profile, edit_profile
 from .actions.transfer import export_profile, import_profile
-from .dialogs import open_log_dialog
+from .dialogs import open_log_dialog, open_run_steps_dialog, open_sync_dialog
 from .refs import UIRefs
 from .state import AppState
 
@@ -30,6 +38,7 @@ class AppHandlers:
         log_fn: Callable[[str], None],
         refresh_fn: Callable[[], None],
         get_page_profiles: Callable[[], tuple],
+        sync: SyncManager,
     ) -> None:
         self._pm = pm
         self._bl = bl
@@ -40,6 +49,7 @@ class AppHandlers:
         self._log = log_fn
         self._refresh = refresh_fn
         self._get_page_profiles = get_page_profiles
+        self._sync = sync
 
     def on_launch(self, name: str) -> None:
         launch_or_stop(name, self._pm, self._bl, self._state, self._log)
@@ -132,6 +142,35 @@ class AppHandlers:
     def on_bulk_stop(self) -> None:
         if names := list(self._state.selected_names()):
             bulk_stop_profiles(names, self._pm, self._bl, self._state, self._log)
+
+    def _selected_running(self) -> list[str]:
+        return [n for n in self._state.selected_names() if self._bl.is_running(n)]
+
+    def on_bulk_run_steps(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        if not (names := self._selected_running()):
+            self._log(get_string("need_running"))
+            return
+        open_run_steps_dialog(
+            page, len(names), lambda steps: bulk_run_steps(names, steps, self._bl, self._log)
+        )
+
+    def on_bulk_sync(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        names = self._selected_running()
+        if len(names) < 2:
+            self._log(get_string("sync_need_two"))
+            return
+        open_sync_dialog(
+            page,
+            names,
+            lambda leader: start_sync(self._sync, leader, names, self._log),
+        )
+
+    def on_sync_stop(self, leader: str) -> None:
+        stop_sync(self._sync, leader, self._log)
 
     # --- Log handlers ---
 

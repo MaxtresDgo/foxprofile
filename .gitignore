@@ -194,3 +194,6 @@ e2e-output/
 # Hub data (docker compose volume)
 /data/
 hub.json
+# Agent sign-in (holds its key) and its single-instance lock
+agent.json
+agent.lock

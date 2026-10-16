@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, Request
 
 from ..core.config import DATA_DIR
+from ..core.strings import get_string
 from ..services.browser.launcher import BrowserControlError
 from .schemas.profiles import ProfileResponse
 
@@ -23,9 +24,7 @@ def check_on_agent(request: Request, bl, op: str, params: dict, timeout: float) 
     try:
         return bl.run_check(request.state.user["name"], op, params, timeout)
     except AgentOfflineError as e:
-        raise HTTPException(
-            status_code=409, detail="Your PC is not connected: start the FoxProfile agent on it"
-        ) from e
+        raise HTTPException(status_code=409, detail=get_string("err_agent_offline")) from e
     except BrowserControlError as e:
         raise HTTPException(status_code=e.status, detail=str(e)) from e
 
@@ -35,7 +34,7 @@ def require_profile(name: str, pm: IProfileManager) -> Profile:
     pm.profiles again: a concurrent delete can remove it in between."""
     profile = pm.profiles.get(name)
     if profile is None:
-        raise HTTPException(status_code=404, detail=f"Profile '{name}' not found")
+        raise HTTPException(status_code=404, detail=get_string("err_not_found", name=name))
     return profile
 
 

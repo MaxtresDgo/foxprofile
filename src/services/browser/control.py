@@ -15,6 +15,9 @@ from urllib.parse import unquote, urlparse
 
 from aiohttp import web
 
+from .recorder import REPLAYABLE, Recorder
+from .recorder import origin as origin_of
+
 ALLOWED_SCHEMES = ("http", "https", "about")
 MAX_FULL_PAGE_HEIGHT = 16_384
 MAX_TEXT = 40_000
@@ -74,6 +77,7 @@ class PageController:
     def __init__(self, context: Any) -> None:
         self._context = context
         self._current: Any = None
+        self._recorder: Recorder | None = None
 
     # --- page selection ---------------------------------------------------
 
@@ -139,6 +143,12 @@ class PageController:
             await field.press_sequentially(text, timeout=timeout)
         if submit:
             await field.press("Enter")
+        return await self._describe(page)
+
+    async def select(self, selector: str, value: str, timeout: int = 10_000) -> dict[str, Any]:
+        """Pick an <option> of a <select> by value or label."""
+        page = await self._page()
+        await page.locator(selector).first.select_option(value, timeout=timeout)
         return await self._describe(page)
 
     async def press(self, key: str, selector: str | None = None) -> dict[str, Any]:
@@ -217,6 +227,31 @@ class PageController:
         self._current = None
         return await self.tabs()
 
+    # --- sync: record on the leader, replay on the followers -------------
+
+    def _rec(self) -> Recorder:
+        if self._recorder is None:
+            self._recorder = Recorder(self._context)
+        return self._recorder
+
+    async def record_start(self) -> dict[str, Any]:
+        return await self._rec().start()
+
+    async def record_poll(self, timeout: float = 20) -> dict[str, Any]:
+        return await self._rec().poll(timeout)
+
+    async def record_stop(self) -> dict[str, Any]:
+        return self._rec().stop()
+
+    async def replay(self, step: dict[str, Any], origin: str) -> dict[str, Any]:
+        """Run a step recorded on a leader, only on a page of the origin it came from."""
+        page = await self._page()
+        if origin_of(page.url) != origin:
+            raise ControlError(f"Not replayed: this tab is on {page.url}, the leader on {origin}")
+        if step.get("action") not in REPLAYABLE:
+            raise ControlError(f"Action '{step.get('action')}' cannot be replayed")
+        return await getattr(self, step["action"])(**(step.get("params") or {}))
+
     ACTIONS = (
         "navigate",
         "back",
@@ -224,6 +259,7 @@ class PageController:
         "text",
         "click",
         "type",
+        "select",
         "press",
         "click_at",
         "keyboard_type",
@@ -234,6 +270,10 @@ class PageController:
         "tab_new",
         "tab_select",
         "tab_close",
+        "record_start",
+        "record_poll",
+        "record_stop",
+        "replay",
     )
 
     async def dispatch(self, action: str, params: dict[str, Any]) -> Any:

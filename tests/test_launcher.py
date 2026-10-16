@@ -145,3 +145,27 @@ def test_api_launch_answers_409_when_the_browser_appeared_meanwhile(tmp_path, mo
 
     assert r.status_code == 409
     assert r.json()["detail"] == "Browser already running"
+
+
+def test_control_answers_when_the_browser_drops_the_connection(bl):
+    """A browser closing mid-request (e.g. during a sync long-poll) is a 504, not a crash."""
+    import socket
+
+    from src.services.browser.launcher import BrowserControlError
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen()
+
+    def accept_and_hang_up():
+        conn, _ = server.accept()
+        conn.recv(65536)
+        conn.close()
+
+    threading.Thread(target=accept_and_hang_up, daemon=True).start()
+    bl._active_sessions["p"] = FakeProc()
+    bl._controls["p"] = (server.getsockname()[1], "token")
+    with pytest.raises(BrowserControlError) as caught:
+        bl.control("p", "record_poll", {"timeout": 20}, timeout=5)
+    assert caught.value.status == 504
+    server.close()

@@ -1,5 +1,6 @@
 import atexit
 import contextlib
+import http.client
 import json
 import subprocess
 import threading
@@ -217,10 +218,10 @@ class BrowserLauncher:
         with self._lock:
             endpoint = self._controls.get(profile_name)
         if not self.is_running(profile_name):
-            raise BrowserControlError("Browser is not running", status=409)
+            raise BrowserControlError(get_string("err_browser_not_running"), status=409)
         if endpoint is None:
             # Process is up but has not announced its control channel yet.
-            raise BrowserControlError("Browser is still starting", status=503)
+            raise BrowserControlError(get_string("err_browser_starting"), status=503)
         port, token = endpoint
         request = urllib.request.Request(
             f"http://127.0.0.1:{port}/action",
@@ -234,8 +235,12 @@ class BrowserLauncher:
         except urllib.error.HTTPError as e:
             body = json.loads(e.read() or b"{}")
             raise BrowserControlError(body.get("error", f"HTTP {e.code}"), status=e.code) from e
-        except (urllib.error.URLError, TimeoutError) as e:
-            raise BrowserControlError(f"Browser did not respond: {e}", status=504) from e
+        except (OSError, http.client.HTTPException) as e:
+            # URLError, timeouts, and a browser closing mid-request (RemoteDisconnected):
+            # callers such as the hub agent must get an answer, not an escaped exception.
+            raise BrowserControlError(
+                get_string("err_browser_no_response", error=repr(e)), status=504
+            ) from e
         return body["result"]
 
     def running_profile_names(self) -> set[str]:

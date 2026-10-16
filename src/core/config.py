@@ -57,4 +57,3 @@ HUB_FILE = _env("HUB_FILE", "hub.json")
 ADMIN_PASSWORD = _env("ADMIN_PASSWORD", "")
 # Agent side: where the hub is and which operator this PC belongs to.
 HUB_URL = _env("HUB_URL", "").rstrip("/")
-AGENT_USER = _env("AGENT_USER", "")

@@ -5,7 +5,7 @@
 #
 # The MSI carries the embeddable Python from python.org, the Windows wheels of
 # requirements.txt and the app code, all under Program Files\FoxProfile Agent.
-# Every Windows user's data stays in %LOCALAPPDATA%\FoxProfile (see foxprofile-agent.cmd).
+# Every Windows user's data stays in %LOCALAPPDATA%\FoxProfile (`src.agent --home`).
 set -euo pipefail
 
 PY_VERSION=3.12.10
@@ -49,7 +49,6 @@ find "$stage" -name __pycache__ -type d -prune -exec rm -rf {} +
 # Program Files is read-only for operators, so Python could never cache bytecode there.
 # ponytail: a few third-party files fail to compile (py2 leftovers); they are never imported.
 uv run -q --no-project -p 3.12 python -m compileall -q -j0 "$stage/app" "$stage/python/Lib/site-packages" >/dev/null || true
-sed 's/\r*$/\r/' "$here/foxprofile-agent.cmd" > "$stage/foxprofile-agent.cmd"
 
 (cd "$stage" && find . -type f | sed 's|^\./||' | sort) |
     wixl-heat --prefix "" --var var.Stage --component-group Payload \
