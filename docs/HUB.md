@@ -48,12 +48,12 @@ Actualizar: `git pull && docker compose up -d --build`.
    FOXPROFILE_AUTH_URL=https://api.example.com
    FOXPROFILE_AUTH_ORIGIN=https://foxprofile.example.com
    FOXPROFILE_LANG=es
-   # Puerto del hub dentro del contenedor (8000 si no se indica)
+   # Puerto publicado en el servidor (8000 si no se indica); dentro del contenedor es siempre 8000
    FOXPROFILE_HUB_PORT=4242
    ```
 
    `FOXPROFILE_AUTH_ORIGIN` tiene que ser un origen registrado para la app `foxprofile` en la plataforma de identidad (lo normal es el dominio del hub). Las variables `FOXPROFILE_S3_*` son opcionales, igual que en `.env.hub.example`.
-3. **Domains → Add Domain**: el dominio del hub, servicio `hub`, puerto `FOXPROFILE_HUB_PORT` (`8000` si no se indicó), HTTPS con Let's Encrypt. No publique puertos en el compose: Traefik entra por la red de Dokploy.
+3. **Domains → Add Domain**: el dominio del hub, servicio `hub`, puerto `8000` (el del contenedor, no `FOXPROFILE_HUB_PORT`), HTTPS con Let's Encrypt. Traefik entra por la red de Dokploy; el puerto publicado solo sirve para entrar directo por `http://<ip>:<FOXPROFILE_HUB_PORT>`.
 4. **Deploy.** Comprobar `https://<dominio>/api/v1/info` (debe decir `"mode": "hub"`) y entrar al panel.
 5. **Volume Backups** (opcional, recomendado): respaldar el volumen `foxprofile-data` a S3. Contiene `hub.json`, `profiles.json`, las sesiones de cada perfil (cookies) y los logs; trátelo como credenciales.
 
