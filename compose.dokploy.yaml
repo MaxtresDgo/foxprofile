@@ -4,13 +4,16 @@
 #
 # Dokploy clones the repo again on every deploy, so ./data would be emptied: the
 # data lives in a named volume, which Dokploy's Volume Backups can also copy to S3.
-# The domain is added in Dokploy's Domains tab (service `hub`, port 8000), which
-# attaches Traefik and HTTPS; no host port is published.
+# The domain is added in Dokploy's Domains tab (service `hub`, port FOXPROFILE_HUB_PORT),
+# which attaches Traefik and HTTPS; no host port is published.
 services:
   hub:
     build: .
+    # The hub listens on FOXPROFILE_HUB_PORT inside the container (default 8000).
     expose:
-      - "8000"
+      - "${FOXPROFILE_HUB_PORT:-8000}"
+    environment:
+      FOXPROFILE_API_PORT: "${FOXPROFILE_HUB_PORT:-8000}"
     volumes:
       - foxprofile-data:/data
     # Dokploy writes the Environment tab to .env next to this file.

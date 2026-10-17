@@ -24,5 +24,5 @@ ENV FOXPROFILE_HUB=true \
 
 VOLUME /data
 EXPOSE 8000
-HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"
+HEALTHCHECK CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/v1/health' % os.environ['FOXPROFILE_API_PORT'])"
 CMD ["python", "-m", "src.server"]
