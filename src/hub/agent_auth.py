@@ -88,7 +88,7 @@ class SignIn:
         return self._done.is_set()
 
     def wait(self, timeout: float | None = None) -> dict | None:
-        """{"hub", "user", "key"} once authorized; None if closed first."""
+        """{"hub", "user", "display", "key"} once authorized; None if closed first."""
         self._done.wait(timeout)
         return self.result
 
@@ -157,7 +157,14 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(400, _message(get_string("agent_web_key_refused", error=e)))
                 return
             self._redirect(f"{signin.hub}/#agent-done")
-            signin._authorized({"hub": signin.hub, "user": user["name"], "key": key})
+            signin._authorized(
+                {
+                    "hub": signin.hub,
+                    "user": user["name"],
+                    "display": user.get("display", ""),
+                    "key": key,
+                }
+            )
         else:
             self._send(404, "")
 

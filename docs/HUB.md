@@ -28,7 +28,8 @@ cd foxprofile
 cp .env.hub.example .env
 # Editar .env:
 #   FOXPROFILE_API_TOKEN=   (24+ caracteres aleatorios; firma las sesiones)
-#   FOXPROFILE_ADMIN_PASSWORD=   (contraseña del usuario admin, se crea al primer arranque)
+#   FOXPROFILE_AUTH_URL=      (API de la plataforma de identidad, p. ej. https://api.example.com)
+#   FOXPROFILE_AUTH_ORIGIN=   (origen registrado para FoxProfile en esa plataforma)
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # genera un token
 docker compose up -d --build
 ```
@@ -37,10 +38,54 @@ El panel queda en `http://<ip-del-servidor>:8000/`. Los datos viven en `./data` 
 
 Actualizar: `git pull && docker compose up -d --build`.
 
-## 2. Crear usuarios y asignar perfiles
+### Dokploy
 
-1. Entrar al panel como `admin`.
-2. **Users** (barra lateral): crear un usuario por operador (rol *Operator*), cambiar contraseñas o borrar usuarios.
+1. **Create Service → Compose**, tipo *Docker Compose*, con el repositorio y la rama. En *Compose Path* poner `./compose.dokploy.yaml`.
+2. **Environment** (Dokploy lo escribe en el `.env` que lee el contenedor):
+
+   ```env
+   FOXPROFILE_API_TOKEN=<24+ caracteres aleatorios>
+   FOXPROFILE_AUTH_URL=https://api.example.com
+   FOXPROFILE_AUTH_ORIGIN=https://foxprofile.example.com
+   FOXPROFILE_LANG=es
+   ```
+
+   `FOXPROFILE_AUTH_ORIGIN` tiene que ser un origen registrado para la app `foxprofile` en la plataforma de identidad (lo normal es el dominio del hub). Las variables `FOXPROFILE_S3_*` son opcionales, igual que en `.env.hub.example`.
+3. **Domains → Add Domain**: el dominio del hub, servicio `hub`, puerto `8000`, HTTPS con Let's Encrypt. No publique puertos en el compose: Traefik entra por la red de Dokploy.
+4. **Deploy.** Comprobar `https://<dominio>/api/v1/info` (debe decir `"mode": "hub"`) y entrar al panel.
+5. **Volume Backups** (opcional, recomendado): respaldar el volumen `foxprofile-data` a S3. Contiene `hub.json`, `profiles.json`, las sesiones de cada perfil (cookies) y los logs; trátelo como credenciales.
+
+Notas:
+
+- **Una sola réplica.** Los datos son archivos JSON escritos por un solo proceso; dos contenedores sobre el mismo volumen se pisarían.
+- **No use `./data` en Dokploy.** Cada despliegue vuelve a clonar el repositorio y deja vacía esa carpeta; por eso este compose usa un volumen con nombre. Para pasar datos de un hub anterior, copie su `./data` dentro del volumen con el contenedor detenido.
+- **Plataforma en el mismo servidor.** Si la API de la plataforma también corre en Dokploy, `FOXPROFILE_AUTH_URL` puede apuntar a su servicio en la red interna (`http://<servicio>:<puerto>`) en vez del dominio público: no pasa por Cloudflare ni por su protección contra bots. El `Origin` se sigue mandando igual.
+- **Cloudflare delante del hub.** Con el proxy naranja, Cloudflare corta las peticiones de más de 100 MB (planes Free y Pro), y el agente sube el perfil completo al cerrarlo. Si hay perfiles grandes, deje el dominio del hub en *DNS only*.
+- **Subidas lentas.** Traefik v3 corta en 60 s la lectura de una petición (`respondingTimeouts.readTimeout`). Si un perfil grande tarda más en subir desde una conexión lenta, suba ese límite en la configuración de Traefik de Dokploy (*Settings → Traefik*).
+- Los agentes usan `https://<dominio>` como dirección del hub.
+
+## 2. Usuarios y perfiles
+
+### Inicio de sesión con la plataforma de identidad
+
+El hub no guarda contraseñas. Cada operador entra con el correo y la contraseña de la plataforma de identidad interna: el hub los manda a `POST {FOXPROFILE_AUTH_URL}/auth/login` con la cabecera `Origin: {FOXPROFILE_AUTH_ORIGIN}`, y si la plataforma acepta, abre su propia sesión (12 h). El token de la plataforma no se guarda.
+
+- La cuenta local se crea sola en el primer inicio de sesión, con el correo como nombre. Guarda solo lo de FoxProfile: rol, perfiles asignados, grupos y claves.
+- El rol se toma de la plataforma en cada inicio de sesión: quien tenga el permiso `FOXPROFILE_AUTH_ADMIN_PERMISSION` (por defecto `foxprofile:admin`; `*:*` también vale) es *Admin*, los demás *Operator*.
+- Los mensajes de la plataforma llegan traducidos: credenciales incorrectas, sin acceso (403), espera por intentos fallidos o plataforma caída (502).
+
+Alta de FoxProfile en la plataforma (una vez):
+
+1. Registrar la app `foxprofile` con un origen igual a `FOXPROFILE_AUTH_ORIGIN` y permiso requerido `foxprofile:access`. El hub llama desde el servidor, así que no hace falta agregar ese origen al CORS de la plataforma.
+2. Crear los permisos `foxprofile:access` y `foxprofile:admin` y asignarlos a los roles que correspondan.
+3. Todos los inicios de sesión llegan a la plataforma desde la IP del hub: si limita intentos fallidos por IP, una racha de errores bloquea un rato el acceso a FoxProfile para todos.
+
+Quitar el acceso a alguien: desactivarlo en la plataforma **y** borrarlo en **Users**. Las claves del agente y de MCP no caducan y no pasan por la plataforma; borrar el usuario las invalida.
+
+### Asignar perfiles
+
+1. Entrar al panel con una cuenta que tenga `foxprofile:admin`.
+2. **Users** (barra lateral): lista de quienes ya entraron alguna vez, con su rol. Un operador aparece después de su primer inicio de sesión.
 3. Cada perfil tiene un **Operator** (en el diálogo *Edit*). Los perfiles que crea un operador quedan asignados a él. Un perfil sin asignar solo lo ven los admins.
 
 ### Grupos
@@ -159,11 +204,11 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 
 ## Seguridad
 
-- El panel va por HTTP dentro de la LAN: las contraseñas viajan sin cifrar. Si la red no es de confianza, ponga el hub detrás de HTTPS (nginx, ver [DEPLOY.md](DEPLOY.md)).
+- El panel va por HTTP dentro de la LAN: las contraseñas de la plataforma viajan sin cifrar hasta el hub. Si la red no es de confianza, ponga el hub detrás de HTTPS (nginx, ver [DEPLOY.md](DEPLOY.md)).
 - Los perfiles contienen sesiones iniciadas (cookies). `./data` y las copias de seguridad deben tratarse como credenciales.
 - Los agentes instalados ejecutan el código que reciben del hub (ver [Actualizaciones del agente](#actualizaciones-del-agente-desde-el-panel)): un hub comprometido llega a todas las PCs. Sirva el hub por HTTPS.
 - `agent.json` contiene la clave del agente: quien la copie puede actuar como ese operador. Para revocarla, autorice de nuevo el agente.
-- `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`). Cambiarlo cierra todas las sesiones.
+- `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`), también si la plataforma de identidad está caída. Cambiarlo cierra todas las sesiones.
 
 ## Visor remoto, cookies y MCP
 

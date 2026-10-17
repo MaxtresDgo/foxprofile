@@ -98,7 +98,7 @@ svg.i.s { width: 16px; height: 16px; }
 .icon-btn:disabled { opacity: .35; cursor: default; }
 
 /* Fields */
-input[type=text], input[type=search], input[type=password], input[type=number], input:not([type]), select, textarea {
+input[type=text], input[type=search], input[type=password], input[type=email], input[type=number], input:not([type]), select, textarea {
   width: 100%; height: 40px; padding: 0 12px; font-size: 14px; background-color: var(--paper-raised); border: 1px solid var(--rule-strong); border-radius: 8px; outline: none; transition: border-color .15s, box-shadow .15s; }
 textarea { height: auto; padding: 10px 12px; }
 select { appearance: none; -webkit-appearance: none; font-size: 14px; padding-right: 36px; cursor: pointer;
@@ -166,7 +166,7 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent.on { color: var(--cover-ink); }
 .agent.on::before { background: var(--ok); border-color: var(--ok); }
 .user-row { display: grid; grid-template-columns: minmax(70px, 1fr) 110px minmax(200px, 1.6fr) 34px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
-.user-row input, .user-row select, .user-form input, .user-form select { height: 34px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--paper-raised); min-width: 0; }
+.user-row input, .user-row select { height: 34px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--paper-raised); min-width: 0; }
 .ads-form { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: end; }
 .ads-form .field { margin: 0; }
 .ads-list { max-height: min(52vh, 480px); overflow-y: auto; margin-top: 14px; border-top: 1px solid var(--rule); }
@@ -195,7 +195,6 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent-row .acts, .inst-row .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
 .agent-row .err { color: var(--err); } .agent-row .ok { color: var(--ok); }
 .modal-body h3 { margin: 18px 0 2px; font-size: 14px; } .modal-body h3:first-child { margin-top: 0; }
-.user-form { display: grid; grid-template-columns: 1fr 1fr 110px auto; gap: 8px; margin-top: 14px; }
 /* General settings page */
 .settings-sheet { max-width: 760px; padding: 0 22px; }
 .setting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 18px 0; border-bottom: 1px solid var(--rule); }
@@ -436,7 +435,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <form id="login-form">
     <h1 data-t="login"></h1>
     <p class="muted" data-t="login_hint"></p>
-    <div class="field hidden" id="user-field"><label for="username" data-t="username"></label><input id="username" autocomplete="username"></div>
+    <div class="field hidden" id="user-field"><label for="email" data-t="email"></label><input id="email" type="email" autocomplete="username"></div>
     <div class="field"><label for="token" data-t="token"></label><input id="token" type="password" autocomplete="current-password" required></div>
     <div class="msg err" id="login-err" role="alert"></div>
     <button class="btn btn-act" type="submit" data-t="login"></button>
@@ -589,9 +588,10 @@ const I18N = {
     go: "Đi", new_tab: "Tab mới", type: "Gõ", type_hint: "Gõ vào ô đang chọn (bấm lên ảnh để chọn ô)", working: "Đang xử lý...",
     back: "Quay lại", reload: "Tải lại",
     retry: "Thử lại", boot_error: "Không thể kết nối với server",
-    username: "Tên đăng nhập", password: "Mật khẩu", bad_login: "Sai tên đăng nhập hoặc mật khẩu",
+    email: "Email", password: "Mật khẩu", bad_login: "Sai email hoặc mật khẩu",
+    users_managed_externally: "Tài khoản, mật khẩu và vai trò được quản lý trên nền tảng đăng nhập nội bộ. Xoá ở đây chỉ xoá dữ liệu cục bộ (profile được giao, nhóm, key).",
     login_side_hub: "Server FoxProfile của nhóm. Profile mở trên máy tính của bạn qua FoxProfile agent.",
-    login_hint_hub: "Đăng nhập bằng tài khoản quản trị viên đã tạo cho bạn.",
+    login_hint_hub: "Đăng nhập bằng email và mật khẩu của nền tảng nội bộ.",
     ads_button: "Nhập từ AdsPower", ads_sub: "Mang theo tên, proxy, User-Agent và cookie. Profile dùng engine Chrome; fingerprint (canvas, audio, WebGL) là mới.",
     ads_hint_local: "AdsPower phải đang mở trên máy này và bật Local API (Settings › API).", ads_hint_hub: "Đọc từ AdsPower trên máy của bạn qua agent: AdsPower đang mở và bật Local API.",
     ads_port: "Cổng API", ads_key: "API key (nếu AdsPower yêu cầu)", ads_find: "Tìm profile", ads_none: "AdsPower không có profile nào.",
@@ -612,10 +612,9 @@ const I18N = {
     agents_update_now: "Cập nhật ngay", agents_update_hint: "Đóng các profile đang mở trên máy đó và cập nhật agent", agents_update_queued: "Sẽ cập nhật trong vài giây",
     agent_state_current: "Đã cập nhật", agent_state_pending: "Sẽ cập nhật khi đóng hết profile", agent_state_installer: "Cần bộ cài mới (thư viện đã thay đổi)",
     agent_state_script: "Chạy bằng script: cập nhật bằng git", agent_state_old: "Bản cũ: cài bộ cài mới một lần",
-    users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên", add_user: "Thêm",
-    new_password: "Mật khẩu mới", set_password: "Đổi", owner: "Người dùng", unassigned: "Chưa giao",
+    users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên",
+    owner: "Người dùng", unassigned: "Chưa giao",
     confirm_delete_user: "Xoá người dùng “{name}”? Profile của họ vẫn còn, chỉ quản trị viên thấy cho đến khi giao lại.",
-    user_saved: "Đã lưu {name}",
     settings: "Cài đặt", general: "Chung", administration: "Quản trị",
     general_sub: "Các cài đặt này chỉ áp dụng cho trình duyệt này.", theme: "Giao diện", theme_hint: "Hệ thống: theo cài đặt của máy tính.",
     theme_light: "Sáng", theme_dark: "Tối", theme_system: "Hệ thống", language: "Ngôn ngữ", language_hint: "Cũng áp dụng cho thông báo lỗi từ server.",
@@ -684,9 +683,10 @@ const I18N = {
     go: "Go", new_tab: "New tab", type: "Type", type_hint: "Type into the focused field (click the screen to focus one)", working: "Working...",
     back: "Back", reload: "Reload",
     retry: "Retry", boot_error: "Cannot reach the server",
-    username: "User name", password: "Password", bad_login: "Wrong user name or password",
+    email: "Email", password: "Password", bad_login: "Wrong email or password",
+    users_managed_externally: "Accounts, passwords and roles are managed on the internal sign-in platform. Deleting here only removes the local data (assigned profiles, groups, keys).",
     login_side_hub: "Your team's FoxProfile server. Profiles open on your own computer through the FoxProfile agent.",
-    login_hint_hub: "Log in with the account your admin created for you.",
+    login_hint_hub: "Log in with your internal platform email and password.",
     ads_button: "Import from AdsPower", ads_sub: "Brings name, proxy, User-Agent and cookies. Profiles use the Chrome engine; the fingerprint (canvas, audio, WebGL) is new.",
     ads_hint_local: "AdsPower must be open on this PC with its Local API on (Settings › API).", ads_hint_hub: "Read from AdsPower on your PC through the agent: AdsPower open with its Local API on.",
     ads_port: "API port", ads_key: "API key (if AdsPower asks for one)", ads_find: "Find profiles", ads_none: "AdsPower has no profiles.",
@@ -707,10 +707,9 @@ const I18N = {
     agents_update_now: "Update now", agents_update_hint: "Closes the profiles open on that PC and updates its agent", agents_update_queued: "Updating in a few seconds",
     agent_state_current: "Up to date", agent_state_pending: "Updates once its profiles are closed", agent_state_installer: "Needs the new installer (libraries changed)",
     agent_state_script: "Runs from a script: update it with git", agent_state_old: "Older version: install the new installer once",
-    users: "Users", role_admin: "Admin", role_operator: "Operator", add_user: "Add",
-    new_password: "New password", set_password: "Set", owner: "Operator", unassigned: "Unassigned",
+    users: "Users", role_admin: "Admin", role_operator: "Operator",
+    owner: "Operator", unassigned: "Unassigned",
     confirm_delete_user: "Delete user “{name}”? Their profiles stay, visible to admins until reassigned.",
-    user_saved: "Saved {name}",
     settings: "Settings", general: "General", administration: "Administration",
     general_sub: "These settings apply to this browser only.", theme: "Theme", theme_hint: "System follows your computer's setting.",
     theme_light: "Light", theme_dark: "Dark", theme_system: "System", language: "Language", language_hint: "Server error messages follow it too.",
@@ -779,9 +778,10 @@ const I18N = {
     go: "Ir", new_tab: "Nueva pestaña", type: "Escribir", type_hint: "Escribe en el campo con foco (haz clic en la pantalla para enfocar uno)", working: "Procesando...",
     back: "Atrás", reload: "Recargar",
     retry: "Reintentar", boot_error: "No se puede conectar con el servidor",
-    username: "Usuario", password: "Contraseña", bad_login: "Usuario o contraseña incorrectos",
+    email: "Correo", password: "Contraseña", bad_login: "Correo o contraseña incorrectos",
+    users_managed_externally: "Las cuentas, contraseñas y roles se administran en la plataforma de inicio de sesión interna. Eliminar aquí solo borra los datos locales (profiles asignados, grupos, claves).",
     login_side_hub: "El servidor FoxProfile de tu equipo. Los profiles se abren en tu propia computadora a través del agente de FoxProfile.",
-    login_hint_hub: "Inicia sesión con la cuenta que te creó tu administrador.",
+    login_hint_hub: "Inicia sesión con el correo y la contraseña de la plataforma interna.",
     ads_button: "Importar desde AdsPower", ads_sub: "Trae nombre, proxy, User-Agent y cookies. Se crean con el motor Chrome; el fingerprint (canvas, audio, WebGL) es nuevo.",
     ads_hint_local: "AdsPower debe estar abierto en este PC con la API local activada (Ajustes › API).", ads_hint_hub: "Se lee del AdsPower de tu PC a través del agente: AdsPower abierto y con la API local activada.",
     ads_port: "Puerto de la API", ads_key: "API key (si AdsPower la pide)", ads_find: "Buscar perfiles", ads_none: "AdsPower no tiene perfiles.",
@@ -802,10 +802,9 @@ const I18N = {
     agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los perfiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
     agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus perfiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)",
     agent_state_script: "Corre con el script: actualizar con git", agent_state_old: "Versión anterior: instalar el instalador nuevo una vez",
-    users: "Usuarios", role_admin: "Administrador", role_operator: "Operador", add_user: "Agregar",
-    new_password: "Nueva contraseña", set_password: "Cambiar", owner: "Operador", unassigned: "Sin asignar",
+    users: "Usuarios", role_admin: "Administrador", role_operator: "Operador",
+    owner: "Operador", unassigned: "Sin asignar",
     confirm_delete_user: "¿Eliminar al usuario “{name}”? Sus profiles se conservan y solo los administradores los ven hasta que se reasignen.",
-    user_saved: "{name} guardado",
     settings: "Configuración", general: "General", administration: "Administración",
     general_sub: "Estos ajustes solo se aplican a este navegador.", theme: "Tema", theme_hint: "Sistema sigue la configuración de tu computadora.",
     theme_light: "Claro", theme_dark: "Oscuro", theme_system: "Sistema", language: "Idioma", language_hint: "Los mensajes de error del servidor también lo siguen.",
@@ -902,6 +901,8 @@ async function api(method, path, body, { raw = false } = {}) {
   return ct.includes("json") ? res.json() : res.text();
 }
 const enc = encodeURIComponent;
+// Hub users by their first name from the identity platform; the email until it has sent one.
+const firstName = (u) => (u.display || u.name || "").trim().split(/\s+/)[0];
 
 function maskProxy(p) {
   if (!p) return "";
@@ -1439,7 +1440,8 @@ function renderMe(who) {
   const el = $("agent-status");
   el.classList.remove("hidden");
   el.classList.toggle("on", me.agent_online);
-  el.textContent = `${me.name} · ${t(me.agent_online ? "agent_on" : "agent_off")}`;
+  el.textContent = `${firstName(me)} · ${t(me.agent_online ? "agent_on" : "agent_off")}`;
+  el.title = me.name;
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
@@ -1469,47 +1471,26 @@ function applyTheme() {
 }
 
 function openUsers() {
+  // Accounts, passwords and roles live on the identity platform; here only the local data is dropped.
   modal((close) => {
     const list = h("div");
     const msg = h("div", { class: "msg", role: "status" });
     const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
-    const roleSelect = (value, id) => h("select", { id, "aria-label": "Role" }, ["operator", "admin"].map((r) =>
-      h("option", { value: r, selected: r === value }, t("role_" + r))));
     const load = async () => {
       let users;
       try { users = await api("GET", "/hub/users"); } catch (e) { return fail(e); }
-      list.replaceChildren(...users.map((u) => {
-        const role = roleSelect(u.role);
-        const pass = h("input", { type: "password", placeholder: t("new_password"), autocomplete: "new-password", "aria-label": `${t("new_password")}: ${u.name}` });
-        role.onchange = () => api("PATCH", `/hub/users/${enc(u.name)}`, { role: role.value }).then(() => toast(t("user_saved", { name: u.name })), fail);
-        return h("div", { class: "user-row" },
-          h("b", {}, u.name), role,
-          h("form", { style: "display:flex;gap:6px", onsubmit: async (e) => {
-            e.preventDefault();
-            try { await api("PATCH", `/hub/users/${enc(u.name)}`, { password: pass.value }); pass.value = ""; toast(t("user_saved", { name: u.name })); } catch (ex) { fail(ex); }
-          } }, pass, h("button", { class: "btn btn-line" }, t("set_password"))),
-          h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u.name}`, disabled: u.name === me.name,
-            onclick: async () => {
-              if (!(await confirmDialog(t("confirm_delete_user", { name: u.name }), t("delete"), true))) return;
-              try { await api("DELETE", `/hub/users/${enc(u.name)}`); load(); } catch (e) { fail(e); }
-            } }, icon("trash")));
-      }));
+      list.replaceChildren(...users.map((u) => h("div", { class: "user-row" },
+        h("b", {}, u.display || u.name), h("span", { class: "muted" }, t("role_" + u.role)), h("span", { class: "muted" }, u.display ? u.name : ""),
+        h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u.name}`, disabled: u.name === me.name,
+          onclick: async () => {
+            if (!(await confirmDialog(t("confirm_delete_user", { name: u.name }), t("delete"), true))) return;
+            try { await api("DELETE", `/hub/users/${enc(u.name)}`); load(); } catch (e) { fail(e); }
+          } }, icon("trash")))));
     };
-    const name = h("input", { id: "u-name", placeholder: t("username"), autocomplete: "off", required: true });
-    const pass = h("input", { id: "u-pass", type: "password", placeholder: t("password"), autocomplete: "new-password", required: true });
-    const role = roleSelect("operator", "u-role");
     load();
     return h("div", {},
       modalHead(t("users"), null, close),
-      h("div", { class: "modal-body" }, list,
-        h("form", { class: "user-form", onsubmit: async (e) => {
-          e.preventDefault();
-          try {
-            await api("POST", "/hub/users", { name: name.value.trim(), password: pass.value, role: role.value });
-            toast(t("user_saved", { name: name.value.trim() })); name.value = ""; pass.value = ""; msg.textContent = ""; load();
-          } catch (ex) { fail(ex); }
-        } }, name, pass, role, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_user"))),
-        msg),
+      h("div", { class: "modal-body" }, h("p", { class: "muted" }, t("users_managed_externally")), list, msg),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
 }
@@ -1941,7 +1922,7 @@ function showLogin() {
   showSettings(false);
   $("app").classList.add("hidden"); $("viewer").classList.add("hidden"); $("login").classList.remove("hidden");
   $("agent-card").classList.add("hidden"); $("login-form").classList.remove("hidden");
-  (hub ? $("username") : $("token")).focus();
+  (hub ? $("email") : $("token")).focus();
 }
 
 // --- Agent sign-in (src/hub/agent_auth.py) ---------------------------------------
@@ -1989,7 +1970,7 @@ async function showAgentAuth() {
     try {
       const { key } = await api("POST", "/hub/me/agent-key");
       const { port, state } = agentAuth;
-      saveAgentAuth({ ...agentAuth, user: who.name });  // for the #agent-done page
+      saveAgentAuth({ ...agentAuth, user: firstName(who) });  // for the #agent-done page
       const form = h("form", { method: "post", action: `http://127.0.0.1:${port}/callback`, class: "hidden" },
         h("input", { type: "hidden", name: "state", value: state }), h("input", { type: "hidden", name: "key", value: key }));
       document.body.append(form);
@@ -1999,7 +1980,7 @@ async function showAgentAuth() {
   showAgentCard(
     h("h1", { tabindex: "-1" }, t("agent_auth_title")),
     h("p", { class: "muted" }, t("agent_auth_hint", { pc: agentAuth.pc || t("agent_auth_this_pc") })),
-    h("dl", { class: "agent-who" }, row("username", who.name), row("agent_auth_role", t("role_" + who.role)),
+    h("dl", { class: "agent-who" }, row("email", who.name), row("agent_auth_role", t("role_" + who.role)),
       groups.length ? row("groups", groups.join(", ")) : null, row("agent_auth_hub", location.host)),
     err, authorize,
     h("div", { class: "agent-actions" },
@@ -2017,8 +1998,12 @@ $("login-form").onsubmit = async (e) => {
   if (hub) {
     try {
       const res = await fetch("/api/v1/hub/login", { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang },
-        body: JSON.stringify({ username: $("username").value.trim(), password: $("token").value }) });
-      if (!res.ok) throw new ApiError(res.status, t("bad_login"));
+        body: JSON.stringify({ email: $("email").value.trim(), password: $("token").value }) });
+      if (!res.ok) {
+        // The hub answers in our language: wrong credentials, no access, lockout wait, platform down.
+        const detail = (await res.json().catch(() => ({}))).detail;
+        throw new ApiError(res.status, typeof detail === "string" ? detail : t("bad_login"));
+      }
       token = (await res.json()).token;
       store.set("foxprofile.token", token); $("token").value = ""; $("login-err").textContent = "";
       agentAuth ? showAgentAuth() : showApp(true);
@@ -2086,7 +2071,7 @@ document.addEventListener("keydown", (e) => {
     if (info.mode === "hub") {
       hub = true;
       $("user-field").classList.remove("hidden");
-      $("username").required = true;
+      $("email").required = true;
       for (const [sel, key] of [["#login [data-t=token]", "password"], ["#login [data-t=login_side]", "login_side_hub"], ["#login [data-t=login_hint]", "login_hint_hub"]])
         document.querySelector(sel).dataset.t = key;
       applyI18n();

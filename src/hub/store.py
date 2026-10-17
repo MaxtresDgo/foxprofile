@@ -1,8 +1,9 @@
 """Hub users, sessions, profile owners and groups, persisted in one JSON file.
 
-Passwords are scrypt hashes. Session tokens are stateless and signed with the
-server secret (FOXPROFILE_API_TOKEN); they embed a fragment of the user's
-password hash, so changing a password logs that user out everywhere.
+Users are keyed by the email they sign in with on the identity platform
+(hub/platform_auth.py), which owns their password and role; this file keeps the
+rest. Session tokens are stateless and signed with the server secret
+(FOXPROFILE_API_TOKEN).
 """
 
 from __future__ import annotations
@@ -17,17 +18,13 @@ import threading
 import time
 import unicodedata
 
-from ..core.logging import get_logger
 from ..core.strings import get_string
 from ..services.profile.manager import _replace
-
-logger = get_logger("hub.store")
 
 ROLES = ("admin", "operator")
 GROUP_ROLES = ("member", "lead")
 SESSION_TTL = 12 * 3600
 _NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
-MIN_PASSWORD = 8
 KEY_PREFIX = "fpk_"
 KEY_FIELDS = ("key", "agent_key")
 
@@ -44,12 +41,8 @@ class HubError(ValueError):
     """Invalid user input; the message is safe to show."""
 
 
-def _hash(password: str, salt: str) -> str:
-    return hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=2**14, r=8, p=1).hex()
-
-
 class HubStore:
-    def __init__(self, path: str, secret: str, admin_password: str = "") -> None:
+    def __init__(self, path: str, secret: str) -> None:
         if len(secret) < 24:
             raise SystemExit(
                 "Hub mode signs sessions with FOXPROFILE_API_TOKEN: set it to 24+ random characters."
@@ -68,9 +61,6 @@ class HubStore:
             self.owners = data.get("owners", {})
             self.groups = data.get("groups", {})
             self.profile_groups = data.get("profile_groups", {})
-        if not self.users and admin_password:
-            self.add_user("admin", admin_password, "admin")
-            logger.info("Created the admin user")
 
     def _save(self) -> None:
         tmp = self._path.with_suffix(".tmp")
@@ -90,37 +80,6 @@ class HubStore:
 
     # --- users -------------------------------------------------------------
 
-    def add_user(self, name: str, password: str, role: str = "operator") -> None:
-        if not _NAME.match(name):
-            raise HubError(get_string("err_user_name"))
-        if role not in ROLES:
-            raise HubError(get_string("err_role", values=", ".join(ROLES)))
-        with self._lock:
-            if name in self.users:
-                raise HubError(get_string("err_user_exists"))
-            self.users[name] = {"role": role}
-            self._set_password(name, password)
-
-    def _set_password(self, name: str, password: str) -> None:
-        if len(password) < MIN_PASSWORD:
-            raise HubError(get_string("err_password_short", count=MIN_PASSWORD))
-        salt = secrets.token_hex(16)
-        self.users[name].update(salt=salt, hash=_hash(password, salt))
-        self._save()
-
-    def update_user(self, name: str, password: str | None, role: str | None) -> None:
-        with self._lock:
-            if name not in self.users:
-                raise KeyError(name)
-            if role is not None:
-                if role not in ROLES:
-                    raise HubError(get_string("err_role", values=", ".join(ROLES)))
-                self.users[name]["role"] = role
-            if password is not None:
-                self._set_password(name, password)
-            else:
-                self._save()
-
     def delete_user(self, name: str) -> None:
         with self._lock:
             if self.users.pop(name, None) is None:
@@ -133,24 +92,27 @@ class HubStore:
 
     def list_users(self) -> list[dict]:
         with self._lock:
-            return [{"name": n, "role": u["role"]} for n, u in sorted(self.users.items())]
+            return [
+                {"name": n, "role": u["role"], "display": u.get("display", "")}
+                for n, u in sorted(self.users.items())
+            ]
 
     # --- sessions ------------------------------------------------------------
 
-    def login(self, name: str, password: str) -> str | None:
-        """A session token, or None for a wrong name or password."""
-        user = self.users.get(name)
-        # Hash even for unknown names so timing does not reveal which exist.
-        # ponytail: no login throttling; scrypt cost is the only brake (LAN deployment).
-        digest = _hash(password, user["salt"] if user else "00" * 16)
-        if user is None or not hmac.compare_digest(digest, user["hash"]):
-            return None
+    def sign_in(self, name: str, role: str, display: str = "") -> str:
+        """A session token for a user the identity platform just let in, creating
+        their local account on first sign-in; role and display name follow the platform's."""
+        if role not in ROLES:
+            raise HubError(get_string("err_role", values=", ".join(ROLES)))
+        with self._lock:
+            user = self.users.setdefault(name, {})
+            if (user.get("role"), user.get("display", "")) != (role, display):
+                user.update(role=role, display=display)
+                self._save()
         return self._sign(name, int(time.time()) + SESSION_TTL)
 
     def _sig(self, name: str, exp: int) -> str:
-        user_hash = self.users[name]["hash"][:16]
-        msg = f"{name}.{exp}.{user_hash}".encode()
-        return hmac.new(self._secret, msg, hashlib.sha256).hexdigest()
+        return hmac.new(self._secret, f"{name}.{exp}".encode(), hashlib.sha256).hexdigest()
 
     def _sign(self, name: str, exp: int) -> str:
         return f"{name}.{exp}.{self._sig(name, exp)}"
@@ -171,15 +133,15 @@ class HubStore:
             for name, user in self.users.items():
                 for field in KEY_FIELDS:
                     if user.get(field) and hmac.compare_digest(user[field], digest):
-                        return {"name": name, "role": user["role"]}
+                        return self._who(name)
         return None
 
     def verify(self, token: str) -> dict | None:
-        """{"name", "role"} for a valid personal key or unexpired session token."""
+        """{"name", "role", "display"} for a valid personal key or unexpired session token."""
         if token.startswith(KEY_PREFIX):
             return self._verify_key(token)
         try:
-            name, exp_s, sig = token.split(".")
+            name, exp_s, sig = token.rsplit(".", 2)  # emails contain dots
             exp = int(exp_s)
         except ValueError:
             return None
@@ -188,7 +150,11 @@ class HubStore:
                 return None
             if not hmac.compare_digest(sig, self._sig(name, exp)):
                 return None
-            return {"name": name, "role": self.users[name]["role"]}
+            return self._who(name)
+
+    def _who(self, name: str) -> dict:
+        user = self.users[name]
+        return {"name": name, "role": user["role"], "display": user.get("display", "")}
 
     # --- profile owners ------------------------------------------------------
 

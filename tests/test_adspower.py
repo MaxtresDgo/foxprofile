@@ -400,7 +400,7 @@ def test_hub_import_files_profiles_under_their_adspower_group(hub, monkeypatch):
     client, container, admin = hub
     monkeypatch.setattr(chrome_prefetch, "unsupported_reason", lambda: None)
     store = container._instances["hub"]
-    container.browser_launcher.touch("admin", set())
+    container.browser_launcher.touch("admin@example.com", set())
     container.browser_launcher.touch("ana", set())
 
     # An admin's import creates the group, named for the hub.

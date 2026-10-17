@@ -13,7 +13,7 @@ HUB = "https://hub.example.com"
 def _who_is(hub, key):
     if key != "fpk_good":
         raise ValueError("HTTP 401")
-    return {"name": "ana", "role": "operator"}
+    return {"name": "ana", "role": "operator", "display": "Ana López"}
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def test_callback_needs_the_state_the_local_host_and_a_good_key(signin):
 
     r = _req(signin, "POST", "/callback", good)
     assert r.status == 303 and r.getheader("Location") == HUB + "/#agent-done"
-    assert signin.wait(5) == {"hub": HUB, "user": "ana", "key": "fpk_good"}
+    assert signin.wait(5) == {"hub": HUB, "user": "ana", "display": "Ana López", "key": "fpk_good"}
 
 
 def test_setup_asks_for_the_hub_first():

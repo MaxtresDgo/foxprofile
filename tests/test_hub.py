@@ -13,10 +13,31 @@ from src.api import app as app_module
 from src.api import auth
 from src.api.app import create_app
 from src.core.container import Container
+from src.core.strings import get_string
+from src.hub import platform_auth
 from src.hub.store import HubStore
 from src.services.browser.launcher import BrowserControlError
 
 SECRET = "s" * 32
+# The identity platform: email -> (password, permissions). It only lets in users
+# holding the permission it requires for FoxProfile, like the real one.
+PLATFORM = {
+    "admin@example.com": ("admin-pass", ["*:*"]),
+    "ana": ("anaanaanaana", ["foxprofile:access"]),
+    "bob": ("bobbobbobbob", ["foxprofile:access"]),
+    "cid": ("cidcidcidcid", ["foxprofile:access"]),
+    "eve@example.com": ("eve-pass", ["reports:read"]),
+}
+
+
+def _platform_login(email, password):
+    entry = PLATFORM.get(email.strip().lower())
+    if entry is None or entry[0] != password:
+        raise platform_auth.LoginError(401, get_string("err_bad_login"))
+    if not platform_auth.has_permission(entry[1], "foxprofile:access"):
+        raise platform_auth.LoginError(403, get_string("err_no_access"))
+    name = "Ana María López" if email == "ana" else ""
+    return {"email": email.strip().lower(), "name": name, "permisos": entry[1]}
 
 
 @pytest.fixture
@@ -24,20 +45,19 @@ def hub(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(auth, "API_TOKEN", SECRET)
     monkeypatch.setattr(app_module, "API_TOKEN", SECRET)
+    monkeypatch.setattr(platform_auth, "authenticate", _platform_login)
     container = Container(hub=True)
-    container._instances["hub"] = HubStore("hub.json", SECRET, admin_password="admin-pass")
+    container._instances["hub"] = HubStore("hub.json", SECRET)
     client = TestClient(create_app(container))
-    admin = _login(client, "admin", "admin-pass")
-    for name in ("ana", "bob"):
-        r = client.post(
-            "/api/v1/hub/users", json={"name": name, "password": name * 4}, headers=admin
-        )
-        assert r.status_code == 201
+    admin = _login(client, "admin@example.com", "admin-pass")
+    # Accounts appear on first sign-in.
+    _login(client, "ana", "anaanaanaana")
+    _login(client, "bob", "bobbobbobbob")
     return client, container, admin
 
 
 def _login(client, user, password):
-    r = client.post("/api/v1/hub/login", json={"username": user, "password": password})
+    r = client.post("/api/v1/hub/login", json={"email": user, "password": password})
     assert r.status_code == 200, r.text
     return {"Authorization": "Bearer " + r.json()["token"]}
 
@@ -51,27 +71,39 @@ def _zip(name, files):
     return buf.getvalue()
 
 
-def test_sessions(hub):
+def test_sessions(hub, monkeypatch):
     client, container, admin = hub
+    login = "/api/v1/hub/login"
     # Errors follow the caller's Accept-Language (the panel sends its own).
-    bad = {"username": "ana", "password": "nope"}
-    r = client.post("/api/v1/hub/login", json=bad, headers={"Accept-Language": "es"})
-    assert r.json()["detail"] == "Usuario o contraseña incorrectos"
+    bad = {"email": "ana", "password": "nope"}
+    r = client.post(login, json=bad, headers={"Accept-Language": "es"})
+    assert r.status_code == 401 and r.json()["detail"] == "Correo o contraseña incorrectos"
     r = client.get("/api/v1/profiles/nope", headers={**admin, "Accept-Language": "es-MX,es;q=0.9"})
     assert r.json()["detail"] == "No se encontró el profile 'nope'"
-    assert (
-        client.post("/api/v1/hub/login", json={"username": "ana", "password": "nope"}).status_code
-        == 401
-    )
     assert client.get("/api/v1/profiles").status_code == 401
+    # Platform users without FoxProfile's permission never get an account.
+    r = client.post(login, json={"email": "eve@example.com", "password": "eve-pass"})
+    assert r.status_code == 403 and "eve@example.com" not in container.hub_store.users
+    # The platform's permissions set the role; emails (with dots) work as names.
+    me = client.get("/api/v1/hub/me", headers=admin).json()
+    assert me["name"] == "admin@example.com" and me["role"] == "admin"
     ana = _login(client, "ana", "anaanaanaana")
-    assert client.get("/api/v1/hub/me", headers=ana).json()["role"] == "operator"
+    me = client.get("/api/v1/hub/me", headers=ana).json()
+    assert me["role"] == "operator" and me["display"] == "Ana María López"
     forged = {"Authorization": ana["Authorization"].replace("ana.", "bob.", 1)}
     assert client.get("/api/v1/profiles", headers=forged).status_code == 401
     assert client.get("/api/v1/hub/users", headers=ana).status_code == 403
-    # A new password logs the old session out.
-    client.patch("/api/v1/hub/users/ana", json={"password": "new-password"}, headers=admin)
-    assert client.get("/api/v1/profiles", headers=ana).status_code == 401
+    # ...again on every sign-in, and the open session follows the local role.
+    monkeypatch.setitem(
+        PLATFORM, "ana", ("anaanaanaana", ["foxprofile:access", "foxprofile:admin"])
+    )
+    _login(client, "ana", "anaanaanaana")
+    assert client.get("/api/v1/hub/users", headers=ana).status_code == 200
+    # No local passwords: users are not created or edited here, only dropped.
+    assert client.post("/api/v1/hub/users", json={"name": "x"}, headers=admin).status_code == 405
+    bob = _login(client, "bob", "bobbobbobbob")
+    assert client.delete("/api/v1/hub/users/bob", headers=admin).status_code == 200
+    assert client.get("/api/v1/profiles", headers=bob).status_code == 401
     # The raw server token still works as an admin key.
     raw = {"Authorization": "Bearer " + SECRET}
     assert client.get("/api/v1/hub/users", headers=raw).status_code == 200
@@ -152,7 +184,7 @@ def test_upload_rejects_unsafe_or_foreign_archives(hub):
     assert client.put("/api/v1/hub/bundle/shop-01", content=other, headers=ana).status_code == 400
     assert not pathlib.Path("evil").exists()
     # Leased to someone else: refused.
-    container.browser_launcher.touch("admin", set())
+    container.browser_launcher.touch("admin@example.com", set())
     client.post("/api/v1/browser/shop-01/launch?wait=false", headers=admin)
     ok = _zip("shop-01", {"data/a": b"x"})
     assert client.put("/api/v1/hub/bundle/shop-01", content=ok, headers=ana).status_code == 409
@@ -393,7 +425,6 @@ def test_a_dropped_agent_poll_leaves_commands_for_the_next_one(hub):
 def test_groups_share_profiles_and_leads_manage_their_own(hub):
     client, container, admin = hub
     api = "/api/v1/hub"
-    client.post(f"{api}/users", json={"name": "cid", "password": "cid" * 4}, headers=admin)
     ana, bob = _login(client, "ana", "anaanaanaana"), _login(client, "bob", "bobbobbobbob")
     cid = _login(client, "cid", "cidcidcidcid")
     client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=admin)

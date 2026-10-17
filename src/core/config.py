@@ -53,8 +53,12 @@ API_TOKEN = _env("API_TOKEN", "")
 # `python -m src.agent`. Users and profile owners live in HUB_FILE.
 HUB = _env("HUB", "false").strip().lower() in ("1", "true", "yes")
 HUB_FILE = _env("HUB_FILE", "hub.json")
-# Creates the `admin` user on first start when HUB_FILE has no users yet.
-ADMIN_PASSWORD = _env("ADMIN_PASSWORD", "")
+# Hub logins are checked against an external identity platform (hub/platform_auth.py):
+# POST {AUTH_URL}/auth/login with `Origin: AUTH_ORIGIN`, the origin that platform has
+# registered for this app. Users holding AUTH_ADMIN_PERMISSION there are hub admins.
+AUTH_URL = _env("AUTH_URL", "").rstrip("/")
+AUTH_ORIGIN = _env("AUTH_ORIGIN", "").rstrip("/")
+AUTH_ADMIN_PERMISSION = _env("AUTH_ADMIN_PERMISSION", "foxprofile:admin")
 # Agent side: where the hub is and which operator this PC belongs to.
 HUB_URL = _env("HUB_URL", "").rstrip("/")
 # Agent installers in a private S3 bucket (RustFS, MinIO, AWS) instead of next to

@@ -58,9 +58,15 @@ class Container:
         from ..hub.store import HubStore
         from . import config
 
-        return self._get(
-            "hub", lambda: HubStore(config.HUB_FILE, config.API_TOKEN, config.ADMIN_PASSWORD)
-        )
+        def build():
+            if not (config.AUTH_URL and config.AUTH_ORIGIN):
+                raise SystemExit(
+                    "Hub mode signs users in through FOXPROFILE_AUTH_URL with "
+                    "FOXPROFILE_AUTH_ORIGIN: set both."
+                )
+            return HubStore(config.HUB_FILE, config.API_TOKEN)
+
+        return self._get("hub", build)
 
     @property
     def proxy_service(self) -> IProxyService:

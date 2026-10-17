@@ -1,4 +1,4 @@
-"""Hub API: operator login, user and group admin, and the agent protocol.
+"""Hub API: operator login (through the identity platform), user and group admin, and the agent protocol.
 
 Agent protocol (all as the operator the agent belongs to):
   GET  /hub/poll?running=a,b   long-poll for {"op": "launch", "profile": {...}} or
@@ -33,11 +33,12 @@ from starlette.background import BackgroundTask
 
 from ..api.auth import hub_store
 from ..api.helpers import require_profile
+from ..core import config
 from ..core.config import DATA_DIR
 from ..core.logging import get_logger
 from ..core.strings import get_string
 from ..services.profile.transfer import export_to_zip, import_from_zip
-from . import agent_code, installers
+from . import agent_code, installers, platform_auth
 from .remote import POLL_WAIT
 from .store import HubError
 
@@ -64,16 +65,21 @@ def _admin(request: Request) -> None:
 
 
 class LoginBody(BaseModel):
-    username: str
+    email: str
     password: str
 
 
 @public_router.post("/login")
 def login(body: LoginBody, request: Request) -> dict:
+    """Checks the credentials with the identity platform, then opens a hub session;
+    the platform's permissions decide the role on every sign-in."""
+    try:
+        user = platform_auth.authenticate(body.email, body.password)
+    except platform_auth.LoginError as e:
+        raise HTTPException(status_code=e.status, detail=str(e)) from e
+    admin = platform_auth.has_permission(user["permisos"], config.AUTH_ADMIN_PERMISSION)
     store = hub_store(request)
-    token = store.login(body.username, body.password)
-    if token is None:
-        raise HTTPException(status_code=401, detail=get_string("err_bad_login"))
+    token = store.sign_in(user["email"], "admin" if admin else "operator", user["name"])
     return {"token": token, **store.verify(token)}
 
 
@@ -113,17 +119,6 @@ def new_agent_key(request: Request) -> dict:
 # --- user admin ----------------------------------------------------------------
 
 
-class UserCreate(BaseModel):
-    name: str
-    password: str
-    role: str = "operator"
-
-
-class UserUpdate(BaseModel):
-    password: str | None = None
-    role: str | None = None
-
-
 class OwnerBody(BaseModel):
     user: str | None
 
@@ -140,28 +135,10 @@ def list_users(request: Request) -> list[dict]:
     return hub_store(request).list_users()
 
 
-@router.post("/users", status_code=201, dependencies=[Depends(_admin)])
-def create_user(body: UserCreate, request: Request) -> dict:
-    try:
-        hub_store(request).add_user(body.name, body.password, body.role)
-    except HubError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    return {"name": body.name, "role": body.role}
-
-
-@router.patch("/users/{user}", dependencies=[Depends(_admin)])
-def update_user(user: str, body: UserUpdate, request: Request) -> dict:
-    try:
-        hub_store(request).update_user(user, body.password, body.role)
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=get_string("err_unknown_user")) from e
-    except HubError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    return {"name": user}
-
-
 @router.delete("/users/{user}", dependencies=[Depends(_admin)])
 def delete_user(user: str, request: Request) -> dict:
+    """Drops the local account: owners, groups and keys. Access itself is revoked on
+    the identity platform; a user it still lets in comes back as a fresh account."""
     if user == _user(request)["name"]:
         raise HTTPException(status_code=400, detail=get_string("err_delete_self"))
     try:

@@ -101,10 +101,15 @@ def who_is(hub: str, key: str) -> dict:
 
 
 class HubClient:
-    def __init__(self, url: str, user: str, key: str) -> None:
-        self.url, self.user, self.key = url, user, key
+    def __init__(self, url: str, user: str, key: str, display: str = "") -> None:
+        self.url, self.user, self.key, self.display = url, user, key, display
         # Called on a 401: the key was revoked (or replaced by another sign-in).
         self.on_unauthorized = lambda: None
+
+    @property
+    def label(self) -> str:
+        """First name from the identity platform for the tray and console; else the account."""
+        return next(iter((self.display or self.user).split()), "")
 
     def call(self, method: str, path: str, data=None, timeout: float = 60, raw=False):
         try:
@@ -350,7 +355,7 @@ class Agent:
                 time.sleep(RETRY_SECONDS)
                 continue
             if self.hub.key:
-                self.status("agent_status_connected", user=self.hub.user, host=_host(self.hub.url))
+                self.status("agent_status_connected", user=self.hub.label, host=_host(self.hub.url))
             if not resp:
                 continue
             if resp["op"] == "launch":
@@ -492,7 +497,10 @@ class App:
 
     def __init__(self, hub_url: str, creds: dict) -> None:
         self.client = HubClient(
-            hub_url or creds.get("hub", ""), creds.get("user", ""), creds.get("key", "")
+            hub_url or creds.get("hub", ""),
+            creds.get("user", ""),
+            creds.get("key", ""),
+            creds.get("display", ""),
         )
         self.client.on_unauthorized = self._unauthorized
         self.agent = Agent(self.client, self.set_status, self.notify)
@@ -539,10 +547,11 @@ class App:
             result["user"],
             result["key"],
         )
+        self.client.display = result.get("display", "")
         _save_credentials(result)
-        say(get_string("agent_connected", url=self.client.url, user=self.client.user))
+        say(get_string("agent_connected", url=self.client.url, user=self.client.label))
         self.set_status(
-            "agent_status_connected", user=self.client.user, host=_host(self.client.url)
+            "agent_status_connected", user=self.client.label, host=_host(self.client.url)
         )
         self.ready.set()
 
@@ -561,7 +570,7 @@ class App:
         if first_run:
             if self.ready.is_set():
                 self.set_status(
-                    "agent_status_connected", user=self.client.user, host=_host(self.client.url)
+                    "agent_status_connected", user=self.client.label, host=_host(self.client.url)
                 )
             self.notify(get_string("agent_browser_ready"))
 
@@ -576,7 +585,7 @@ class App:
         download = threading.Thread(target=self._download, daemon=True)
         download.start()
         if self.ready.is_set():
-            say(get_string("agent_connected", url=self.client.url, user=self.client.user))
+            say(get_string("agent_connected", url=self.client.url, user=self.client.label))
         else:
             self.set_status("agent_status_sign_in")
             self.sign_in()  # _finish says when it is connected
