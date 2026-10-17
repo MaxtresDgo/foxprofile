@@ -293,6 +293,12 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .choice button svg { color: var(--ink-2); }
 .choice b { display: block; font-weight: 600; }
 .choice span { display: block; font-size: 12.5px; color: var(--ink-3); }
+.os-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 14px; }
+.os-pick a { display: grid; justify-items: center; gap: 6px; padding: 22px 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-raised); color: var(--ink); text-align: center; text-decoration: none; }
+.os-pick a:hover:not([aria-disabled]) { border-color: var(--ink-2); }
+.os-pick a[aria-disabled] { opacity: .5; pointer-events: none; }
+.os-pick svg.i { width: 44px; height: 44px; stroke-width: 1.4; color: var(--ink-2); }
+.os-pick span { font-size: 12.5px; color: var(--ink-3); }
 .fp-card { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 16px; padding: 12px 14px; border-radius: 9px; background: var(--paper); border: 1px solid var(--rule); font-size: 13px; }
 .fp-card dt { color: var(--ink-3); }
 .fp-card dd { margin: 0; }
@@ -401,6 +407,8 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
+  <symbol id="i-windows" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
+  <symbol id="i-apple" viewBox="0 0 24 24"><path d="M16.5 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8C7 7.4 5.5 8.3 4.7 9.8c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.4 2.9 2.4 1.2-.1 1.6-.8 3-.8s1.8.8 3 .8 2-1.2 2.8-2.3c.9-1.3 1.2-2.6 1.3-2.7-.1 0-2.4-.9-2.4-4.2zM14.3 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
   <symbol id="i-cookie" viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 0 9.5 9.5 4 4 0 0 1-4.8-4.7A4 4 0 0 1 12 2.5Z"/><path d="M8.5 8.5h.01M15.5 15h.01M11.5 12.5h.01M11 17h.01M7.5 14h.01"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M16.9 3.6a2.3 2.3 0 0 1 3.3 3.3L8 19.1l-4.5 1.2 1.2-4.5Z"/></symbol>
@@ -475,6 +483,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
     <div class="grow"></div>
     <div class="rail-foot">
       <div class="agent hidden" id="agent-status" role="status"></div>
+      <button class="rail-link hidden" id="agent-get-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="agent_get"></span></button>
       <button class="rail-link" id="settings-btn"><svg class="i"><use href="#i-settings"/></svg><span data-t="settings"></span></button>
       <button class="rail-link hidden" id="logout-btn"><svg class="i"><use href="#i-logout"/></svg><span data-t="logout"></span></button>
     </div>
@@ -602,7 +611,7 @@ const I18N = {
     agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
     agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
     agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
-    agent_on: "Máy của bạn: đã kết nối", agent_off: "Máy của bạn: chưa chạy agent",
+    agent_on: "Máy của bạn: đã kết nối", agent_off: "Máy của bạn: chưa chạy agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
     agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
     agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Chưa có bộ cài",
@@ -697,7 +706,7 @@ const I18N = {
     agent_authorize: "Authorize", agent_switch: "Switch account",
     agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
     agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
-    agent_on: "Your PC: connected", agent_off: "Your PC: agent not running",
+    agent_on: "Your PC: connected", agent_off: "Your PC: agent not running", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
     agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
     agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "No installer yet",
@@ -792,7 +801,7 @@ const I18N = {
     agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
     agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
     agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
-    agent_on: "Tu PC: conectada", agent_off: "Tu PC: el agente no está en ejecución",
+    agent_on: "Tu PC: conectada", agent_off: "Tu PC: el agente no está en ejecución", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
     agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
     agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene perfiles abiertos.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Todavía no hay instalador",
@@ -1442,6 +1451,7 @@ function renderMe(who) {
   el.classList.toggle("on", me.agent_online);
   el.textContent = `${firstName(me)} · ${t(me.agent_online ? "agent_on" : "agent_off")}`;
   el.title = me.name;
+  $("agent-get-btn").classList.toggle("hidden", me.agent_online);
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
@@ -1596,6 +1606,25 @@ function openAgents() {
         admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => { loadInstallers(); loadAgents(); } }, icon("reload", true), t("agents_refresh")) : null,
         h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
+}
+
+// First install: only pick the system and download (uploads stay in openAgents).
+function openAgentDownload() {
+  modal((close) => {
+    const tiles = h("div", { class: "os-pick" });
+    const msg = h("div", { class: "msg", role: "status" });
+    api("GET", "/hub/installers").then((files) => {
+      tiles.replaceChildren(...[["windows", "windows"], ["macos", "apple"]].map(([platform, ico]) => {
+        const f = files.find((x) => x.platform === platform);
+        return h("a", f ? { href: `/api/v1/hub/installers/${platform}`, download: f.name } : { "aria-disabled": "true" },
+          icon(ico), h("b", {}, t("agents_" + platform)), h("span", {}, f ? f.name : t("agents_no_file")));
+      }));
+    }).catch((e) => { msg.className = "msg err"; msg.textContent = e.message; });
+    return h("div", {},
+      modalHead(t("agent_get"), null, close),
+      h("div", { class: "modal-body" }, h("p", { class: "muted" }, t("agent_get_hint")), tiles, msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  });
 }
 
 // --- Import from AdsPower (src/api/routes/adspower.py) ----------------------------
@@ -2021,6 +2050,7 @@ $("ads-btn").onclick = openAdsPower;
 $("users-btn").onclick = openUsers;
 $("groups-btn").onclick = openGroups;
 $("agents-btn").onclick = openAgents;
+$("agent-get-btn").onclick = openAgentDownload;
 $("settings-btn").onclick = () => showSettings(true);
 $("general-btn").onclick = () => showGeneral(true);
 document.querySelectorAll("[data-theme-pick]").forEach((b) => {
