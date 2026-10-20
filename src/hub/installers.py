@@ -6,7 +6,7 @@ otherwise in installers/<system>/ next to HUB_FILE. The bucket stays private:
 the hub hands out presigned URLs, so browsers upload to it and download from it
 directly and the ~300 MB never go through the hub. Uploads go in parts
 (multipart, PART_SIZE each): proxies in front of a store, like Cloudflare,
-refuse bodies over 100 MB. Uploading from the panel needs a CORS rule on the
+refuse bodies over 100 MB or that take over 100 s. Uploading from the panel needs a CORS rule on the
 bucket for the panel's origin that exposes ETag (docs/HUB.md); files put
 there with any S3 tool under fox-profiles/<dev|prod>/installers/<system>/ are
 picked up too (config.S3_PREFIX).
@@ -24,8 +24,10 @@ PLATFORMS = {"windows": ".msi", "macos": ".pkg"}
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 # Each part's URL is checked when that part starts: room for ~300 MB on a slow line.
 UPLOAD_EXPIRES = 6 * 3600
-# Under Cloudflare's 100 MB request cap; S3 wants 5 MB or more (but the last).
-PART_SIZE = 64 * 1024 * 1024
+# Cloudflare caps a request at 100 MB and at 100 s for the answer (524, no CORS
+# headers): 8 MB parts finish in time down to ~1 Mbit/s of upload. S3 wants 5 MB
+# or more (but the last).
+PART_SIZE = 8 * 1024 * 1024
 MAX_SIZE = 4 * 1024**3
 DOWNLOAD_EXPIRES = 900
 CONTENT_TYPE = "application/octet-stream"

@@ -228,10 +228,10 @@ def test_installers_in_a_bucket_go_through_presigned_urls(hub, bucket):
         {"Bucket": "fox", "Key": key, "ContentType": "application/octet-stream"},
     )
     r = client.post(url, headers=admin).json()
-    # 150 MB in three parts, each under a proxy's 100 MB cap, each signed for the
-    # browsers' address (path style).
-    assert r["direct"] and r["upload_id"] == "u1" and r["part_size"] == 64 * 1024 * 1024
-    assert len(r["parts"]) == 3
+    # 150 MB in 8 MB parts (19, the last one short), small enough for a proxy's
+    # caps, each signed for the browsers' address (path style).
+    assert r["direct"] and r["upload_id"] == "u1" and r["part_size"] == 8 * 1024 * 1024
+    assert len(r["parts"]) == 19
     for n, part in enumerate(r["parts"], 1):
         assert part.startswith(f"https://files.example.test/fox/{key}?")
         assert f"partNumber={n}" in part and "uploadId=u1" in part
@@ -278,3 +278,12 @@ def test_installers_in_a_bucket_go_through_presigned_urls(hub, bucket):
     bucket.add_client_error("list_objects_v2", "AccessDenied", http_status_code=403)
     assert client.get("/api/v1/hub/installers", headers=ana).status_code == 502
     bucket.assert_no_pending_responses()
+
+
+def test_agent_falls_back_to_the_hub_the_installer_was_built_for(tmp_path, monkeypatch):
+    from src import agent
+
+    monkeypatch.setattr(agent_code, "INSTALLED", tmp_path)
+    assert agent._built_hub() == ""
+    (tmp_path / "HUB_URL").write_text("https://hub.example.com\n")
+    assert agent._built_hub() == "https://hub.example.com"

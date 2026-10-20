@@ -8,6 +8,14 @@
 # Every Windows user's data stays in %LOCALAPPDATA%\FoxProfile (`src.agent --home`).
 set -euo pipefail
 
+# HUB_URL=https://hub.example.com (required) bakes the hub the agent connects to
+# (dev or prod build); FOXPROFILE_HUB_URL in the user's .env or --hub still win.
+HUB_URL=${HUB_URL:-}
+case "$HUB_URL" in
+http://?* | https://?*) ;;
+*) echo "HUB_URL must be the hub's http(s) URL, e.g. HUB_URL=https://hub.example.com $0" >&2; exit 1 ;;
+esac
+
 PY_VERSION=3.12.10
 PY_SHA256=4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3
 PY_TAG=python312
@@ -61,6 +69,7 @@ rm -rf "$stage/app/chrome_engine/tests" "$stage/app/chrome_engine/e2e"
 # requirements say which hub code still fits these libraries, and the hook makes
 # this Python load a newer code the agent unpacked for this very BUILD.
 cp "$root/requirements.txt" "$stage/app/"
+printf '%s\n' "${HUB_URL%/}" >"$stage/app/HUB_URL"
 PYTHONPATH="$root" uv run -q --no-project -p 3.12 python -c \
     'import sys, pathlib; from src.hub.agent_code import code_id; print(code_id(pathlib.Path(sys.argv[1])))' \
     "$stage/app" >"$stage/app/BUILD"

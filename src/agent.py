@@ -642,9 +642,20 @@ class App:
             self.icon.stop()
 
 
+def _built_hub() -> str:
+    """The hub an installer was built for (HUB_URL=... build-msi.sh / build-pkg.sh)."""
+    with contextlib.suppress(OSError):
+        return (agent_code.INSTALLED / "HUB_URL").read_text(encoding="utf-8").strip()
+    return ""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="FoxProfile agent (runs hub profiles here)")
-    parser.add_argument("--hub", default=HUB_URL, help="Hub URL (FOXPROFILE_HUB_URL)")
+    parser.add_argument(
+        "--hub",
+        default=HUB_URL or _built_hub(),
+        help="Hub URL (default: FOXPROFILE_HUB_URL, then the one the installer was built for)",
+    )
     parser.add_argument("--home", action="store_true", help="Run from the per-user data folder")
     parser.add_argument("--console", action="store_true", help="Stay in the terminal, no tray")
     args = parser.parse_args()

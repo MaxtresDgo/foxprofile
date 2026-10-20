@@ -2,6 +2,11 @@ name: Agent installers
 
 on:
   workflow_dispatch:
+    inputs:
+      hub_url:
+        description: "Hub the agent connects to (dev or prod); default: the AGENT_HUB_URL variable"
+        required: false
+        default: ""
   push:
     tags: ["v*"]
   pull_request:
@@ -21,6 +26,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: sudo apt-get update && sudo apt-get install -y msitools
       - run: installer/windows/build-msi.sh
+        env:
+          HUB_URL: ${{ inputs.hub_url || vars.AGENT_HUB_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: FoxProfileAgent-msi
@@ -32,6 +39,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - run: installer/macos/build-pkg.sh
+        env:
+          HUB_URL: ${{ inputs.hub_url || vars.AGENT_HUB_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: FoxProfileAgent-pkg
