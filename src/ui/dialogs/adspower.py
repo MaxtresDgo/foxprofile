@@ -35,6 +35,34 @@ def _notify(page: ft.Page, text: str, error: bool = False) -> None:
     )
 
 
+class _Progress:
+    """One snack bar that stays while the import runs and is rewritten per profile."""
+
+    def __init__(self, page: ft.Page) -> None:
+        self.page = page
+        self.text = ft.Text("", color="#FFFFFF", expand=True)
+        self.bar = ft.SnackBar(
+            ft.Row(
+                spacing=12,
+                controls=[
+                    ft.ProgressRing(width=16, height=16, stroke_width=2, color="#FFFFFF"),
+                    self.text,
+                ],
+            ),
+            bgcolor=COLORS["ink_button"],
+            persist=True,
+        )
+        page.show_dialog(self.bar)
+
+    def say(self, text: str) -> None:
+        self.text.value = text
+        self.page.update()
+
+    def close(self) -> None:
+        self.bar.open = False
+        self.page.update()
+
+
 def _is_open(r: dict) -> bool:
     return r["status"] not in ("exists", "created")
 
@@ -229,11 +257,15 @@ def open_adspower_dialog(
         ads = client()
         page.pop_dialog()
         _importing.set()
-        _notify(page, get_string("adspower_started", n=len(todo)))
+        progress = _Progress(page)
         counts = {"created": 0, "reimported": 0, "skipped": 0, "failed": 0}
         errors: list[str] = []
         try:
-            for r in todo:
+            for i, r in enumerate(todo, 1):
+                text = get_string("adspower_progress", i=i, n=len(todo), name=r["target"])
+                if counts["failed"]:
+                    text += " · " + get_string("adspower_progress_failed", n=counts["failed"])
+                progress.say(text)
                 try:
                     # A profile that is here already only gets its cookies refreshed.
                     again = r["status"] == "exists"
@@ -264,6 +296,7 @@ def open_adspower_dialog(
                     refresh()
         finally:
             _importing.clear()
+            progress.close()
         if counts["created"]:
             chrome_prefetch.start(log)
         if counts["reimported"]:

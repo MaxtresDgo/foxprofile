@@ -1,3 +1,5 @@
+import gzip
+import hashlib
 import json
 import os
 import pathlib
@@ -19,6 +21,45 @@ logger = get_logger("profile.transfer")
 
 # Browser caches: rebuilt on demand, often hundreds of MB. Never exported.
 _CACHE_DIRS = {"cache2", "startupCache", "Cache", "Code Cache", "GPUCache", "GrShaderCache"}
+
+# Hub agents carry a profile's cookies as portable JSON next to the browser's
+# own store: Chrome encrypts its cookie DB per machine (DPAPI, keychain), so the
+# DB alone loses every session on another PC. The hash travels with them.
+COOKIES_GZ = "cookies.json.gz"
+COOKIES_SHA = "cookies.json.gz.sha256"
+
+
+class IntegrityError(ValueError):
+    pass
+
+
+def file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def pack_cookies(profile_dir: str, text: str) -> None:
+    """Write the cookies (extension JSON) gzipped, with their SHA-256."""
+    data = gzip.compress(text.encode("utf-8"))
+    pathlib.Path(profile_dir, COOKIES_GZ).write_bytes(data)
+    pathlib.Path(profile_dir, COOKIES_SHA).write_text(hashlib.sha256(data).hexdigest())
+
+
+def read_cookies(profile_dir: str) -> str | None:
+    """The packed cookies' JSON, None if there are none; IntegrityError if damaged."""
+    gz, sha = pathlib.Path(profile_dir, COOKIES_GZ), pathlib.Path(profile_dir, COOKIES_SHA)
+    if not gz.exists():
+        return None
+    data = gz.read_bytes()
+    if not sha.exists() or hashlib.sha256(data).hexdigest() != sha.read_text().strip():
+        raise IntegrityError(f"{COOKIES_GZ}: SHA-256 mismatch")
+    try:
+        return gzip.decompress(data).decode("utf-8")
+    except (OSError, EOFError, UnicodeDecodeError) as e:  # gzip checks its own CRC too
+        raise IntegrityError(f"{COOKIES_GZ}: {e}") from e
 
 
 def export_to_zip(

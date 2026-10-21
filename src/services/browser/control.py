@@ -229,6 +229,11 @@ class PageController:
 
     # --- sync: record on the leader, replay on the followers -------------
 
+    async def quit(self) -> dict[str, Any]:
+        """Close the browser the way its window does, so it writes its cookies to disk."""
+        await self._context.close()
+        return {}
+
     def _rec(self) -> Recorder:
         if self._recorder is None:
             self._recorder = Recorder(self._context)
@@ -274,6 +279,7 @@ class PageController:
         "record_poll",
         "record_stop",
         "replay",
+        "quit",
     )
 
     async def dispatch(self, action: str, params: dict[str, Any]) -> Any:

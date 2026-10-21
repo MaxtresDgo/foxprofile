@@ -6,6 +6,7 @@ Agent protocol (all as the operator the agent belongs to):
   GET  /hub/bundle/{name}      the profile as a ZIP (export_to_zip format)
   POST /hub/status/{name}      {"ok": bool, "error": str|null} once the launch settles
   PUT  /hub/bundle/{name}?release=1   upload the browser data back, ending the lease
+  Both carry the ZIP's SHA-256 in X-Content-SHA256; a mismatch is a 422.
   POST /hub/release/{name}     end the lease without data
   GET  /hub/agent/code         this hub's code, for installed agents to update to
 
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import os
 import pathlib
 import shutil
@@ -37,7 +39,13 @@ from ..core import config
 from ..core.config import DATA_DIR
 from ..core.logging import get_logger
 from ..core.strings import get_string
-from ..services.profile.transfer import export_to_zip, import_from_zip
+from ..services.profile.transfer import (
+    IntegrityError,
+    export_to_zip,
+    file_sha256,
+    import_from_zip,
+    read_cookies,
+)
 from . import agent_code, installers, platform_auth
 from .remote import POLL_WAIT
 from .store import HubError
@@ -487,6 +495,9 @@ async def upload_installer(platform: str, request: Request, name: str = Query(..
     return {"platform": platform, "name": name, "size": (folder / name).stat().st_size}
 
 
+SHA_HEADER = "X-Content-SHA256"
+
+
 def _require_lease(request: Request, name: str, allow_free: bool = False) -> None:
     holder = _launcher(request).holder(name)
     if holder == _user(request)["name"] or (allow_free and holder is None):
@@ -506,6 +517,7 @@ def download_bundle(name: str, request: Request) -> FileResponse:
     return FileResponse(
         result,
         media_type="application/zip",
+        headers={SHA_HEADER: file_sha256(result)},
         background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True),
     )
 
@@ -523,10 +535,15 @@ async def upload_bundle(name: str, request: Request, release: bool = Query(False
     tmp = tempfile.mkdtemp(prefix=".upload-", dir=data_root.parent)
     try:
         zip_path = os.path.join(tmp, "bundle.zip")
+        digest = hashlib.sha256()
         # ponytail: no size cap; operators are trusted LAN users. Cap here if that changes.
         with open(zip_path, "wb") as f:
             async for chunk in request.stream():
                 f.write(chunk)
+                digest.update(chunk)
+        expected = request.headers.get(SHA_HEADER)  # agents older than the header send none
+        if expected and expected.lower() != digest.hexdigest():
+            raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt"))
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -545,6 +562,11 @@ def _swap_in(zip_path: str, tmp: str, name: str, data_root: pathlib.Path) -> Non
         raise HTTPException(status_code=400, detail=get_string("err_archive_other"))
     new = pathlib.Path(extract, name)
     new.mkdir(parents=True, exist_ok=True)
+    try:
+        read_cookies(str(new))  # never replace good data with damaged cookies
+    except IntegrityError as e:
+        logger.warning("Upload of %s refused: %s", name, e)
+        raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt")) from e
     target = data_root / name
     old = pathlib.Path(tmp, "old")
     if target.exists():

@@ -35,6 +35,7 @@ if "--home" in sys.argv:
 
 import argparse  # noqa: E402
 import contextlib  # noqa: E402
+import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
@@ -61,7 +62,16 @@ from src.models.profile import Profile  # noqa: E402
 from src.services.browser import cookies  # noqa: E402
 from src.services.browser.launcher import BrowserControlError  # noqa: E402
 from src.services.profile import adspower  # noqa: E402
-from src.services.profile.transfer import export_to_zip, import_from_zip  # noqa: E402
+from src.services.profile.transfer import (  # noqa: E402
+    COOKIES_GZ,
+    COOKIES_SHA,
+    IntegrityError,
+    export_to_zip,
+    file_sha256,
+    import_from_zip,
+    pack_cookies,
+    read_cookies,
+)
 from src.services.proxy.geo_check import check_geo  # noqa: E402
 
 logger = get_logger("agent")
@@ -111,16 +121,20 @@ class HubClient:
         """First name from the identity platform for the tray and console; else the account."""
         return next(iter((self.display or self.user).split()), "")
 
-    def call(self, method: str, path: str, data=None, timeout: float = 60, raw=False):
+    def call(self, method: str, path: str, data=None, timeout: float = 60, raw=False, headers=None):
         try:
-            return self._send(method, path, data, timeout=timeout, raw=raw)
+            return self._send(method, path, data, timeout=timeout, raw=raw, headers=headers)
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 self.on_unauthorized()
             raise
 
-    def _send(self, method, path, data=None, timeout: float = 60, raw=False):
-        headers = {"User-Agent": "FoxProfile-Agent", "Authorization": f"Bearer {self.key}"}
+    def _send(self, method, path, data=None, timeout: float = 60, raw=False, headers=None):
+        headers = {
+            "User-Agent": "FoxProfile-Agent",
+            "Authorization": f"Bearer {self.key}",
+            **(headers or {}),
+        }
         if isinstance(data, bytes):
             headers["Content-Type"] = "application/json"
         if hasattr(data, "seek"):
@@ -157,6 +171,9 @@ class Agent:
         self.browser_download: int | None = None  # percent, -1 before it is known
         self.updating = False
         self._ops: dict[str, str] = {}  # profile -> "opening" | "syncing"
+        # Profiles downloaded by this run: their os_type and engine open the
+        # browser that packs the cookies when they are uploaded.
+        self._profiles: dict[str, Profile] = {}
         self._sent: tuple = ()
         self._activity_lock = threading.Lock()
         threading.Thread(target=self._heartbeat, daemon=True).start()
@@ -247,7 +264,8 @@ class Agent:
 
     def stop(self, name: str) -> None:
         # stop_profile does not fire on_stop, so sync here.
-        if self.bl.stop_profile(name):
+        # Time for the browser to close and write its cookies before the upload.
+        if self.bl.stop_profile(name, timeout=15):
             say(get_string("agent_stopped_panel", name=name))
             self._sync(name)
         else:
@@ -283,6 +301,7 @@ class Agent:
                 count = cookies.import_cookies(
                     name, profile.os_type, params["content"], profile.engine
                 )
+                self._pack_cookies(name, local)
                 self._upload(name, local)
                 result = {"imported": count}
             say(get_string("agent_cookies", name=name, action=cmd["action"], count=count))
@@ -338,16 +357,58 @@ class Agent:
         local = self.data_root / name
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = os.path.join(tmp, "bundle.zip")
+            digest = hashlib.sha256()
             with (
                 self.hub.call("GET", f"/hub/bundle/{self.q(name)}", raw=True, timeout=600) as r,
                 open(zip_path, "wb") as f,
             ):
-                shutil.copyfileobj(r, f)
+                while chunk := r.read(1 << 20):
+                    f.write(chunk)
+                    digest.update(chunk)
+                expected = r.headers.get("X-Content-SHA256")  # hubs older than it send none
+            if expected and expected.lower() != digest.hexdigest():
+                raise IntegrityError(get_string("err_bundle_corrupt"))
             shutil.rmtree(local, ignore_errors=True)
             ok, result = import_from_zip(zip_path, str(self.data_root))
         if not ok:
             raise RuntimeError(result)
+        self._profiles[name] = result
+        try:
+            self._restore_cookies(result, local)
+        except IntegrityError:
+            # Not left for recover() to upload: the hub keeps its own copy.
+            shutil.rmtree(local, ignore_errors=True)
+            raise
         return result
+
+    def _restore_cookies(self, profile: Profile, local: pathlib.Path) -> None:
+        """Load the cookies packed on the last close into this PC's browser store."""
+        text = read_cookies(str(local))  # IntegrityError: the launch is refused
+        # Imported now, so a stale copy is never uploaded back over newer cookies.
+        for packed in (COOKIES_GZ, COOKIES_SHA):
+            (local / packed).unlink(missing_ok=True)
+        if not text or not json.loads(text):
+            return
+        try:
+            count = cookies.import_cookies(profile.name, profile.os_type, text, profile.engine)
+            say(get_string("agent_cookies_restored", name=profile.name, count=count))
+        except cookies.CookieError as e:
+            # The browser's own store still has the cookies this PC can read.
+            say(get_string("agent_cookies_pack_failed", name=profile.name, error=e))
+
+    def _pack_cookies(self, name: str, local: pathlib.Path) -> None:
+        """Export the stopped profile's cookies as gzipped JSON plus SHA-256."""
+        profile = self._profiles.get(name)
+        if profile is None:
+            # ponytail: a profile left by a crashed run has no os_type/engine here;
+            # it uploads its browser store alone. Ask the hub for them if that bites.
+            return
+        try:
+            text, count = cookies.export_cookies(name, profile.os_type, "json", profile.engine)
+            pack_cookies(str(local), text)
+            say(get_string("agent_cookies_packed", name=name, count=count))
+        except (cookies.CookieError, OSError) as e:
+            say(get_string("agent_cookies_pack_failed", name=name, error=e))
 
     def _sync(self, name: str) -> None:
         """Upload the profile's data and end the lease, retrying until the hub takes it."""
@@ -356,10 +417,12 @@ class Agent:
 
     def _sync_now(self, name: str) -> None:
         local = self.data_root / name
+        self._pack_cookies(name, local)
         while True:
             try:
                 self._upload(name, local)
                 shutil.rmtree(local, ignore_errors=True)
+                self._profiles.pop(name, None)
                 say(get_string("agent_synced", name=name))
                 return
             except urllib.error.HTTPError as e:
@@ -379,8 +442,10 @@ class Agent:
             ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, include_data=True)
             if not ok:
                 raise OSError(zip_path)
+            sha = {"X-Content-SHA256": file_sha256(zip_path)}
             with open(zip_path, "rb") as f:
-                self.hub.call("PUT", f"/hub/bundle/{self.q(name)}?release=1", f, timeout=600)
+                path = f"/hub/bundle/{self.q(name)}?release=1"
+                self.hub.call("PUT", path, f, timeout=600, headers=sha)
 
     def _status(self, name: str, ok: bool, error: str | None) -> None:
         body = json.dumps({"ok": ok, "error": error}).encode()
