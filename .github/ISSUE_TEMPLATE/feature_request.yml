@@ -1,27 +1,27 @@
-name: ✨ Đề xuất tính năng / Feature request
-description: Gợi ý một tính năng hoặc cải tiến
+name: ✨ Proponer una funcionalidad / Feature request
+description: Sugiere una funcionalidad o mejora
 labels: ["enhancement"]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Vấn đề bạn gặp phải
-      description: Tính năng này giải quyết khó khăn gì?
+      label: Problema que tienes
+      description: ¿Qué dificultad resuelve esta funcionalidad?
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
-      label: Giải pháp đề xuất
+      label: Solución propuesta
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
-      label: Các cách khác đã cân nhắc
+      label: Alternativas que consideraste
   - type: checkboxes
     id: contribute
     attributes:
-      label: Đóng góp
+      label: Contribución
       options:
-        - label: Tôi muốn tự viết Pull Request cho tính năng này
+        - label: Quiero escribir yo mismo el Pull Request para esta funcionalidad

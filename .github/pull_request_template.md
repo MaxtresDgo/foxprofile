@@ -1,24 +1,24 @@
-## Mô tả
+## Descripción
 
-<!-- Thay đổi gì và vì sao. Liên kết issue nếu có: "Closes #123" -->
+<!-- Qué cambia y por qué. Enlaza el issue si lo hay: "Closes #123" -->
 
-## Loại thay đổi
+## Tipo de cambio
 
-- [ ] Sửa lỗi (fix)
-- [ ] Tính năng mới (feat)
-- [ ] Tài liệu (docs)
-- [ ] Refactor / dọn code
-- [ ] Thay đổi gây vỡ tương thích (breaking change)
+- [ ] Corrección de error (fix)
+- [ ] Funcionalidad nueva (feat)
+- [ ] Documentación (docs)
+- [ ] Refactor / limpieza de código
+- [ ] Cambio que rompe la compatibilidad (breaking change)
 
-## Đã kiểm tra
+## Comprobado
 
-- [ ] `ruff check src tests` và `ruff format --check src tests` không báo lỗi
-- [ ] `pytest` chạy qua hết
-- [ ] Đã thêm test cho thay đổi (nếu là logic)
-- [ ] Đã chạy thử app và mô tả cách test bên dưới
-- [ ] Chữ mới trên giao diện đã thêm vào `src/core/strings.py` cho cả `vi` và `en`
-- [ ] Không có cookie, proxy hay thông tin tài khoản thật trong PR
+- [ ] `ruff check src tests chrome_engine` y `ruff format --check src tests chrome_engine` sin errores
+- [ ] `pytest` pasa completo
+- [ ] Añadí tests para el cambio (si toca lógica)
+- [ ] Probé la app y describo cómo probarlo abajo
+- [ ] Los textos nuevos de la interfaz están en `src/core/strings.py` en `en`, `vi` y `es`
+- [ ] El PR no contiene cookies, proxies ni datos de cuentas reales
 
-## Cách test
+## Cómo probarlo
 
-<!-- Các bước để người review tự kiểm tra lại -->
+<!-- Pasos para que quien revise lo compruebe por su cuenta -->
