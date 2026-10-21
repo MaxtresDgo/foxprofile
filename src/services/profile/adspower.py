@@ -326,6 +326,16 @@ def has_cookies(data: dict[str, Any]) -> bool:
     return (data.get("cookies") or "").strip() not in ("", "[]")
 
 
+def _cookies_here(pm: Any, bl: Any, name: str, data: dict[str, Any]) -> int:
+    """Import `data`'s cookies into stopped profile `name` on this machine.
+    Merged: AdsPower's replace those with the same name and domain."""
+    from ..browser import cookies
+
+    profile = pm.profiles[name]
+    with bl.exclusive(name):
+        return cookies.import_cookies(name, profile.os_type, data["cookies"], profile.engine)
+
+
 def import_here(pm: Any, bl: Any, data: dict[str, Any], name: str, data_dir: str) -> dict[str, Any]:
     """create() and import the cookies on this machine (desktop app, local API)."""
     from ..browser import cookies
@@ -334,13 +344,29 @@ def import_here(pm: Any, bl: Any, data: dict[str, Any], name: str, data_dir: str
     result = create(pm, data, name, data_dir)
     result["cookies"] = 0
     if result["status"] == "created" and has_cookies(data):
-        profile = pm.profiles[name]
         try:
-            with bl.exclusive(name):
-                result["cookies"] = cookies.import_cookies(
-                    name, profile.os_type, data["cookies"], profile.engine
-                )
+            result["cookies"] = _cookies_here(pm, bl, name, data)
         except (cookies.CookieError, ProfileBusyError) as e:
             # The profile stays; its cookies can be imported again by hand.
             result["warnings"].append(str(e))
+    return result
+
+
+def reimport_here(pm: Any, bl: Any, data: dict[str, Any], name: str) -> dict[str, Any]:
+    """Refresh existing profile `name`'s cookies from AdsPower, on this machine.
+    Only the cookies: its proxy, accounts, persona and browser data stay."""
+    from ..browser import cookies
+    from ..browser.launcher import ProfileBusyError
+
+    result: dict[str, Any] = {"status": "reimported", "name": name, "cookies": 0, "warnings": []}
+    if not has_cookies(data):
+        result["warnings"].append(get_string("adspower_no_cookies"))
+        return result
+    try:
+        result["cookies"] = _cookies_here(pm, bl, name, data)
+    except ProfileBusyError as e:
+        raise AdsPowerError(get_string("err_stop_reimport", name=name)) from e
+    except cookies.CookieError as e:
+        raise AdsPowerError(str(e)) from e
+    logger.info("Reimported the cookies of %s from AdsPower profile %s", name, data.get("id"))
     return result

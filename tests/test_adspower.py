@@ -476,3 +476,65 @@ def test_hub_import_files_profiles_under_their_adspower_group(hub, monkeypatch):
     r = client.post("/api/v1/adspower/import", json=body, headers=ana).json()
     assert (r["status"], r["group"]) == ("exists", "Soporte")
     assert store.profile_groups["Cuenta 2"] == "Soporte"
+
+
+def test_hub_reimport_refreshes_only_the_cookies(hub, tmp_path, monkeypatch):  # noqa: F811
+    client, container, _ = hub
+    ana, bob = _login(client, "ana", "anaanaanaana"), _login(client, "bob", "bobbobbobbob")
+    container.browser_launcher.touch("ana", set())
+    client.post(
+        "/api/v1/profiles",
+        json={"name": "Account 1", "engine": "chrome", "proxy": "192.0.2.9:80"},
+        headers=ana,
+    )
+    data = {
+        "id": "id1",
+        "proxy": "http://198.51.100.1:8080",
+        "user_agent": PHONE_UA,
+        "os_type": "android",
+        "cookies": json.dumps(COOKIES),
+        "account": {"platform": "x", "username": "new", "password": "p", "totp_secret": ""},
+        "warnings": [],
+    }
+    imported = []
+
+    def import_cookies(cmd):
+        imported.append(json.loads(cmd["params"]["content"])[0]["name"])
+        return {"ok": True, "result": {"imported": 1}}
+
+    _agent(
+        client,
+        ana,
+        {"adspower_fetch": lambda cmd: {"ok": True, "result": data}, "cookies": import_cookies},
+    )
+    body = {"profile_id": "id1", "name": "Account 1", "reimport": True}
+    r = client.post("/api/v1/adspower/import", json=body, headers=ana)
+    assert r.json()["status"] == "reimported" and r.json()["cookies"] == 1 and imported == ["sid"]
+    # Nothing else changed: proxy, accounts.
+    assert client.get("/api/v1/profiles/Account 1", headers=ana).json()["proxy"] == "192.0.2.9:80"
+    assert client.get("/api/v1/profiles/Account 1/accounts", headers=ana).json() == []
+    # Someone else's profile, or one that is open: refused.
+    assert client.post("/api/v1/adspower/import", json=body, headers=bob).status_code == 404
+    container.browser_launcher._leases["Account 1"] = "ana"
+    assert client.post("/api/v1/adspower/import", json=body, headers=ana).status_code == 409
+
+
+def test_reimport_here_needs_cookies_and_a_closed_profile():
+    import contextlib
+
+    from src.models.profile import Profile
+    from src.services.browser.launcher import ProfileBusyError
+
+    class PM:
+        profiles = {"p1": Profile(name="p1", engine="chrome")}
+
+    class BusyBL:
+        @contextlib.contextmanager
+        def exclusive(self, name):
+            raise ProfileBusyError(name)
+            yield
+
+    result = adspower.reimport_here(PM(), BusyBL(), {"cookies": "[]"}, "p1")
+    assert result["status"] == "reimported" and result["cookies"] == 0 and result["warnings"]
+    with pytest.raises(adspower.AdsPowerError, match="p1"):
+        adspower.reimport_here(PM(), BusyBL(), {"cookies": json.dumps(COOKIES)}, "p1")

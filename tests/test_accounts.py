@@ -162,6 +162,8 @@ class FakeBrowser:
 
     def control(self, name, action, params):
         self.calls.append((action, params))
+        if action == "tab_new":
+            return {"tabs": [{"index": 0, "active": False}, {"index": 1, "active": True}]}
         if action == "navigate":
             self.url = self.lands_on or params["url"]
             return {"url": self.url, "title": ""}
@@ -188,7 +190,10 @@ def test_login_fills_fields_in_order_and_the_code_only_when_asked():
         (vis(recipe["fields"][1][0]), "pw", True),
         (vis(recipe["otp"]), totp(RFC_SECRET, 39)[0], True),
     ]
-    assert bl.calls[0] == ("navigate", {"url": recipe["url"], "wait_until": "load"})
+    # In a new tab, so the profile's own tabs stay as they were.
+    assert bl.calls[0] == ("tab_new", {"url": None})
+    assert bl.calls[1] == ("navigate", {"url": recipe["url"], "wait_until": "load"})
+    assert "tab_close" not in [a for a, _ in bl.calls]  # the login tab stays
 
     # Near the end of a window it waits for the next code.
     slept = []
@@ -210,10 +215,15 @@ def test_login_fills_fields_in_order_and_the_code_only_when_asked():
 def test_login_leaves_a_signed_in_profile_alone():
     account = {"platform": "facebook", "username": "fox", "password": "pw", "totp_secret": ""}
     first = login_module.visible(login_module.RECIPES["facebook"]["fields"][0][0])
-    # Sent away from the login page right away: nothing typed, no wait.
+    # Sent away from the login page right away: nothing typed, no wait, and the
+    # tab it opened is closed again.
     bl = FakeBrowser(lands_on="https://www.facebook.com/")
     assert login_module.login(bl, "p1", account) == {"ok": True, "error": None, "signed_in": True}
-    assert [a for a, _ in bl.calls] == ["navigate"]
+    assert bl.calls == [
+        ("tab_new", {"url": None}),
+        ("navigate", {"url": login_module.RECIPES["facebook"]["url"], "wait_until": "load"}),
+        ("tab_close", {"index": 1}),
+    ]
     # X loads its login page, then moves a signed-in profile to /home.
     x = {**account, "platform": "x"}
     x_first = login_module.visible(login_module.RECIPES["x"]["fields"][0][0])

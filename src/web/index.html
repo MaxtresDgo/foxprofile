@@ -642,7 +642,7 @@ const I18N = {
     ads_button: "Nhập từ AdsPower", ads_sub: "Mang theo tên, proxy, User-Agent và cookie. Profile dùng engine Chrome; fingerprint (canvas, audio, WebGL) là mới.",
     ads_hint_local: "AdsPower phải đang mở trên máy này và bật Local API (Settings › API).", ads_hint_hub: "Đọc từ AdsPower trên máy của bạn qua agent: AdsPower đang mở và bật Local API.",
     ads_port: "Cổng API", ads_key: "API key (nếu AdsPower yêu cầu)", ads_find: "Tìm profile", ads_none: "AdsPower không có profile nào.",
-    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_started: "Đang nhập {n} profile từ AdsPower; bạn vẫn có thể tiếp tục làm việc", ads_busy: "Đang có một lần nhập từ AdsPower",
+    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_started: "Đang nhập {n} profile từ AdsPower; bạn vẫn có thể tiếp tục làm việc", ads_busy: "Đang có một lần nhập từ AdsPower", ads_reimport: "Nhập lại các profile đã có (làm mới cookie của chúng)", ads_done_re: "Đã tạo {created}, nhập lại {reimported}, bỏ qua {skipped}, lỗi {failed}",
     ads_done: "Đã tạo {created}, bỏ qua {skipped}, lỗi {failed}", ads_no_proxy: "Không proxy", ads_no_group: "Không có nhóm", ads_summary: "{total} profile · đã nhập {done} · còn {pending} · lỗi {failed}", ads_hub_group: "→ nhóm {group}",
     agent_auth_title: "Cấp quyền đăng nhập cho agent", agent_auth_hint: "FoxProfile agent trên {pc} sẽ mở các profile của tài khoản này trên máy đó.",
     agent_auth_this_pc: "máy tính này", agent_auth_role: "Vai trò", agent_auth_hub: "Hub",
@@ -737,7 +737,7 @@ const I18N = {
     ads_button: "Import from AdsPower", ads_sub: "Brings name, proxy, User-Agent and cookies. Profiles use the Chrome engine; the fingerprint (canvas, audio, WebGL) is new.",
     ads_hint_local: "AdsPower must be open on this PC with its Local API on (Settings › API).", ads_hint_hub: "Read from AdsPower on your PC through the agent: AdsPower open with its Local API on.",
     ads_port: "API port", ads_key: "API key (if AdsPower asks for one)", ads_find: "Find profiles", ads_none: "AdsPower has no profiles.",
-    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_started: "Importing {n} profiles from AdsPower; you can keep working", ads_busy: "An AdsPower import is already running",
+    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_started: "Importing {n} profiles from AdsPower; you can keep working", ads_busy: "An AdsPower import is already running", ads_reimport: "Reimport the ones already here (refreshes their cookies)", ads_done_re: "{created} created, {reimported} reimported, {skipped} already here, {failed} failed",
     ads_done: "{created} created, {skipped} already here, {failed} failed", ads_no_proxy: "No proxy", ads_no_group: "No group", ads_summary: "{total} profiles · {done} imported · {pending} pending · {failed} failed", ads_hub_group: "→ group {group}",
     agent_auth_title: "Authorize the agent sign-in", agent_auth_hint: "The FoxProfile agent on {pc} will open this account's profiles on that PC.",
     agent_auth_this_pc: "this computer", agent_auth_role: "Role", agent_auth_hub: "Hub",
@@ -832,7 +832,7 @@ const I18N = {
     ads_button: "Importar desde AdsPower", ads_sub: "Trae nombre, proxy, User-Agent y cookies. Se crean con el motor Chrome; el fingerprint (canvas, audio, WebGL) es nuevo.",
     ads_hint_local: "AdsPower debe estar abierto en este PC con la API local activada (Ajustes › API).", ads_hint_hub: "Se lee del AdsPower de tu PC a través del agente: AdsPower abierto y con la API local activada.",
     ads_port: "Puerto de la API", ads_key: "API key (si AdsPower la pide)", ads_find: "Buscar perfiles", ads_none: "AdsPower no tiene perfiles.",
-    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_started: "Importando {n} profiles de AdsPower; puedes seguir trabajando", ads_busy: "Ya hay una importación de AdsPower en curso",
+    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_started: "Importando {n} profiles de AdsPower; puedes seguir trabajando", ads_busy: "Ya hay una importación de AdsPower en curso", ads_reimport: "Reimportar los que ya existen (actualiza sus cookies)", ads_done_re: "{created} creados, {reimported} reimportados, {skipped} ya existían, {failed} con error",
     ads_done: "{created} creados, {skipped} ya existían, {failed} con error", ads_no_proxy: "Sin proxy", ads_no_group: "Sin grupo", ads_summary: "{total} perfiles · {done} importados · {pending} pendientes · {failed} con error", ads_hub_group: "→ grupo {group}",
     agent_auth_title: "Autorizar el inicio de sesión en el agente", agent_auth_hint: "El agente de FoxProfile en {pc} abrirá los profiles de esta cuenta en ese PC.",
     agent_auth_this_pc: "esta computadora", agent_auth_role: "Rol", agent_auth_hub: "Hub",
@@ -1928,16 +1928,19 @@ let adsImporting = false;
 async function runAdsImport(todo, access) {
   adsImporting = true;
   toast(t("ads_started", { n: todo.length }));
-  const done = { created: 0, skipped: 0, failed: 0 }, errors = [];
+  const done = { created: 0, reimported: 0, skipped: 0, failed: 0 }, errors = [];
   for (const r of todo) {
     try {
-      const res = await api("POST", "/adspower/import", { ...access, profile_id: r.id, name: r.target, group: r.group || "" });
-      if (res.status === "created") { done.created++; refresh(); } else done.skipped++;
+      // A profile that is here already only gets its cookies refreshed.
+      const res = await api("POST", "/adspower/import", { ...access, profile_id: r.id, name: r.target, group: r.group || "", reimport: r.status === "exists" });
+      if (res.status === "created") { done.created++; refresh(); }
+      else if (res.status === "reimported") done.reimported++;
+      else done.skipped++;
     } catch (err) { done.failed++; errors.push(`${r.target}: ${err.message}`); }
   }
   adsImporting = false;
   await refresh();
-  toast([t("ads_done", done), ...errors.slice(0, 2)].join(" · "), done.failed > 0);
+  toast([t(done.reimported ? "ads_done_re" : "ads_done", done), ...errors.slice(0, 2)].join(" · "), done.failed > 0);
 }
 
 function openAdsPower() {
@@ -1952,12 +1955,15 @@ function openAdsPower() {
     const total = h("div", { class: "ads-total" });
     const all = h("input", { type: "checkbox", id: "ads-all" });
     const allRow = h("label", { class: "ads-all hidden", for: "ads-all" }, all, t("ads_select_all"), total);
+    // Profiles imported before can be picked too: their cookies are read again.
+    const again = h("input", { type: "checkbox", id: "ads-again" });
+    const againRow = h("label", { class: "ads-all hidden", for: "ads-again" }, again, h("span", {}, t("ads_reimport")));
     const go = h("button", { class: "btn btn-act", type: "button", disabled: true }, t("ads_import_n", { n: 0 }));
     const access = () => ({ port: Number(port.value), api_key: key.value });
     const rows = () => groups.flatMap((g) => g.rows);
-    const open = (r) => r.status !== "exists" && r.status !== "created";
+    const open = (r) => r.status !== "created" && (r.status !== "exists" || again.checked);
     const counts = (rs) => {
-      const done = rs.filter((r) => !open(r)).length;
+      const done = rs.filter((r) => r.status === "exists" || r.status === "created").length;
       return { total: rs.length, done, pending: rs.length - done, failed: rs.filter((r) => r.status === "failed").length };
     };
     const stateText = (r) => ({ exists: t("ads_exists"), created: t("ads_created", { n: r.cookies }), failed: r.error }[r.status] || "");
@@ -2000,6 +2006,7 @@ function openAdsPower() {
     };
     const pick = (rs, value) => { rs.filter(open).forEach((r) => { r.picked = value; }); sync(); };
     all.onchange = () => pick(rows(), all.checked);
+    again.onchange = () => { if (!again.checked) rows().forEach((r) => { if (r.status === "exists") r.picked = false; }); sync(); };
     const buildGroup = (g) => {
       g.box = h("input", { type: "checkbox", "aria-label": g.label });
       g.box.onchange = () => pick(g.rows, g.box.checked);
@@ -2034,6 +2041,7 @@ function openAdsPower() {
       list.replaceChildren(...groups.map(buildGroup));
       list.classList.toggle("hidden", !groups.length);
       allRow.classList.toggle("hidden", !groups.length);
+      againRow.classList.toggle("hidden", !rows().some((r) => r.status === "exists"));
       sync();
     };
     go.onclick = () => {
@@ -2049,7 +2057,7 @@ function openAdsPower() {
         h("form", { class: "ads-form", onsubmit: find },
           field(t("ads_port"), port), field(t("ads_key"), key),
           h("button", { class: "btn btn-line" }, icon("search", true), t("ads_find"))),
-        msg, allRow, list),
+        msg, allRow, againRow, list),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close")), go));
   }, { wide: true });
 }

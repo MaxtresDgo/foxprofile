@@ -4,13 +4,17 @@ Each recipe is the login page, the URLs that are still part of signing in, its
 fields in order (selector, account field, press Enter after it) and the 2FA code
 field. Sites change their pages: the selectors live here and nowhere else.
 
-A profile already signed in is left as it is: the site sends it away from its
-login page, so nothing is typed. A captcha or any other check is left to the
-operator; a missing field ends the run with an error naming it.
+Accounts are only used when asked (the accounts dialog's Log in, the Launch
+button's "Open with"); a plain launch never touches them. Even then the check
+runs in a new tab, so the profile's own tabs stay as they were, and a profile
+already signed in (the site sends it away from its login page) gets nothing
+typed and that tab closed again. A captcha or any other check is left to the
+operator; a missing field ends the run with an error naming it, its tab open.
 """
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections.abc import Callable
 from typing import Any
@@ -160,8 +164,13 @@ def login(
     platform = account["platform"]
     recipe = RECIPES[platform]
     try:
+        opened = bl.control(profile, "tab_new", {"url": None}) or {}
+        tab = next((t["index"] for t in opened.get("tabs", []) if t.get("active")), None)
         if open_login(bl, profile, platform):
             logger.info("Login on %s (%s): already signed in", profile, platform)
+            if tab is not None:
+                with contextlib.suppress(Exception):
+                    bl.control(profile, "tab_close", {"index": tab})
             return {"ok": True, "error": None, "signed_in": True}
     except LookupError:
         logger.info("Login on %s (%s): no username field", profile, platform)

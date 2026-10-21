@@ -69,6 +69,8 @@ def open_adspower_dialog(
     group_column = ft.Column(spacing=0, scroll=ft.ScrollMode.AUTO, height=360, visible=False)
     select_all = ft.Checkbox(label=get_string("select_all"), value=True)
     all_row = ft.Row([select_all, ft.Container(expand=True), total], visible=False)
+    # Profiles imported before can be picked too: their cookies are read again.
+    reimport = ft.Checkbox(label=get_string("adspower_reimport"), value=False, visible=False)
     import_btn = ft.Button(
         get_string("adspower_import_n", n=0), icon=ft.Icons.DOWNLOAD, style=ACCENT_STYLE
     )
@@ -77,6 +79,10 @@ def open_adspower_dialog(
     def rows() -> list[dict]:
         return [r for g in groups for r in g["rows"]]
 
+    def is_open(r: dict) -> bool:
+        """Can be picked: not imported yet, or here already when reimporting."""
+        return r["status"] != "created" and (r["status"] != "exists" or bool(reimport.value))
+
     def client() -> adspower.AdsPower:
         port = int(port_field.value) if (port_field.value or "").isdigit() else 0
         return adspower.AdsPower(port, key_field.value or "")
@@ -84,7 +90,7 @@ def open_adspower_dialog(
     def draw_row(r: dict) -> None:
         if "box" not in r:
             return
-        r["box"].value, r["box"].disabled = r["picked"], _importing.is_set() or not _is_open(r)
+        r["box"].value, r["box"].disabled = r["picked"], _importing.is_set() or not is_open(r)
         texts = {
             "exists": get_string("adspower_exists"),
             "created": get_string("adspower_created", n=r.get("cookies", 0)),
@@ -98,14 +104,14 @@ def open_adspower_dialog(
 
     def sync() -> None:
         for g in groups:
-            open_rows = [r for r in g["rows"] if _is_open(r)]
+            open_rows = [r for r in g["rows"] if is_open(r)]
             g["sum"].value = _summary(g["rows"])
             g["box"].value = bool(open_rows) and all(r["picked"] for r in open_rows)
             g["box"].disabled = _importing.is_set() or not open_rows
             for r in g["rows"]:
                 draw_row(r)
-        picked = [r for r in rows() if r["picked"] and _is_open(r)]
-        open_rows = [r for r in rows() if _is_open(r)]
+        picked = [r for r in rows() if r["picked"] and is_open(r)]
+        open_rows = [r for r in rows() if is_open(r)]
         select_all.value = bool(open_rows) and all(r["picked"] for r in open_rows)
         select_all.disabled = _importing.is_set()
         total.value = _summary(rows())
@@ -115,11 +121,20 @@ def open_adspower_dialog(
 
     def pick(rs: list[dict], value: bool) -> None:
         for r in rs:
-            if _is_open(r):
+            if is_open(r):
                 r["picked"] = value
         sync()
 
     select_all.on_change = lambda e: pick(rows(), bool(e.control.value))
+
+    def on_reimport(_: ft.ControlEvent) -> None:
+        if not reimport.value:
+            for r in rows():
+                if r["status"] == "exists":
+                    r["picked"] = False
+        sync()
+
+    reimport.on_change = on_reimport
 
     def build_row(r: dict) -> ft.Control:
         r["box"] = ft.Checkbox()
@@ -202,6 +217,7 @@ def open_adspower_dialog(
         ]
         group_column.controls = [build_group(g) for g in groups]
         group_column.visible = all_row.visible = bool(groups)
+        reimport.visible = any(r["status"] == "exists" for r in rows())
         say("" if groups else get_string("adspower_none"))
         sync()
 
@@ -209,19 +225,25 @@ def open_adspower_dialog(
         if _importing.is_set():
             say(get_string("adspower_busy"), error=True)
             return
-        todo = [r for r in rows() if r["picked"] and _is_open(r)]
+        todo = [r for r in rows() if r["picked"] and is_open(r)]
         ads = client()
         page.pop_dialog()
         _importing.set()
         _notify(page, get_string("adspower_started", n=len(todo)))
-        counts = {"created": 0, "skipped": 0, "failed": 0}
+        counts = {"created": 0, "reimported": 0, "skipped": 0, "failed": 0}
         errors: list[str] = []
         try:
             for r in todo:
                 try:
+                    # A profile that is here already only gets its cookies refreshed.
+                    again = r["status"] == "exists"
                     result = await asyncio.to_thread(
-                        lambda r=r: adspower.import_here(
-                            pm, bl, ads.fetch(r["id"]), r["target"], DATA_DIR
+                        lambda r=r, again=again: (
+                            adspower.reimport_here(pm, bl, ads.fetch(r["id"]), r["target"])
+                            if again
+                            else adspower.import_here(
+                                pm, bl, ads.fetch(r["id"]), r["target"], DATA_DIR
+                            )
                         )
                     )
                 except adspower.AdsPowerError as e:
@@ -229,7 +251,12 @@ def open_adspower_dialog(
                     errors.append(f"{r['target']}: {e}")
                     log(get_string("profile_error", name=r["target"], error=e))
                     continue
-                counts["created" if result["status"] == "created" else "skipped"] += 1
+                outcome = result["status"]
+                counts[outcome if outcome in ("created", "reimported") else "skipped"] += 1
+                if outcome == "reimported":
+                    log(get_string("adspower_relogged", name=r["target"], n=result["cookies"]))
+                    for warning in result["warnings"]:
+                        log(f"[{r['target']}] {warning}")
                 if result["status"] == "created":
                     log(get_string("adspower_logged", name=r["target"], n=result["cookies"]))
                     for warning in result["warnings"]:
@@ -239,7 +266,12 @@ def open_adspower_dialog(
             _importing.clear()
         if counts["created"]:
             chrome_prefetch.start(log)
-        summary = get_string("adspower_done", **counts)
+        if counts["reimported"]:
+            summary = get_string("adspower_done_re", **counts)
+        else:
+            summary = get_string(
+                "adspower_done", **{k: v for k, v in counts.items() if k != "reimported"}
+            )
         log(summary)
         _notify(page, " · ".join([summary, *errors[:2]]), error=bool(counts["failed"]))
 
@@ -268,6 +300,7 @@ def open_adspower_dialog(
                     ),
                     status,
                     all_row,
+                    reimport,
                     group_column,
                 ],
             ),
