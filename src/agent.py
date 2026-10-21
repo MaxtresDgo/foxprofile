@@ -76,6 +76,8 @@ from src.services.proxy.geo_check import check_geo  # noqa: E402
 
 logger = get_logger("agent")
 RETRY_SECONDS = 10
+# Profiles go up in pieces: Cloudflare caps a request at 100 MB and 100 s.
+PART_BYTES = 8 * 1024 * 1024
 CREDENTIALS = pathlib.Path("agent.json")
 ICON = pathlib.Path(__file__).parent / "assets" / "icon.png"
 
@@ -136,7 +138,7 @@ class HubClient:
             **(headers or {}),
         }
         if isinstance(data, bytes):
-            headers["Content-Type"] = "application/json"
+            headers.setdefault("Content-Type", "application/json")
         if hasattr(data, "seek"):
             headers["Content-Type"] = "application/zip"
             headers["Content-Length"] = str(os.fstat(data.fileno()).st_size)
@@ -442,10 +444,16 @@ class Agent:
             ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, include_data=True)
             if not ok:
                 raise OSError(zip_path)
-            sha = {"X-Content-SHA256": file_sha256(zip_path)}
+            bundle = f"/hub/bundle/{self.q(name)}"
+            raw = {"Content-Type": "application/octet-stream"}
             with open(zip_path, "rb") as f:
-                path = f"/hub/bundle/{self.q(name)}?release=1"
-                self.hub.call("PUT", path, f, timeout=600, headers=sha)
+                offset = 0
+                while part := f.read(PART_BYTES):
+                    path = f"{bundle}/part?offset={offset}"
+                    self.hub.call("PUT", path, part, timeout=120, headers=raw)
+                    offset += len(part)
+            sha = {"X-Content-SHA256": file_sha256(zip_path)}
+            self.hub.call("PUT", f"{bundle}?release=1&chunked=1", b"", timeout=600, headers=sha)
 
     def _status(self, name: str, ok: bool, error: str | None) -> None:
         body = json.dumps({"ok": ok, "error": error}).encode()

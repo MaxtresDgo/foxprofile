@@ -7,6 +7,8 @@ Agent protocol (all as the operator the agent belongs to):
   POST /hub/status/{name}      {"ok": bool, "error": str|null} once the launch settles
   PUT  /hub/bundle/{name}?release=1   upload the browser data back, ending the lease
   Both carry the ZIP's SHA-256 in X-Content-SHA256; a mismatch is a 422.
+  PUT  /hub/bundle/{name}/part?offset=N   the ZIP in pieces (Cloudflare caps a request
+       at 100 MB and 100 s), then PUT /hub/bundle/{name}?chunked=1 puts them together
   POST /hub/release/{name}     end the lease without data
   GET  /hub/agent/code         this hub's code, for installed agents to update to
 
@@ -522,9 +524,35 @@ def download_bundle(name: str, request: Request) -> FileResponse:
     )
 
 
+def _part_file(name: str) -> pathlib.Path:
+    """Where a chunked upload of the profile grows. One per profile: only the
+    lease holder uploads it, and a new upload starts it over."""
+    return pathlib.Path(DATA_DIR).resolve().parent / f".part-{name}.zip"
+
+
+@router.put("/bundle/{name}/part")
+async def upload_bundle_part(name: str, request: Request, offset: int = Query(ge=0)) -> dict:
+    require_profile(name, request.app.state.container.profile_manager)
+    _require_lease(request, name, allow_free=True)
+    path = _part_file(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    size = path.stat().st_size if path.exists() else 0
+    if offset > size:  # a piece went missing: the agent starts over
+        raise HTTPException(status_code=416, detail=get_string("err_bundle_corrupt"))
+    with open(path, "r+b" if path.exists() else "wb") as f:
+        f.truncate(offset)  # a retried piece replaces what its failed try left
+        f.seek(offset)
+        async for chunk in request.stream():
+            f.write(chunk)
+        return {"size": f.tell()}
+
+
 @router.put("/bundle/{name}")
-async def upload_bundle(name: str, request: Request, release: bool = Query(False)) -> dict:
-    """Replace the profile's browser data with the agent's copy."""
+async def upload_bundle(
+    name: str, request: Request, release: bool = Query(False), chunked: bool = Query(False)
+) -> dict:
+    """Replace the profile's browser data with the agent's copy: the request body,
+    or with chunked=1 the pieces sent to /part."""
     require_profile(name, request.app.state.container.profile_manager)
     # A late upload is fine while nobody else holds the profile (lease dropped
     # because the agent went offline, or the hub restarted).
@@ -535,14 +563,22 @@ async def upload_bundle(name: str, request: Request, release: bool = Query(False
     tmp = tempfile.mkdtemp(prefix=".upload-", dir=data_root.parent)
     try:
         zip_path = os.path.join(tmp, "bundle.zip")
-        digest = hashlib.sha256()
         # ponytail: no size cap; operators are trusted LAN users. Cap here if that changes.
-        with open(zip_path, "wb") as f:
-            async for chunk in request.stream():
-                f.write(chunk)
-                digest.update(chunk)
+        if chunked:
+            part = _part_file(name)
+            if not part.exists():
+                raise HTTPException(status_code=416, detail=get_string("err_bundle_corrupt"))
+            part.rename(zip_path)
+            actual = await run_in_threadpool(file_sha256, zip_path)
+        else:
+            digest = hashlib.sha256()
+            with open(zip_path, "wb") as f:
+                async for chunk in request.stream():
+                    f.write(chunk)
+                    digest.update(chunk)
+            actual = digest.hexdigest()
         expected = request.headers.get(SHA_HEADER)  # agents older than the header send none
-        if expected and expected.lower() != digest.hexdigest():
+        if expected and expected.lower() != actual:
             raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt"))
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
     finally:

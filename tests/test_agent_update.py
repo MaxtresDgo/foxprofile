@@ -389,3 +389,30 @@ def test_agent_reports_the_most_useful_activity(tmp_path, monkeypatch):
         assert a.activity() == {"state": "updating"}
     a.updating, a.browser_download = False, None
     assert a.activity() == {"state": "ready"}
+
+
+def test_agent_uploads_the_profile_in_pieces_then_its_sha256(tmp_path, monkeypatch):
+    import hashlib
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent, "PART_BYTES", 100)
+    calls = []
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(hub_client, "call", lambda *a, **kw: calls.append((a, kw)))
+    local = tmp_path / "shop-01"
+    local.mkdir()
+    (local / "cookies.sqlite").write_bytes(bytes(range(256)) * 4)
+    agent.Agent(hub_client)._upload("shop-01", local)
+
+    parts = [a for a, _ in calls if "/part?" in a[1]]
+    assert len(parts) > 1 and all(len(a[2]) <= 100 for a in parts)
+    assert [a[1] for a in parts][:2] == [
+        "/hub/bundle/shop-01/part?offset=0",
+        "/hub/bundle/shop-01/part?offset=100",
+    ]
+    (_, path, body), kw = calls[-1]
+    assert path == "/hub/bundle/shop-01?release=1&chunked=1" and body == b""
+    sent = b"".join(a[2] for a in parts)
+    assert kw["headers"]["X-Content-SHA256"] == hashlib.sha256(sent).hexdigest()
