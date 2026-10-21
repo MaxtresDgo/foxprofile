@@ -1,8 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 🔒 Báo lỗ hổng bảo mật
-    url: https://github.com/chienbm98/foxprofile/security/advisories/new
-    about: Báo riêng, không công khai
-  - name: 💬 Hỏi đáp và thảo luận
-    url: https://github.com/chienbm98/foxprofile/discussions
-    about: Câu hỏi cách dùng, chia sẻ kinh nghiệm
+  - name: 🔒 Reportar una vulnerabilidad de seguridad
+    url: https://github.com/MaxtresDgo/foxprofile/security/advisories/new
+    about: En privado, no en público
