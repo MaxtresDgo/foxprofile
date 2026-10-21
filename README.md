@@ -59,7 +59,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - **Profile export/import** as ZIP, with or without browser data, to move profiles between machines. The fingerprint always travels with the profile.
 - **A profile table built for scanning**: every row shows the engine, the emulated device, the proxy (credentials hidden), timezone/locale and the state. States differ in shape as well as colour: a violet double-ruled stamp with the launch time means running, a grey rule means starting, a struck red stamp means the launch failed.
 - **Filters and search**: filter by running, with/without proxy and Chrome engine (with counts); search by name or proxy.
-- **Bulk actions**: launch, stop or delete many profiles at once.
+- **Bulk actions**: launch, stop, edit or delete many profiles at once. Bulk edit changes only the fields you tick (OS, proxy, timezone, locale; in hub mode also operator and group) and keeps the rest of each profile.
 - **Run steps and sync** (light RPA): run a short script (navigate, click, type…) on many running profiles in parallel, or mirror what you do in one profile to the others in real time.
 - **MCP server** so AI agents (Claude, Cursor...) can launch profiles, browse, click, type and take screenshots.
 - **Server mode + web panel** for VPS deployments: manage profiles and view their screens remotely, protected by a token.

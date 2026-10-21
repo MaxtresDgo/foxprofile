@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thêm
+- Sửa hàng loạt: nút "Sửa" trên thanh thao tác hàng loạt (app desktop và web panel) đổi hệ điều hành, proxy, timezone hoặc locale của mọi profile đã chọn; chỉ các trường được đánh dấu mới đổi, để trống thì bỏ proxy hoặc về tự động. Trong web panel ở chế độ hub còn đổi được người dùng (admin) và nhóm (trưởng nhóm). Dùng lại `PATCH /profiles/{name}` cho từng profile.
 - Bộ cài agent gắn sẵn địa chỉ hub (build dev hay prod): `installer/windows/build-msi.sh` / `build-pkg.sh` bắt buộc `HUB_URL=http(s)://...` (workflow Agent installers: input `hub_url` hoặc biến repo `AGENT_HUB_URL`) và ghi file `HUB_URL` vào app; agent dùng nó khi không có `--hub` hay `FOXPROFILE_HUB_URL`.
 - Web panel (chế độ hub): nút "Tải agent về" ngay dưới trạng thái agent khi máy chưa kết nối, mở hộp thoại chỉ để chọn hệ điều hành (Windows / macOS) và tải bộ cài lần đầu.
 - Agent tự cập nhật từ hub: agent cài bằng MSI/pkg báo phiên bản code của mình mỗi lần poll; khi hub chạy code khác và không còn profile nào mở (hoặc admin bấm "Cập nhật ngay"), agent tải code của hub (`/hub/agent/code`), giải nén vào thư mục dữ liệu (`agent-code/`) và khởi động lại. Chỉ code được cập nhật; khi `requirements.txt` đổi, agent báo cần bộ cài mới. Mục Cài đặt › Agent trong panel: tải bộ cài Windows/macOS (không cần đăng nhập), admin tải bộ cài lên (`/hub/installers/{windows,macos}`) và xem trạng thái agent của từng máy. Bộ cài thêm file `BUILD`, `requirements.txt` và hook `.pth` (`installer/agent_update_hook.py`). Cấu hình nginx mẫu thêm `location` cho việc tải bộ cài lên.

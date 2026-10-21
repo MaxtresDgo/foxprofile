@@ -59,7 +59,7 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - **Xuất/nhập cả profile** ra file ZIP để chuyển sang máy khác, có hoặc không kèm dữ liệu trình duyệt. Fingerprint luôn đi kèm.
 - **Bảng profile dễ quét**: mỗi dòng cho thấy engine, thiết bị đang giả lập, proxy (đã ẩn mật khẩu), timezone/locale và trạng thái. Trạng thái phân biệt bằng cả hình lẫn màu: dấu tím viền kép kèm giờ mở là đang chạy, viền xám là đang mở, dấu đỏ gạch ngang là mở lỗi.
 - **Lọc và tìm kiếm**: lọc theo đang chạy, có/không proxy, engine Chrome (kèm số đếm); tìm theo tên hoặc proxy.
-- **Thao tác hàng loạt**: chọn nhiều profile để mở, dừng hoặc xóa cùng lúc.
+- **Thao tác hàng loạt**: chọn nhiều profile để mở, dừng, sửa hoặc xóa cùng lúc. Sửa hàng loạt chỉ đổi các trường được đánh dấu (hệ điều hành, proxy, timezone, locale; ở chế độ hub thêm người dùng và nhóm), các trường khác của từng profile giữ nguyên.
 - **Chạy bước và đồng bộ** (RPA đơn giản): chạy một đoạn script ngắn (navigate, click, type…) song song trên nhiều profile đang chạy, hoặc lặp lại thao tác của một profile sang các profile khác theo thời gian thực.
 - **MCP server**: Claude, Cursor... tự mở profile, lướt web, click, gõ, chụp màn hình.
 - **Chế độ server + web panel**: chạy trên VPS, quản lý và xem màn hình từ xa qua trình duyệt, có token bảo vệ.

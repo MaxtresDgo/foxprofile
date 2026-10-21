@@ -251,6 +251,7 @@ class App:
             {
                 "launch": self.h.on_bulk_launch,
                 "stop": self.h.on_bulk_stop,
+                "edit": self.h.on_bulk_edit,
                 "delete": self.h.on_bulk_delete,
                 "run_steps": self.h.on_bulk_run_steps,
                 "sync": self.h.on_bulk_sync,

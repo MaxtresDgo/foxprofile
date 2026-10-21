@@ -558,7 +558,7 @@ const I18N = {
     sync_need_two: "Chọn ít nhất hai profile đang chạy", syncing: "Đang đồng bộ {leader} → {n} profile", sync_stop: "Dừng đồng bộ",
     sync_started: "Đã bắt đầu đồng bộ từ {leader}", sync_stopped: "Đã dừng đồng bộ: {leader}",
     select_all: "Chọn tất cả", select_row: "Chọn {name}",
-    confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile",
+    confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile", bulk_edit: "Sửa", bulk_edit_title: "Sửa {n} profile", bulk_edit_hint: "Đánh dấu các trường cần đổi; các trường khác giữ nguyên giá trị của từng profile. Để trống sẽ bỏ proxy, hoặc đưa timezone và locale về tự động.", bulk_edit_nothing: "Hãy đánh dấu ít nhất một trường cần đổi", updated_n: "Đã cập nhật {n} profile",
     login_side: "Server này chạy FoxProfile. Đăng nhập bằng API token để quản lý profile từ xa.",
     login_hint: "Nhập API token (biến FOXPROFILE_API_TOKEN) của server.", token: "API token", login: "Đăng nhập",
     bad_token: "Token không đúng", create: "Tạo profile", edit_title: "Sửa profile", edit_sub: "Đang sửa {name}", create_sub: "Một profile là một danh tính: thiết bị, proxy và vị trí riêng.",
@@ -653,7 +653,7 @@ const I18N = {
     sync_need_two: "Select at least two running profiles", syncing: "Syncing {leader} → {n} profile(s)", sync_stop: "Stop sync",
     sync_started: "Sync started from {leader}", sync_stopped: "Sync stopped: {leader}",
     select_all: "Select all", select_row: "Select {name}",
-    confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}",
+    confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}", bulk_edit: "Edit", bulk_edit_title: "Edit {n} profiles", bulk_edit_hint: "Tick the fields to change; the rest keep each profile's own value. An empty field removes the proxy, or puts timezone and locale back on automatic.", bulk_edit_nothing: "Tick at least one field to change", updated_n: "Updated {n} profiles",
     login_side: "This server runs FoxProfile. Log in with the API token to manage profiles remotely.",
     login_hint: "Enter the server's API token (FOXPROFILE_API_TOKEN).", token: "API token", login: "Log in",
     bad_token: "Invalid token", create: "Create profile", edit_title: "Edit profile", edit_sub: "Editing {name}", create_sub: "A profile is an identity: its own device, proxy and location.",
@@ -748,7 +748,7 @@ const I18N = {
     sync_need_two: "Selecciona al menos dos profiles en ejecución", syncing: "Sincronizando {leader} → {n} profile(s)", sync_stop: "Detener sincronización",
     sync_started: "Sincronización iniciada desde {leader}", sync_stopped: "Sincronización detenida: {leader}",
     select_all: "Seleccionar todos", select_row: "Seleccionar {name}",
-    confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}",
+    confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}", bulk_edit: "Editar", bulk_edit_title: "Editar {n} profiles", bulk_edit_hint: "Marca los campos que quieres cambiar; los demás conservan el valor de cada profile. Un campo vacío quita el proxy, o devuelve timezone y locale a automático.", bulk_edit_nothing: "Marca al menos un campo para cambiar", updated_n: "{n} profiles actualizados",
     login_side: "Este servidor ejecuta FoxProfile. Inicia sesión con el token de la API para gestionar los profiles a distancia.",
     login_hint: "Introduce el token de la API del servidor (FOXPROFILE_API_TOKEN).", token: "Token de la API", login: "Iniciar sesión",
     bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
@@ -1109,6 +1109,7 @@ function bulkBar() {
     h("span", { class: "n" }, t("selected", { n: names.length })),
     h("button", { class: "btn btn-act", onclick: () => bulk("launch") }, icon("play", true), t("bulk_launch")),
     h("button", { class: "btn btn-line", onclick: () => bulk("stop") }, icon("stop", true), t("bulk_stop")),
+    h("button", { class: "btn btn-line", onclick: openBulkEdit }, icon("edit", true), t("bulk_edit")),
     h("button", { class: "btn btn-line", onclick: openRunSteps }, icon("steps", true), t("run_steps")),
     h("button", { class: "btn btn-line", onclick: openSync }, icon("sync", true), t("sync")),
     h("button", { class: "btn btn-line", onclick: () => bulk("delete") }, icon("trash", true), t("bulk_delete")),
@@ -1192,6 +1193,59 @@ async function bulk(action) {
   }
   const targets = profiles.filter((p) => names.includes(p.name) && (action === "launch" ? !running.has(p.name) : running.has(p.name)));
   await Promise.all(targets.map((p) => toggle(p, { quiet: true })));
+}
+
+// The same PATCH as the editor, once per profile; only the ticked fields are sent.
+function openBulkEdit() {
+  const names = [...selected];
+  modal((close) => {
+    const msg = h("div", { class: "msg", role: "status" });
+    const os = h("select", { id: "b-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"], ["android", "Android (Chrome)"]].map(([v, label]) =>
+      h("option", { value: v }, label)));
+    const proxy = h("input", { id: "b-proxy", placeholder: "socks5://user:pass@host:port", autocomplete: "off", class: "data" });
+    const tz = h("input", { id: "b-tz", placeholder: t("tz_hint"), autocomplete: "off", class: "data" });
+    const loc = h("input", { id: "b-locale", placeholder: t("locale_hint"), autocomplete: "off", class: "data" });
+    const owner = hub && me.role === "admin" ? h("select", { id: "b-owner" }, h("option", { value: "" }, t("unassigned"))) : null;
+    if (owner) api("GET", "/hub/users").then((users) => users.forEach((u) => owner.append(h("option", { value: u.name }, u.name))));
+    const led = hub ? Object.keys(me.my_groups).filter((g) => me.my_groups[g] === "lead") : [];
+    const group = led.length ? h("select", { id: "b-group" }, h("option", { value: "" }, t("no_group")), led.map((g) => h("option", { value: g }, g))) : null;
+    const fields = [["os_type", t("os"), os], ["proxy", t("proxy_label"), proxy], ["timezone", t("timezone"), tz], ["locale", t("locale"), loc],
+      owner && ["owner", t("owner"), owner], group && ["group", t("group"), group]].filter(Boolean);
+    const ticked = {};
+    const rows = fields.map(([key, label, input]) => {
+      input.disabled = true;
+      ticked[key] = h("input", { type: "checkbox", id: "b-on-" + key, onchange: (e) => { input.disabled = !e.target.checked; msg.className = "msg"; msg.textContent = ""; if (e.target.checked) input.focus(); } });
+      return h("div", { class: "field" },
+        h("label", { for: ticked[key].id, style: "display:flex;gap:8px;align-items:center" }, ticked[key], label), input);
+    });
+    return h("form", { onsubmit: async (e) => {
+      e.preventDefault();
+      const on = fields.filter(([key]) => ticked[key].checked).map(([key, , input]) => [key, input.value.trim()]);
+      if (!on.length) { msg.className = "msg err"; msg.textContent = t("bulk_edit_nothing"); return; }
+      const values = Object.fromEntries(on);
+      const body = {};
+      for (const key of ["os_type", "proxy", "timezone", "locale"]) if (key in values) body[key] = key === "proxy" ? values.proxy || null : values[key];
+      const submitBtn = e.currentTarget.querySelector(".modal-foot .btn-act");
+      submitBtn.disabled = true;
+      let updated = 0;
+      // One at a time: the server writes profiles.json for each.
+      for (const n of names) {
+        try {
+          if (Object.keys(body).length) { await api("PATCH", `/profiles/${enc(n)}`, body); delete fingerprints[n]; }
+          if ("owner" in values) await api("PUT", `/hub/owners/${enc(n)}`, { user: values.owner || null });
+          if ("group" in values) await api("PUT", `/hub/profile-group/${enc(n)}`, { group: values.group || null });
+          updated++;
+        } catch (ex) { toast(`${n}: ${ex.message}`, true); }
+      }
+      if (updated) toast(t("updated_n", { n: updated }));
+      close(); refresh();
+    } },
+      modalHead(t("bulk_edit_title", { n: names.length }), t("bulk_edit_hint"), close),
+      h("div", { class: "modal-body" }, rows, msg),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
+        h("button", { class: "btn btn-act" }, t("save"))));
+  });
 }
 
 async function toggle(p, { quiet = false } = {}) {

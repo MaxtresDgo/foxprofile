@@ -74,6 +74,7 @@ def _build_container(
             ft.Container(width=6),
             btn(get_string("launch"), ft.Icons.PLAY_ARROW_ROUNDED, "launch", ACCENT_STYLE),
             btn(get_string("stop"), ft.Icons.STOP_ROUNDED, "stop", OUTLINE_STYLE),
+            btn(get_string("bulk_edit"), ft.Icons.EDIT_OUTLINED, "edit", OUTLINE_STYLE),
             btn(get_string("run_steps"), ft.Icons.PLAYLIST_PLAY, "run_steps", OUTLINE_STYLE),
             btn(get_string("sync"), ft.Icons.SYNC, "sync", OUTLINE_STYLE),
             btn(get_string("delete"), ft.Icons.DELETE_OUTLINE, "delete", OUTLINE_STYLE),

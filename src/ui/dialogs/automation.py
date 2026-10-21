@@ -4,7 +4,9 @@ import flet as ft
 
 from ...core.strings import get_string
 from ...services.browser.steps import StepError, parse_script
+from ...utils.validation import validate_locale, validate_proxy_format, validate_timezone
 from ..theme.colors import COLORS, FONT_BOLD, FONT_DATA
+from ..theme.page import build_os_dropdown
 from ..theme.styles import ACCENT_STYLE, DLG_FIELD_KWARGS
 
 _DATA = ft.TextStyle(font_family=FONT_DATA, size=13)
@@ -91,4 +93,67 @@ def open_sync_dialog(page: ft.Page, names: list[str], on_start: Callable[[str], 
         get_string("sync_hint"),
         leader,
         ft.Button(get_string("sync_start"), icon=ft.Icons.SYNC, style=ACCENT_STYLE, on_click=start),
+    )
+
+
+def open_bulk_edit_dialog(
+    page: ft.Page, count: int, on_apply: Callable[[dict[str, str]], None]
+) -> None:
+    """Only the ticked fields change; "" removes the proxy or means automatic."""
+    os_dropdown = build_os_dropdown("windows")
+    os_dropdown.label = None
+    os_dropdown.text_size = 14
+
+    def text(hint: str) -> ft.TextField:
+        return ft.TextField(hint_text=hint, text_style=_DATA, **DLG_FIELD_KWARGS)
+
+    fields: dict[str, tuple[str, ft.Control]] = {
+        "os_type": (get_string("operating_system"), os_dropdown),
+        "proxy": (get_string("proxy_optional"), text("socks5://user:pass@host:port")),
+        "timezone": (get_string("timezone_optional"), text("Asia/Ho_Chi_Minh")),
+        "locale": (get_string("locale_optional"), text("vi-VN")),
+    }
+    error = ft.Text("", size=12, color=COLORS["error"], visible=False)
+    boxes: dict[str, ft.Checkbox] = {}
+    rows: list[ft.Control] = []
+    for key, (label, control) in fields.items():
+        control.disabled = True
+
+        def toggle(e: ft.ControlEvent, control: ft.Control = control) -> None:
+            control.disabled = not e.control.value
+            page.update()
+
+        boxes[key] = ft.Checkbox(label=label, on_change=toggle)
+        rows += [boxes[key], control]
+
+    def fail(message: str) -> None:
+        error.value = message
+        error.visible = True
+        page.update()
+
+    def apply(_: ft.ControlEvent) -> None:
+        changes = {
+            key: (fields[key][1].value or "").strip() for key, box in boxes.items() if box.value
+        }
+        if not changes:
+            return fail(get_string("bulk_edit_nothing"))
+        for key, validate in (
+            ("proxy", validate_proxy_format),
+            ("timezone", validate_timezone),
+            ("locale", validate_locale),
+        ):
+            valid, message = validate(changes.get(key, ""))
+            if not valid:
+                return fail(message)
+        page.pop_dialog()
+        on_apply(changes)
+
+    _dialog(
+        page,
+        get_string("bulk_edit_title", count=count),
+        get_string("bulk_edit_hint"),
+        ft.Column(tight=True, spacing=6, controls=[*rows, error]),
+        ft.Button(
+            get_string("save_changes"), icon=ft.Icons.SAVE, style=ACCENT_STYLE, on_click=apply
+        ),
     )

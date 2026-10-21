@@ -41,6 +41,38 @@ def bulk_delete_profiles(
     )
 
 
+def bulk_edit_profiles(
+    names: list[str],
+    changes: dict[str, str],
+    pm: IProfileManager,
+    log: Callable[[str], None],
+    refresh: Callable[[], None],
+) -> None:
+    """Apply `changes` (os_type, proxy, timezone, locale; "" = none/automatic) to
+    each profile, keeping its other fields."""
+    updated = 0
+    for name in names:
+        if (p := pm.profiles.get(name)) is None:
+            continue
+        os_type = changes.get("os_type", p.os_type)
+        if os_type == "android" and p.engine != "chrome":
+            log(get_string("profile_error", name=name, error=get_string("err_android_chrome")))
+            continue
+        if pm.update_profile(
+            name,
+            name,
+            changes.get("proxy", p.proxy or ""),
+            os_type,
+            changes.get("timezone", p.timezone or "") or None,
+            changes.get("locale", p.locale or "") or None,
+        ):
+            updated += 1
+        else:
+            log(get_string("profile_error", name=name, error=get_string("update_failed")))
+    log(get_string("bulk_edit_done", count=updated))
+    refresh()
+
+
 def bulk_launch_profiles(
     names: list[str],
     pm: IProfileManager,

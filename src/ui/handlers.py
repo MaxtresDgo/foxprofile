@@ -10,6 +10,7 @@ from ..services.browser.sync import SyncManager
 from .actions.browser import launch_or_stop
 from .actions.bulk import (
     bulk_delete_profiles,
+    bulk_edit_profiles,
     bulk_launch_profiles,
     bulk_run_steps,
     bulk_stop_profiles,
@@ -21,6 +22,7 @@ from .actions.profile import add_profile, delete_profile, edit_profile
 from .actions.transfer import export_profile, import_profile
 from .dialogs import (
     open_adspower_dialog,
+    open_bulk_edit_dialog,
     open_log_dialog,
     open_run_steps_dialog,
     open_sync_dialog,
@@ -143,6 +145,18 @@ class AppHandlers:
                 self._log,
                 self._refresh,
                 on_done=self._state.clear_selection,
+            )
+
+    def on_bulk_edit(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        if names := list(self._state.selected_names()):
+            open_bulk_edit_dialog(
+                page,
+                len(names),
+                lambda changes: bulk_edit_profiles(
+                    names, changes, self._pm, self._log, self._refresh
+                ),
             )
 
     def on_bulk_launch(self) -> None:
