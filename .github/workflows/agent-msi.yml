@@ -12,13 +12,8 @@ on:
         type: choice
         options: [prod, dev]
         default: prod
-  push:
-    tags: ["v*"]
-  pull_request:
-    paths:
-      - "installer/**"
-      - "requirements.txt"
-      - ".github/workflows/agent-msi.yml"
+  # ponytail: manual only until a workflow uploads the installers to the hub;
+  # add push tags / pull_request back then (they need the AGENT_HUB_URL variable).
 
 permissions:
   contents: read
