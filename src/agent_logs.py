@@ -39,7 +39,8 @@ def read_new(path: str, pos: int) -> tuple[str, int]:
     end = start + len(data)
     if start > pos:  # opened mid-file: begin at a whole line
         data = data[data.find(b"\n") + 1 :]
-    return data.decode("utf-8", "replace"), end
+    # Windows logs end lines in \r\n; Tk would show the \r.
+    return data.decode("utf-8", "replace").replace("\r\n", "\n"), end
 
 
 def main() -> None:

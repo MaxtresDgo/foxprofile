@@ -16,7 +16,7 @@ def test_read_new_follows_appends_and_restarts(tmp_path, monkeypatch):
     text, pos = agent_logs.read_new(str(log), pos)
     assert text == "tres ñ\n"
     log.write_text("new\n", encoding="utf-8")  # rewritten: shorter than pos
-    assert agent_logs.read_new(str(log), pos) == ("new\n", 4)
+    assert agent_logs.read_new(str(log), pos) == ("new\n", log.stat().st_size)
     assert agent_logs.read_new(str(tmp_path / "missing.log"), 0) == ("", 0)
 
 
