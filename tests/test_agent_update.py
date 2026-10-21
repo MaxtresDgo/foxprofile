@@ -416,3 +416,40 @@ def test_agent_uploads_the_profile_in_pieces_then_its_sha256(tmp_path, monkeypat
     assert path == "/hub/bundle/shop-01?release=1&chunked=1" and body == b""
     sent = b"".join(a[2] for a in parts)
     assert kw["headers"]["X-Content-SHA256"] == hashlib.sha256(sent).hexdigest()
+
+
+def test_agent_downloads_the_profile_in_pieces_built_in_the_background(hub, tmp_path, monkeypatch):
+    from src import agent
+
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    data = pathlib.Path("camoufox_data/shop-01")
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "cookies.sqlite").write_bytes(bytes(range(256)) * 400)
+    container.browser_launcher.touch("ana", set())
+    client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
+    monkeypatch.setattr(hub_routes, "PART_BYTES", 1000)
+
+    def call(method, path, data=None, raw=False, **kw):
+        r = client.request(method, "/api/v1" + path, content=data, headers=ana)
+        r.raise_for_status()
+        return io.BytesIO(r.content) if raw else r.json()
+
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(hub_client, "call", call)
+    zip_path = tmp_path / "bundle.zip"
+    agent.Agent(hub_client)._fetch_bundle("shop-01", str(zip_path))
+    with zipfile.ZipFile(zip_path) as z:
+        assert z.read("data/cookies.sqlite") == bytes(range(256)) * 400
+    assert hub_routes._downloads == {}  # ended: the hub dropped its copy
+
+    # A piece damaged on the way fails the SHA-256 check, and the job still ends.
+    def damaging(method, path, data=None, raw=False, **kw):
+        got = call(method, path, data, raw)
+        return io.BytesIO(b"x" + got.read()[1:]) if "part?offset=0" in path else got
+
+    monkeypatch.setattr(hub_client, "call", damaging)
+    with pytest.raises(agent.IntegrityError):
+        agent.Agent(hub_client)._fetch_bundle("shop-01", str(zip_path))
+    assert hub_routes._downloads == {}

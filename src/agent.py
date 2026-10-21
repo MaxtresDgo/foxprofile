@@ -359,17 +359,7 @@ class Agent:
         local = self.data_root / name
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = os.path.join(tmp, "bundle.zip")
-            digest = hashlib.sha256()
-            with (
-                self.hub.call("GET", f"/hub/bundle/{self.q(name)}", raw=True, timeout=600) as r,
-                open(zip_path, "wb") as f,
-            ):
-                while chunk := r.read(1 << 20):
-                    f.write(chunk)
-                    digest.update(chunk)
-                expected = r.headers.get("X-Content-SHA256")  # hubs older than it send none
-            if expected and expected.lower() != digest.hexdigest():
-                raise IntegrityError(get_string("err_bundle_corrupt"))
+            self._fetch_bundle(name, zip_path)
             shutil.rmtree(local, ignore_errors=True)
             ok, result = import_from_zip(zip_path, str(self.data_root))
         if not ok:
@@ -382,6 +372,29 @@ class Agent:
             shutil.rmtree(local, ignore_errors=True)
             raise
         return result
+
+    def _fetch_bundle(self, name: str, zip_path: str) -> None:
+        """The profile's ZIP in pieces, checked against its SHA-256: the hub builds
+        it while this polls, so no request comes near Cloudflare's 100 MB / 100 s."""
+        base = f"/hub/bundle/{self.q(name)}/download"
+        job = self.hub.call("POST", base, b"{}")["id"]
+        try:
+            while not (info := self.hub.call("GET", f"{base}/{job}"))["ready"]:
+                time.sleep(1)
+            digest = hashlib.sha256()
+            with open(zip_path, "wb") as f:
+                while (offset := f.tell()) < info["size"]:
+                    path = f"{base}/{job}/part?offset={offset}"
+                    with self.hub.call("GET", path, raw=True, timeout=120) as r:
+                        part = r.read()
+                    if not part:
+                        raise IntegrityError(get_string("err_bundle_corrupt"))
+                    f.write(part)
+                    digest.update(part)
+            if digest.hexdigest() != info["sha256"]:
+                raise IntegrityError(get_string("err_bundle_corrupt"))
+        finally:
+            self._call_quietly("DELETE", f"{base}/{job}")
 
     def _restore_cookies(self, profile: Profile, local: pathlib.Path) -> None:
         """Load the cookies packed on the last close into this PC's browser store."""
