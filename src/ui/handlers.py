@@ -6,7 +6,9 @@ import flet as ft
 
 from ..core.strings import get_string
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
+from ..services.browser.login import login
 from ..services.browser.sync import SyncManager
+from ..services.profile.accounts import PLATFORM_LABELS, AccountsLocked
 from .actions.browser import launch_or_stop
 from .actions.bulk import (
     bulk_delete_profiles,
@@ -21,6 +23,7 @@ from .actions.cookies import manage_cookies
 from .actions.profile import add_profile, delete_profile, edit_profile
 from .actions.transfer import export_profile, import_profile
 from .dialogs import (
+    open_accounts_dialog,
     open_adspower_dialog,
     open_bulk_edit_dialog,
     open_log_dialog,
@@ -84,6 +87,37 @@ class AppHandlers:
         refs = self._get_refs()
         assert page is not None and refs is not None
         manage_cookies(page, name, refs.file_picker, self._pm, self._bl, self._log)
+
+    def on_open_with(self, name: str, account: dict) -> None:
+        """Launch, then fill the login of one of the profile's accounts."""
+        label = PLATFORM_LABELS.get(account["platform"], account["platform"])
+
+        def log_in() -> None:
+            try:
+                full = self._pm.accounts.get(name, account["id"])
+            except AccountsLocked:
+                full = None
+            if full is None:
+                self._log(
+                    get_string("profile_error", name=name, error=get_string("err_accounts_locked"))
+                )
+                return
+            self._log(get_string("account_login_started", platform=label, name=name))
+            result = login(self._bl, name, full)
+            if not result["ok"]:
+                self._log(get_string("profile_error", name=name, error=result["error"]))
+            else:
+                done = (
+                    "account_already_signed_in" if result.get("signed_in") else "account_login_done"
+                )
+                self._log(f"{name}: {get_string(done)}")
+
+        launch_or_stop(name, self._pm, self._bl, self._state, self._log, then=log_in)
+
+    def on_accounts(self, name: str) -> None:
+        page = self._get_page()
+        assert page is not None
+        open_accounts_dialog(page, name, self._pm, self._bl, self._log, self._refresh)
 
     def open_add_dialog(self) -> None:
         page = self._get_page()

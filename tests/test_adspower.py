@@ -132,7 +132,14 @@ def fake():
                     "proxy_password": "pass",
                 },
             ),
-            _profile(4, fbcc_proxy_acc_id="77"),
+            _profile(
+                4,
+                fbcc_proxy_acc_id="77",
+                platform="instagram.com",
+                username="fox.shop",
+                password="pw",
+                fakey="gezd gnbv gy3t qojq",
+            ),
         ]
     )
     yield server
@@ -232,6 +239,43 @@ def test_fetch_reads_proxy_ua_and_cookies(fake):
     assert data["proxy"] == "socks5://user:p%40ss@203.0.113.7:1080"  # from the proxy list
     assert (data["user_agent"], data["os_type"]) == (PHONE_UA, "android")
     assert json.loads(data["cookies"])[0]["name"] == "sid"
+    assert data["account"] == {
+        "platform": "instagram",
+        "username": "fox.shop",
+        "password": "pw",
+        "totp_secret": "GEZDGNBVGY3TQOJQ",
+    }
+    # Its credentials stay out of the listing the panel shows.
+    listed = adspower.AdsPower(fake.port).profiles()[3]
+    assert "fox.shop" not in json.dumps(listed) and "pw" not in listed.values()
+
+
+@pytest.mark.parametrize(
+    ("domain", "expected"),
+    [
+        ("facebook.com", "facebook"),
+        ("https://m.facebook.com/", "facebook"),
+        ("twitter.com", "x"),
+        ("X.com", "x"),
+        ("mail.google.com", "gmail"),
+        ("outlook.live.com", "hotmail"),
+        ("amazon.com", None),
+        ("notfacebook.com", None),
+        ("", None),
+    ],
+)
+def test_platform_from(domain, expected):
+    assert adspower.platform_from(domain) == expected
+
+
+def test_account_from_skips_what_foxprofile_cannot_keep():
+    warnings = []
+    assert adspower.account_from({"platform": "facebook.com"}, warnings) is None and not warnings
+    assert adspower.account_from({"platform": "amazon.com", "username": "u"}, warnings) is None
+    assert adspower.account_from({"platform": "x.com", "password": "p"}, warnings) is None
+    account = adspower.account_from({"platform": "x.com", "username": "u", "fakey": "1!"}, warnings)
+    assert account == {"platform": "x", "username": "u", "password": "", "totp_secret": ""}
+    assert len(warnings) == 3
 
 
 def test_api_key_and_errors(fake):
@@ -349,6 +393,7 @@ def test_hub_import_reads_adspower_on_the_callers_pc(hub, tmp_path, monkeypatch)
         "user_agent": PHONE_UA,
         "os_type": "android",
         "cookies": json.dumps(COOKIES),
+        "account": {"platform": "tiktok", "username": "fox", "password": "pw", "totp_secret": ""},
         "warnings": [],
     }
 
@@ -368,6 +413,15 @@ def test_hub_import_reads_adspower_on_the_callers_pc(hub, tmp_path, monkeypatch)
     assert hub_store.owners["Account 1"] == "ana"
     saved = personas.load(tmp_path / "camoufox_data" / "Account 1")
     assert saved.user_agent == PHONE_UA  # on the hub, so it travels in the profile ZIP
+    accounts = client.get("/api/v1/profiles/Account 1/accounts", headers=ana).json()
+    assert [(a["platform"], a["username"], a["has_password"]) for a in accounts] == [
+        ("tiktok", "fox", True)
+    ]
+    # Importing again leaves the existing profile, and its accounts, as they are.
+    assert (
+        client.post("/api/v1/adspower/import", json=body, headers=ana).json()["status"] == "exists"
+    )
+    assert len(client.get("/api/v1/profiles/Account 1/accounts", headers=ana).json()) == 1
 
 
 def test_hub_import_needs_the_agent(hub):  # noqa: F811

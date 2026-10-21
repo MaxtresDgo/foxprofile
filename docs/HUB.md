@@ -100,6 +100,17 @@ Los grupos sirven para que varios operadores, cada uno en su PC, compartan un co
 - Un **líder** puede sumar o quitar miembros de su grupo y mover a él los perfiles que ve (o sacarlos). No crea grupos ni usuarios, y no puede nombrar ni quitar a otros líderes.
 - Borrar un grupo no borra sus perfiles: quedan con su operador.
 
+### Cuentas de redes
+
+El botón con la llave de cada perfil abre **Cuentas**: las cuentas que usa ese perfil en Facebook, Instagram, TikTok, X, Gmail y Hotmail/Outlook (usuario, contraseña y secreto 2FA).
+
+- Al pasar el mouse sobre el nombre de un perfil (o al enfocarlo con el teclado) aparecen sus cuentas: sitio, usuario y si tiene 2FA. Sin cuentas no aparece nada.
+- Un perfil detenido con cuentas tiene un triángulo a la derecha de **Abrir**: su menú **Abrir con una cuenta** abre el perfil y, en cuanto está listo, inicia sesión con la cuenta elegida (igual que *Iniciar sesión* en Cuentas).
+- Quien ve el perfil (su operador, los miembros de su grupo y los admins) ve y edita sus cuentas. Las claves personales de MCP y del agente no tienen acceso.
+- **Código 2FA:** se calcula en el hub con el secreto guardado (la clave base32 que muestra el sitio al activar una app de autenticación) y se copia con un clic.
+- **Iniciar sesión:** con el perfil abierto, el agente de la PC abre la página de login y rellena usuario, contraseña y, si el sitio lo pide, el código 2FA. Si el perfil ya tiene la sesión iniciada, el sitio lo saca de su página de login y no se escribe nada (avisa "La sesión ya estaba iniciada"). Si aparece un captcha u otra verificación, o el sitio cambió su página, se detiene y el operador termina a mano. Google a veces rechaza navegadores automatizados.
+- Se guardan cifradas en `accounts.json`, aparte de `profiles.json`, y no viajan en las exportaciones ZIP ni en los datos que el agente descarga. La clave es `FOXPROFILE_ACCOUNTS_KEY` o, si no está definida, `accounts.key` junto al archivo. **En producción defina `FOXPROFILE_ACCOUNTS_KEY`** (genérela con `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) como secreto del despliegue, así la clave no queda en el volumen `/data` junto a las cuentas. Si la clave se pierde o cambia, las cuentas no se pueden leer y el hub no toca el archivo.
+
 ### Idioma
 
 El panel arranca en español; cada usuario puede cambiarlo en **Settings → General** (Español, English, Tiếng Việt), y los mensajes de error del servidor siguen ese idioma. `FOXPROFILE_LANG=es` en el `.env` del hub fija el idioma de los agentes de todas las PCs (salvo que una PC defina su propio `FOXPROFILE_LANG`).
@@ -111,6 +122,7 @@ El panel arranca en español; cada usuario puede cambiarlo en **Settings → Gen
 `FoxProfileAgent-<versión>.msi` trae todo lo necesario (Python y el navegador del motor Chrome incluidos), así que la PC no necesita nada instalado. Se descarga de los artefactos del workflow *Agent installers* en GitHub Actions, o se arma con `installer/windows/build-msi.sh` (Linux/macOS con `uv` y `msitools`).
 
 - **Hub fijo por build (dev / prod), obligatorio:** `HUB_URL=https://hub.example.com installer/windows/build-msi.sh` (igual con `build-pkg.sh`) deja esa URL dentro del instalador, y el agente se conecta ahí sin preguntar; sin una URL `http(s)://` el build se detiene. En el workflow sale del campo *hub_url* al lanzarlo a mano o, si no, de la variable del repositorio `AGENT_HUB_URL`. `FOXPROFILE_HUB_URL` en el `.env` del usuario o `--hub` siguen teniendo prioridad.
+- **Agente dev (para probar varios ambientes):** `AGENT_CHANNEL=dev installer/windows/build-msi.sh` (igual con `build-pkg.sh`, o *channel = dev* en el workflow) genera `FoxProfileAgent-<versión>-dev.msi` / `-dev-macos.pkg`. `HUB_URL` es opcional y solo marca el hub inicial (sin ella, el primer arranque pide la URL). Su menú de la bandeja tiene **Cambiar hub…**: abre la página de la URL con el hub actual, se escribe otro (dev, staging, prod) y se autoriza ahí; los navegadores abiertos se cierran y sincronizan con el hub anterior antes de cambiar. Recuerda el último hub en el que inició sesión. Se instala en el mismo lugar que el agente normal y lo reemplaza. A diferencia del agente normal, **no se actualiza al código del hub**: corre siempre el código con el que se construyó (para probar código nuevo, se instala un build dev nuevo), así funciona igual contra hubs con versiones distintas.
 
 - Instalar con doble clic (pide permisos de administrador), o sin preguntas: `msiexec /i FoxProfileAgent-<versión>.msi /qn`.
 - Al terminar una instalación con doble clic el agente arranca enseguida (una instalación silenciosa `/qn` lo deja para el siguiente inicio de sesión). Después arranca solo **cada vez que un usuario inicia sesión en Windows**, sin ventana de consola: queda como icono del zorro en la bandeja del sistema. También está en el menú Inicio como *FoxProfile Agent*.
@@ -145,6 +157,16 @@ Requisitos: Python 3.10 o superior de [python.org](https://www.python.org/downlo
 
 La primera ejecución instala las dependencias y descarga Camoufox (unos minutos). Después el agente sigue en segundo plano, con el icono del zorro en la bandeja (Windows) o en la barra de menú (macOS), y la ventana del script se puede cerrar. En Linux, o con `python -m src.agent --console`, el agente se queda en la terminal.
 
+### Estado del agente en el panel
+
+Abajo en la barra lateral del panel, cada usuario ve el estado del agente de su PC:
+
+- **Punto relleno: conectada.** El agente está listo; si tiene perfiles abiertos, dice cuántos.
+- **Anillo que pulsa: trabajando.** Una segunda línea dice en qué: descargando el navegador la primera vez (con porcentaje), actualizándose, abriendo un perfil (bajando sus datos) o guardándolo en el hub (subiéndolos). Durante la primera descarga dice "preparando el agente": todavía no puede abrir perfiles, pero ya está en marcha.
+- **Anillo apagado: el agente no está en ejecución**, con el botón para descargarlo.
+
+El agente informa estos estados al hub (`POST /hub/agent/status`) en cuanto cambian y los repite cada 10 s mientras dura la tarea. Si deja de informar durante 30 s, el panel vuelve a mostrar solo si está conectada.
+
 ### Inicio de sesión del agente
 
 El agente no pide contraseña: abre el navegador en el panel del hub.
@@ -170,7 +192,10 @@ Un agente por usuario: si el mismo usuario abre el agente en dos PCs, cada orden
 Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: **actualizar el hub actualiza los agentes**, sin repartir instaladores.
 
 - En cada consulta el agente le dice al hub qué código tiene. Si el hub corre otro, el agente lo descarga (`/api/v1/hub/agent/code`), lo guarda en su carpeta de datos (`agent-code/`) y se reinicia. Lo hace en cuanto no tiene perfiles abiertos, así que nadie pierde una sesión a mitad de trabajo.
-- Solo viaja el código (`src/` y `chrome_engine/`). Python y las librerías vienen con el instalador. Si la versión nueva necesita otras librerías (cambió `requirements.txt`), el agente no se actualiza: avisa con una notificación de que hace falta el instalador nuevo.
+- Solo viaja el código (`src/` y `chrome_engine/`). Python y las librerías vienen con el instalador. Si la versión nueva necesita otras librerías (cambió `requirements.txt`), **el agente se instala el instalador nuevo él mismo**, también cuando no tiene perfiles abiertos:
+  - Descarga el instalador que ofrece el panel (**Ajustes › Agentes**: hay que subir el nuevo antes) y lo ejecuta. En Windows corre el MSI con una barra de progreso (`msiexec /passive`); Windows pide permiso de administrador y, al terminar, el agente nuevo arranca solo. En macOS abre el `.pkg` en el Instalador: hay que pulsar *Instalar* y poner la contraseña de administrador; el paquete reinicia el agente.
+  - Cada instalador lo ejecuta una sola vez (recuerda su nombre, tamaño y fecha en `installer-tried.txt`). Si el panel todavía ofrece el anterior, solo avisa con una notificación de que hace falta el instalador nuevo.
+  - Si no puede descargarlo, avisa y se puede instalar a mano desde el panel. El agente dev no hace nada de esto.
 - **Ajustes › Agentes** en el panel:
   - Cualquier usuario descarga ahí el instalador de Windows o de macOS para un PC nuevo. La descarga no necesita sesión, así que el enlace se puede compartir.
   - Los administradores suben los instaladores (uno por sistema; el nuevo reemplaza al anterior). Sin bucket quedan en `installers/`, junto a `hub.json` (`./data/installers` con Docker); detrás de nginx, esa subida necesita el bloque `location /api/v1/hub/installers/` de [deploy/nginx-foxprofile.conf](../deploy/nginx-foxprofile.conf), porque supera el límite general de 20 MB. Con bucket, ver abajo.
@@ -194,7 +219,7 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 
 ### Importar desde AdsPower
 
-*Importar desde AdsPower* (Ajustes del panel) lee el AdsPower del PC de quien lo usa a través de su agente, porque el hub no puede llegar a él: el agente debe estar conectado y AdsPower abierto con la API local activada. Los perfiles se crean en el hub con su dueño y su persona Android, y las cookies se cargan en ese mismo PC. La lista se agrupa por grupo de AdsPower, con el recuento de importados, pendientes y errores de cada uno, y cada perfil entra al grupo del hub con ese nombre: si no existe, lo crea un admin al importar; un operador solo puede llenar grupos de los que es líder. Los nombres se reducen a letras, números, `-` y `_` ("Ventas México" pasa a `Ventas-Mexico`). Reimportar coloca en su grupo también los perfiles importados antes. Detalles de lo que se migra en el [README](../README.md#migrating-from-adspower).
+*Importar desde AdsPower* (Ajustes del panel) lee el AdsPower del PC de quien lo usa a través de su agente, porque el hub no puede llegar a él: el agente debe estar conectado y AdsPower abierto con la API local activada. Los perfiles se crean en el hub con su dueño y su persona Android, y las cookies se cargan en ese mismo PC. La lista se agrupa por grupo de AdsPower, con el recuento de importados, pendientes y errores de cada uno, y cada perfil entra al grupo del hub con ese nombre: si no existe, lo crea un admin al importar; un operador solo puede llenar grupos de los que es líder. Los nombres se reducen a letras, números, `-` y `_` ("Ventas México" pasa a `Ventas-Mexico`). Reimportar coloca en su grupo también los perfiles importados antes. La cuenta de plataforma del perfil de AdsPower (usuario, contraseña y clave 2FA) pasa a sus **Cuentas** cuando el sitio es Facebook, Instagram, TikTok, X, Google u Outlook/Hotmail; si es otro sitio, el resultado lo avisa. Reimportar no toca las cuentas de un perfil que ya existe. Detalles de lo que se migra en el [README](../README.md#migrating-from-adspower).
 
 ## Problemas frecuentes
 
@@ -210,6 +235,7 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 
 - El panel va por HTTP dentro de la LAN: las contraseñas de la plataforma viajan sin cifrar hasta el hub. Si la red no es de confianza, ponga el hub detrás de HTTPS (nginx, ver [DEPLOY.md](DEPLOY.md)).
 - Los perfiles contienen sesiones iniciadas (cookies). `./data` y las copias de seguridad deben tratarse como credenciales.
+- `accounts.json` guarda contraseñas y secretos 2FA cifrados; su clave (`FOXPROFILE_ACCOUNTS_KEY`) debe vivir fuera de `./data` y de sus copias.
 - Los agentes instalados ejecutan el código que reciben del hub (ver [Actualizaciones del agente](#actualizaciones-del-agente-desde-el-panel)): un hub comprometido llega a todas las PCs. Sirva el hub por HTTPS.
 - `agent.json` contiene la clave del agente: quien la copie puede actuar como ese operador. Para revocarla, autorice de nuevo el agente.
 - `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`), también si la plataforma de identidad está caída. Cambiarlo cierra todas las sesiones.

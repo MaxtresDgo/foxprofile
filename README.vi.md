@@ -59,6 +59,7 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - **Xuất/nhập cả profile** ra file ZIP để chuyển sang máy khác, có hoặc không kèm dữ liệu trình duyệt. Fingerprint luôn đi kèm.
 - **Bảng profile dễ quét**: mỗi dòng cho thấy engine, thiết bị đang giả lập, proxy (đã ẩn mật khẩu), timezone/locale và trạng thái. Trạng thái phân biệt bằng cả hình lẫn màu: dấu tím viền kép kèm giờ mở là đang chạy, viền xám là đang mở, dấu đỏ gạch ngang là mở lỗi.
 - **Lọc và tìm kiếm**: lọc theo đang chạy, có/không proxy, engine Chrome (kèm số đếm); tìm theo tên hoặc proxy.
+- **Tài khoản mạng xã hội**: lưu tài khoản Facebook, Instagram, TikTok, X, Gmail và Hotmail/Outlook của từng profile (tên đăng nhập, mật khẩu, mã bí mật 2FA), được mã hoá khi lưu; sao chép, xem mã 2FA hiện tại hoặc tự điền form đăng nhập trong profile đang chạy. Rê chuột lên tên profile để xem các tài khoản của nó, và mũi tên trên nút Mở cho phép mở profile rồi đăng nhập bằng một tài khoản. Cũng được nhập từ AdsPower. Không mở qua MCP.
 - **Thao tác hàng loạt**: chọn nhiều profile để mở, dừng, sửa hoặc xóa cùng lúc. Sửa hàng loạt chỉ đổi các trường được đánh dấu (hệ điều hành, proxy, timezone, locale; ở chế độ hub thêm người dùng và nhóm), các trường khác của từng profile giữ nguyên.
 - **Chạy bước và đồng bộ** (RPA đơn giản): chạy một đoạn script ngắn (navigate, click, type…) song song trên nhiều profile đang chạy, hoặc lặp lại thao tác của một profile sang các profile khác theo thời gian thực.
 - **MCP server**: Claude, Cursor... tự mở profile, lướt web, click, gõ, chụp màn hình.
@@ -209,14 +210,15 @@ Nên chọn đúng hệ điều hành của máy đang chạy FoxProfile: person
 
 ## Chuyển từ AdsPower
 
-**Nhập từ AdsPower** (web panel: Settings; app desktop: nút **Từ AdsPower** ở thanh bên) sao chép profile từ AdsPower đang chạy trên cùng máy, qua Local API của nó (bật trong AdsPower: Settings > API; nhập API key nếu đã bật). Danh sách được nhóm theo nhóm của AdsPower, có số đếm cho từng nhóm (đã nhập, còn lại, lỗi) để kiểm tra một lần chuyển lớn theo từng nhóm; tích cả nhóm hoặc từng profile rồi nhập. Nhập lại chỉ thêm những profile chưa có. AdsPower chỉ trả lời một yêu cầu mỗi giây, nên mỗi profile mất khoảng 8-10 giây; hãy để cửa sổ mở trong lúc nhập.
+**Nhập từ AdsPower** (web panel: Settings; app desktop: nút **Từ AdsPower** ở thanh bên) sao chép profile từ AdsPower đang chạy trên cùng máy, qua Local API của nó (bật trong AdsPower: Settings > API; nhập API key nếu đã bật). Danh sách được nhóm theo nhóm của AdsPower, có số đếm cho từng nhóm (đã nhập, còn lại, lỗi) để kiểm tra một lần chuyển lớn theo từng nhóm; tích cả nhóm hoặc từng profile rồi nhập. Nhập lại chỉ thêm những profile chưa có. AdsPower chỉ trả lời một yêu cầu mỗi giây, nên mỗi profile mất khoảng 8-10 giây. Khi bấm nhập, hộp thoại đóng lại và việc nhập chạy nền: một thông báo khi bắt đầu, profile hiện dần trong danh sách, và một thông báo kết quả khi xong. Hãy để tab panel (hoặc app desktop) mở cho đến lúc đó.
 
 | Được chuyển | Không chuyển được |
 |---|---|
 | Tên (sửa cho hợp lệ làm tên thư mục; tên trùng được thêm số của AdsPower) | Nhiễu fingerprint (canvas, audio, client rects, ảnh WebGL): thuật toán riêng của SunBrowser, trình duyệt khác không tái tạo được |
 | Proxy, kể cả proxy chọn từ danh sách proxy của AdsPower | Local storage, extension, lịch sử |
-| Đúng User-Agent, từ đó suy ra hệ điều hành; profile Android thành điện thoại Android (xem trên) | Ghi chú, nhóm, tên đăng nhập và mật khẩu nền tảng |
-| Cookie (Chrome giới hạn hạn dùng 400 ngày, giống SunBrowser) | |
+| Đúng User-Agent, từ đó suy ra hệ điều hành; profile Android thành điện thoại Android (xem trên) | Ghi chú, nhóm |
+| Cookie (Chrome giới hạn hạn dùng 400 ngày, giống SunBrowser) | Tài khoản nền tảng của trang mà FoxProfile không lưu tài khoản (báo bằng cảnh báo) |
+| Tài khoản nền tảng (tên đăng nhập, mật khẩu, khoá 2FA) khi trang là Facebook, Instagram, TikTok, X, Google hoặc Outlook/Hotmail, vào danh sách tài khoản mã hoá của profile | |
 
 Profile được tạo trên engine Chrome vì SunBrowser của AdsPower là Chromium: trang web vẫn thấy cùng loại trình duyệt. Timezone và ngôn ngữ theo IP của proxy, như tuỳ chọn "theo IP" của AdsPower. Ở chế độ hub, việc nhập chạy trên máy của bạn qua agent, nơi có AdsPower, và mỗi profile được đưa vào nhóm hub cùng tên với nhóm AdsPower của nó (quản trị viên nhập thì nhóm được tạo; tên chỉ giữ chữ, số, `-` và `_`, nên "Ventas México" thành `Ventas-Mexico`). Nhập lại cũng đưa các profile đã nhập trước đó vào đúng nhóm.
 

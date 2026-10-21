@@ -17,6 +17,8 @@ from . import mcp_http
 from .auth import require_token
 from .guard import LocalOnlyGuard
 from .routes import (
+    accounts_router,
+    accounts_summary_router,
     adspower_router,
     automation_router,
     browser_router,
@@ -101,6 +103,8 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
 
     protected = [Depends(require_token)]
     app.include_router(profiles_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(accounts_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(accounts_summary_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(browser_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(proxy_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)

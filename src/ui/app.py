@@ -10,6 +10,7 @@ from ..core.logging import get_logger
 from ..core.strings import current_language, get_string, set_language
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
 from ..services.browser import fingerprint
+from ..services.profile.accounts import AccountsLocked
 from .components import (
     build_content_area,
     build_empty_state,
@@ -235,6 +236,9 @@ class App:
                     is_selected=self.state.is_selected(p.name),
                     on_select=self.h.on_toggle_select,
                     on_cookies=self.h.on_cookies,
+                    on_accounts=self.h.on_accounts,
+                    accounts=self._accounts(p.name),
+                    on_open_with=self.h.on_open_with,
                     device=self._device_label(p.name),
                     since=self._live_since.get(p.name, ""),
                     failed=p.name in self.state.failed,
@@ -271,6 +275,13 @@ class App:
         r.prev_btn.disabled = self.state.current_page <= 1
         r.next_btn.disabled = self.state.current_page >= total_pages
         self._safe_update()
+
+    def _accounts(self, name: str) -> list[dict] | None:
+        """For the name's tooltip; None (just the name) when they cannot be read."""
+        try:
+            return self.pm.accounts.list(name)
+        except AccountsLocked:
+            return None
 
     @staticmethod
     def _device_label(name: str) -> str:

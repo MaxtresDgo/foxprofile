@@ -81,3 +81,14 @@ def test_normalize_hub_url():
     assert normalize_hub_url(" https://hub.example.com/ ") == HUB
     assert normalize_hub_url("hub.example.com") is None
     assert normalize_hub_url("javascript:alert(1)") is None
+
+
+def test_a_dev_agent_can_be_asked_for_another_hub():
+    s = SignIn(HUB, check_hub=lambda url: None, who_is=_who_is, ask_hub=True)
+    try:
+        assert s.url == f"http://{s.local}/setup?state={s.state}"
+        r = _req(s, "POST", "/setup", {"state": s.state, "hub": "https://dev-hub.example.com"})
+        assert s.hub == "https://dev-hub.example.com"
+        assert r.getheader("Location").startswith("https://dev-hub.example.com/#")
+    finally:
+        s.close()

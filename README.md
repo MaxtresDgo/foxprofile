@@ -59,6 +59,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - **Profile export/import** as ZIP, with or without browser data, to move profiles between machines. The fingerprint always travels with the profile.
 - **A profile table built for scanning**: every row shows the engine, the emulated device, the proxy (credentials hidden), timezone/locale and the state. States differ in shape as well as colour: a violet double-ruled stamp with the launch time means running, a grey rule means starting, a struck red stamp means the launch failed.
 - **Filters and search**: filter by running, with/without proxy and Chrome engine (with counts); search by name or proxy.
+- **Site accounts**: save each profile's Facebook, Instagram, TikTok, X, Gmail and Hotmail/Outlook logins (username, password, 2FA secret), encrypted at rest; copy them, see the current 2FA code, or fill the site's login form in the running profile. Hovering a profile's name lists its accounts, and the caret on its Launch button opens it signed in with one of them. Imported from AdsPower too. Not exposed over MCP.
 - **Bulk actions**: launch, stop, edit or delete many profiles at once. Bulk edit changes only the fields you tick (OS, proxy, timezone, locale; in hub mode also operator and group) and keeps the rest of each profile.
 - **Run steps and sync** (light RPA): run a short script (navigate, click, type…) on many running profiles in parallel, or mirror what you do in one profile to the others in real time.
 - **MCP server** so AI agents (Claude, Cursor...) can launch profiles, browse, click, type and take screenshots.
@@ -209,14 +210,15 @@ Pick the OS of the machine running FoxProfile: a persona of another OS leaks the
 
 ## Migrating from AdsPower
 
-**Import from AdsPower** (web panel: Settings; desktop app: **From AdsPower** in the sidebar) copies profiles from an AdsPower running on the same PC, through its Local API (turn it on in AdsPower: Settings > API; enter the API key if you enabled one). The list is grouped by AdsPower group, with a count per group (imported, pending, failed) to check a large migration group by group; tick a whole group or single profiles and import. Importing again only adds the ones that are not there yet. AdsPower answers one request a second, so plan on roughly 8-10 seconds per profile and keep the window open while it runs.
+**Import from AdsPower** (web panel: Settings; desktop app: **From AdsPower** in the sidebar) copies profiles from an AdsPower running on the same PC, through its Local API (turn it on in AdsPower: Settings > API; enter the API key if you enabled one). The list is grouped by AdsPower group, with a count per group (imported, pending, failed) to check a large migration group by group; tick a whole group or single profiles and import. Importing again only adds the ones that are not there yet. AdsPower answers one request a second, so plan on roughly 8-10 seconds per profile. Importing closes the dialog and goes on in the background: a notice says when it starts, profiles appear in the list as they are created, and a last notice gives the result. Keep the panel tab (or the desktop app) open until then.
 
 | Comes over | Stays behind |
 |---|---|
 | Name (made safe for a folder name; a repeated name gets its AdsPower number) | Fingerprint noise (canvas, audio, client rects, WebGL image): a SunBrowser algorithm no other browser reproduces |
 | Proxy, including one picked from AdsPower's proxy list | Local storage, extensions, history |
-| The exact User-Agent, so the OS; Android profiles become Android phones (see above) | Notes, groups, platform user name and password |
-| Cookies (Chrome caps their lifetime at 400 days, as SunBrowser does) | |
+| The exact User-Agent, so the OS; Android profiles become Android phones (see above) | Notes, groups |
+| Cookies (Chrome caps their lifetime at 400 days, as SunBrowser does) | The platform account of a site FoxProfile does not keep accounts for (shown as a warning) |
+| The platform account (username, password, 2FA key) when its site is Facebook, Instagram, TikTok, X, Google or Outlook/Hotmail, into the profile's encrypted accounts | |
 
 Profiles are created on the Chrome engine, since AdsPower's SunBrowser is Chromium: sites keep seeing the same kind of browser. Timezone and language follow the proxy's IP, as in AdsPower's "based on IP" setting. In hub mode the import runs on your own PC through your agent, where AdsPower is, and each profile joins the hub group named after its AdsPower group (created when an admin imports; names are reduced to letters, digits, `-` and `_`, so "Ventas México" becomes `Ventas-Mexico`). Importing again also files profiles imported earlier into their group.
 

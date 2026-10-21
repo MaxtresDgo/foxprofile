@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       hub_url:
-        description: "Hub the agent connects to (dev or prod); default: the AGENT_HUB_URL variable"
+        description: "Hub the agent connects to; default: the AGENT_HUB_URL variable (optional for dev)"
         required: false
         default: ""
+      channel:
+        description: "prod: locked to its hub. dev: test agent whose tray menu can change the hub"
+        type: choice
+        options: [prod, dev]
+        default: prod
   push:
     tags: ["v*"]
   pull_request:
@@ -28,6 +33,7 @@ jobs:
       - run: installer/windows/build-msi.sh
         env:
           HUB_URL: ${{ inputs.hub_url || vars.AGENT_HUB_URL }}
+          AGENT_CHANNEL: ${{ inputs.channel || 'prod' }}
       - uses: actions/upload-artifact@v4
         with:
           name: FoxProfileAgent-msi
@@ -41,6 +47,7 @@ jobs:
       - run: installer/macos/build-pkg.sh
         env:
           HUB_URL: ${{ inputs.hub_url || vars.AGENT_HUB_URL }}
+          AGENT_CHANNEL: ${{ inputs.channel || 'prod' }}
       - uses: actions/upload-artifact@v4
         with:
           name: FoxProfileAgent-pkg

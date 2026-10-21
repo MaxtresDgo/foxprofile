@@ -3,10 +3,12 @@
 
 Profiles are listed by AdsPower group, with a count per group, so thousands of
 them can be imported and checked group by group. A group's rows are built when
-it is opened; each row's state lives in its data until then.
+it is opened; each row's state lives in its data until then. Importing closes the
+dialog and goes on in the background, with a snack bar when it starts and ends.
 """
 
 import asyncio
+import threading
 from collections.abc import Callable
 
 import flet as ft
@@ -18,6 +20,19 @@ from ...services.browser import chrome_prefetch
 from ...services.profile import adspower
 from ..theme.colors import COLORS, FONT_DATA
 from ..theme.styles import ACCENT_STYLE
+
+# One import at a time: AdsPower answers once a second anyway.
+_importing = threading.Event()
+
+
+def _notify(page: ft.Page, text: str, error: bool = False) -> None:
+    page.show_dialog(
+        ft.SnackBar(
+            ft.Text(text, color="#FFFFFF"),
+            bgcolor=COLORS["error"] if error else COLORS["ink_button"],
+            duration=7000 if error else 4000,
+        )
+    )
 
 
 def _is_open(r: dict) -> bool:
@@ -58,7 +73,6 @@ def open_adspower_dialog(
         get_string("adspower_import_n", n=0), icon=ft.Icons.DOWNLOAD, style=ACCENT_STYLE
     )
     import_btn.disabled = True
-    busy = False
 
     def rows() -> list[dict]:
         return [r for g in groups for r in g["rows"]]
@@ -70,7 +84,7 @@ def open_adspower_dialog(
     def draw_row(r: dict) -> None:
         if "box" not in r:
             return
-        r["box"].value, r["box"].disabled = r["picked"], busy or not _is_open(r)
+        r["box"].value, r["box"].disabled = r["picked"], _importing.is_set() or not _is_open(r)
         texts = {
             "exists": get_string("adspower_exists"),
             "created": get_string("adspower_created", n=r.get("cookies", 0)),
@@ -87,16 +101,16 @@ def open_adspower_dialog(
             open_rows = [r for r in g["rows"] if _is_open(r)]
             g["sum"].value = _summary(g["rows"])
             g["box"].value = bool(open_rows) and all(r["picked"] for r in open_rows)
-            g["box"].disabled = busy or not open_rows
+            g["box"].disabled = _importing.is_set() or not open_rows
             for r in g["rows"]:
                 draw_row(r)
         picked = [r for r in rows() if r["picked"] and _is_open(r)]
         open_rows = [r for r in rows() if _is_open(r)]
         select_all.value = bool(open_rows) and all(r["picked"] for r in open_rows)
-        select_all.disabled = busy
+        select_all.disabled = _importing.is_set()
         total.value = _summary(rows())
         import_btn.content = get_string("adspower_import_n", n=len(picked))
-        import_btn.disabled = busy or not picked
+        import_btn.disabled = _importing.is_set() or not picked
         page.update()
 
     def pick(rs: list[dict], value: bool) -> None:
@@ -192,38 +206,42 @@ def open_adspower_dialog(
         sync()
 
     async def on_import(_: ft.ControlEvent) -> None:
-        nonlocal busy
+        if _importing.is_set():
+            say(get_string("adspower_busy"), error=True)
+            return
         todo = [r for r in rows() if r["picked"] and _is_open(r)]
-        busy = True
-        counts = {"created": 0, "skipped": 0, "failed": 0}
         ads = client()
-        for i, r in enumerate(todo, 1):
-            say(get_string("adspower_working", i=i, n=len(todo)))
-            r["status"] = "working"
-            sync()
-            try:
-                result = await asyncio.to_thread(
-                    lambda r=r: adspower.import_here(
-                        pm, bl, ads.fetch(r["id"]), r["target"], DATA_DIR
+        page.pop_dialog()
+        _importing.set()
+        _notify(page, get_string("adspower_started", n=len(todo)))
+        counts = {"created": 0, "skipped": 0, "failed": 0}
+        errors: list[str] = []
+        try:
+            for r in todo:
+                try:
+                    result = await asyncio.to_thread(
+                        lambda r=r: adspower.import_here(
+                            pm, bl, ads.fetch(r["id"]), r["target"], DATA_DIR
+                        )
                     )
-                )
-            except adspower.AdsPowerError as e:
-                counts["failed"] += 1
-                r["status"], r["error"] = "failed", str(e)
-            else:
-                r["status"], r["cookies"] = result["status"], result["cookies"]
+                except adspower.AdsPowerError as e:
+                    counts["failed"] += 1
+                    errors.append(f"{r['target']}: {e}")
+                    log(get_string("profile_error", name=r["target"], error=e))
+                    continue
                 counts["created" if result["status"] == "created" else "skipped"] += 1
                 if result["status"] == "created":
                     log(get_string("adspower_logged", name=r["target"], n=result["cookies"]))
                     for warning in result["warnings"]:
                         log(f"[{r['target']}] {warning}")
-            r["picked"] = False
-            refresh()
-        busy = False
+                    refresh()
+        finally:
+            _importing.clear()
         if counts["created"]:
             chrome_prefetch.start(log)
-        say(get_string("adspower_done", **counts), error=bool(counts["failed"]))
-        sync()
+        summary = get_string("adspower_done", **counts)
+        log(summary)
+        _notify(page, " · ".join([summary, *errors[:2]]), error=bool(counts["failed"]))
 
     import_btn.on_click = on_import
 

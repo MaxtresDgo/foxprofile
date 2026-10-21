@@ -149,6 +149,17 @@ class Agent:
             "pc": pc_name(),
         }
         self.restart = False  # set when an update is unpacked: run() returns
+        # Dev agents run the code they were built with, whatever hub they visit.
+        self.follow_updates = True
+        self._skipped_update = ""
+        # What the panel shows about this PC (hub POST /agent/status): the browser
+        # download, an update, or the profiles being opened or saved right now.
+        self.browser_download: int | None = None  # percent, -1 before it is known
+        self.updating = False
+        self._ops: dict[str, str] = {}  # profile -> "opening" | "syncing"
+        self._sent: tuple = ()
+        self._activity_lock = threading.Lock()
+        threading.Thread(target=self._heartbeat, daemon=True).start()
         container = Container(hub=False)
         self.bl = container.browser_launcher
         self.proxies = container.proxy_service
@@ -158,12 +169,58 @@ class Agent:
     def q(self, name: str) -> str:
         return urllib.parse.quote(name, safe="")
 
+    # --- activity (the panel's "Your PC" line) ---------------------------------
+
+    def activity(self) -> dict:
+        if self.updating:
+            return {"state": "updating"}
+        if self.browser_download is not None:
+            pct = self.browser_download if self.browser_download >= 0 else None
+            return {"state": "downloading", "pct": pct}
+        for name, state in list(self._ops.items()):
+            return {"state": state, "profile": name}
+        return {"state": "ready"}
+
+    def report(self, force: bool = False) -> None:
+        """Tell the hub what this PC is doing, when it changed (or `force`)."""
+        if not self.hub.key:
+            return
+        now = self.activity()
+        with self._activity_lock:
+            if not force and tuple(now.items()) == self._sent:
+                return
+            self._sent = tuple(now.items())
+        threading.Thread(target=self._send_activity, args=(now,), daemon=True).start()
+
+    def _send_activity(self, activity: dict) -> None:
+        with contextlib.suppress(OSError, urllib.error.URLError, ValueError):
+            self.hub.call("POST", "/hub/agent/status", json.dumps(activity).encode(), timeout=10)
+
+    def _heartbeat(self) -> None:
+        # The hub forgets a busy state it has not heard about for a while (a long
+        # upload has no percentage to report): repeat it while busy.
+        while True:
+            time.sleep(10)
+            if self.activity()["state"] != "ready":
+                self.report(force=True)
+
+    @contextlib.contextmanager
+    def busy(self, state: str, name: str):
+        self._ops[name] = state
+        self.report()
+        try:
+            yield
+        finally:
+            self._ops.pop(name, None)
+            self.report()
+
     # --- commands --------------------------------------------------------------
 
     def launch(self, profile_dict: dict) -> None:
         name = profile_dict["name"]
         try:
-            profile = self._download(name)
+            with self.busy("opening", name):
+                profile = self._download(name)
         except Exception as e:
             say(get_string("agent_download_failed", name=name, error=e))
             self._status(name, False, f"Download failed on {self.hub.user}'s PC: {e}")
@@ -294,6 +351,10 @@ class Agent:
 
     def _sync(self, name: str) -> None:
         """Upload the profile's data and end the lease, retrying until the hub takes it."""
+        with self.busy("syncing", name):
+            self._sync_now(name)
+
+    def _sync_now(self, name: str) -> None:
         local = self.data_root / name
         while True:
             try:
@@ -342,6 +403,7 @@ class Agent:
                 self._sync(local.name)
 
     def run(self) -> None:
+        self.report(force=True)  # clears what a previous run left on the hub
         self.recover()
         while not self.restart:
             running = ",".join(sorted(self.bl.running_profile_names()))
@@ -369,20 +431,81 @@ class Agent:
             elif resp["op"] in ("proxy_check", "geo_check", "adspower_list", "adspower_fetch"):
                 threading.Thread(target=self.check, args=(resp,), daemon=True).start()
             elif resp["op"] == "update":
-                self.update(resp["code"])
+                if self.follow_updates:
+                    self.update(resp["code"])
+                elif self._skipped_update != resp["code"]:
+                    self._skipped_update = resp["code"]
+                    say(get_string("agent_update_skipped_dev", code=resp["code"]))
             elif resp["op"] == "installer_needed":
-                self.notify(get_string("agent_installer_needed"))
+                if self.follow_updates:
+                    threading.Thread(target=self.install_update, daemon=True).start()
+                else:
+                    self.notify(get_string("agent_installer_needed"))
+
+    def install_update(self) -> None:
+        """New libraries need the new installer: download the hub's and run it. It
+        stops this agent and starts the new one (Windows asks for admin rights; on
+        macOS the operator clicks through Installer). An installer already run once
+        is not run again: the hub may still offer an old one."""
+        system = {"win32": "windows", "darwin": "macos"}.get(sys.platform)
+        if system is None or not agent_code.installed_requirements():
+            self.notify(get_string("agent_installer_needed"))
+            return
+        try:
+            offered = {i["platform"]: i for i in self.hub.call("GET", "/hub/installers") or []}
+        except (OSError, urllib.error.URLError, ValueError) as e:
+            say(get_string("agent_installer_failed", error=e))
+            return
+        item = offered.get(system)
+        stamp = f"{item['name']}:{item['size']}:{item['time']}" if item else ""
+        tried = pathlib.Path("installer-tried.txt")
+        if not item or (tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp):
+            self.notify(get_string("agent_installer_needed"))
+            return
+        say(get_string("agent_installer_downloading"))
+        self.updating = True
+        self.report()
+        target = pathlib.Path("installer") / pathlib.PurePath(item["name"]).name
+        try:
+            target.parent.mkdir(exist_ok=True)
+            # Public, and from a bucket a redirect to a presigned URL that must not
+            # get this agent's key.
+            url = f"{self.hub.url}/api/v1/hub/installers/{system}"
+            request = urllib.request.Request(url, headers={"User-Agent": "FoxProfile-Agent"})
+            with urllib.request.urlopen(request, timeout=600) as r, open(target, "wb") as f:
+                shutil.copyfileobj(r, f)
+            tried.write_text(stamp, encoding="utf-8")
+            if system == "windows":
+                flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                subprocess.Popen(
+                    ["msiexec", "/i", str(target.resolve()), "/passive", "/norestart"],
+                    creationflags=flags,
+                    close_fds=True,
+                )
+            else:
+                subprocess.Popen(["open", str(target.resolve())])
+        except (OSError, urllib.error.URLError) as e:
+            say(get_string("agent_installer_failed", error=e))
+            return
+        finally:
+            self.updating = False
+            self.report()
+        self.notify(get_string("agent_installer_opened"))
 
     def update(self, code: str) -> None:
         """Unpack the hub's code for the installer's hook to load, then restart."""
         say(get_string("agent_updating"))
         self.status("agent_status_updating")
+        self.updating = True
+        self.report()
         try:
             with self.hub.call("GET", "/hub/agent/code", timeout=300, raw=True) as resp:
                 data = resp.read()
             agent_code.unpack(data, code, pathlib.Path.cwd())
         except (OSError, ValueError, zipfile.BadZipFile) as e:
             say(get_string("agent_update_failed", error=e))
+            self.updating = False
+            self.report()
             return
         self.restart = True
 
@@ -495,7 +618,9 @@ def ensure_browser(status) -> None:
 class App:
     """Signs the agent in, keeps it running and drives the tray icon."""
 
-    def __init__(self, hub_url: str, creds: dict) -> None:
+    def __init__(self, hub_url: str, creds: dict, dev: bool = False) -> None:
+        self.dev = dev
+        self.title = "FoxProfile Agent (dev)" if dev else "FoxProfile Agent"
         self.client = HubClient(
             hub_url or creds.get("hub", ""),
             creds.get("user", ""),
@@ -504,6 +629,7 @@ class App:
         )
         self.client.on_unauthorized = self._unauthorized
         self.agent = Agent(self.client, self.set_status, self.notify)
+        self.agent.follow_updates = not dev
         self.ready = threading.Event()
         if self.client.key:
             self.ready.set()
@@ -518,7 +644,7 @@ class App:
             return
         self.status_text = text
         if self.icon is not None:
-            self.icon.title = "FoxProfile Agent · " + text
+            self.icon.title = self.title + " · " + text
             self.icon.update_menu()
 
     # --- sign-in -------------------------------------------------------------
@@ -535,11 +661,25 @@ class App:
             say(get_string("agent_authorize", url=url))
             webbrowser.open(url)
 
+    def change_hub(self) -> None:
+        """Dev builds: sign in to another hub, starting on the hub page."""
+        with self.lock:
+            if self.signin is not None:
+                self.signin.close()
+            self.signin = SignIn(self.client.url, check_hub, who_is, ask_hub=True)
+            threading.Thread(target=self._finish, args=(self.signin,), daemon=True).start()
+            url = self.signin.url
+        say(get_string("agent_authorize", url=url))
+        webbrowser.open(url)
+
     def _finish(self, signin: SignIn) -> None:
         result = signin.wait()
         if result is None:
             return
-        if self.client.key and result["user"] != self.client.user:
+        if self.client.key and (result["user"], result["hub"]) != (
+            self.client.user,
+            self.client.url,
+        ):
             # The old account's browsers sync with the old key before switching.
             self.agent.stop_all()
         self.client.url, self.client.user, self.client.key = (
@@ -549,6 +689,7 @@ class App:
         )
         self.client.display = result.get("display", "")
         _save_credentials(result)
+        self.agent.report(force=True)
         say(get_string("agent_connected", url=self.client.url, user=self.client.label))
         self.set_status(
             "agent_status_connected", user=self.client.label, host=_host(self.client.url)
@@ -566,7 +707,16 @@ class App:
 
     def _download(self) -> None:
         first_run = not camoufox_installed()
-        ensure_browser(self.set_status)
+
+        def status(key: str, **kwargs) -> None:
+            self.set_status(key, **kwargs)
+            self.agent.browser_download = kwargs.get("pct", -1)
+            self.agent.report()
+
+        ensure_browser(status)
+        if self.agent.browser_download is not None:
+            self.agent.browser_download = None
+            self.agent.report()
         if first_run:
             if self.ready.is_set():
                 self.set_status(
@@ -621,10 +771,20 @@ class App:
                 lambda: webbrowser.open(self.client.url),
                 enabled=lambda _: bool(self.client.url),
             ),
+            *(
+                [
+                    item(
+                        lambda _: get_string("agent_menu_change_hub"),
+                        lambda: threading.Thread(target=self.change_hub, daemon=True).start(),
+                    )
+                ]
+                if self.dev
+                else []
+            ),
             item(lambda _: get_string("agent_menu_logs"), open_logs),
             item(lambda _: get_string("agent_menu_quit"), self.quit),
         )
-        self.icon = pystray.Icon("foxprofile-agent", Image.open(ICON), "FoxProfile Agent", menu)
+        self.icon = pystray.Icon("foxprofile-agent", Image.open(ICON), self.title, menu)
 
         def setup(icon) -> None:
             icon.visible = True
@@ -642,18 +802,43 @@ class App:
             self.icon.stop()
 
 
-def _built_hub() -> str:
-    """The hub an installer was built for (HUB_URL=... build-msi.sh / build-pkg.sh)."""
+def _built(name: str) -> str:
+    """A file the installer was built with: HUB_URL, CHANNEL (build-msi.sh / build-pkg.sh)."""
     with contextlib.suppress(OSError):
-        return (agent_code.INSTALLED / "HUB_URL").read_text(encoding="utf-8").strip()
+        return (agent_code.INSTALLED / name).read_text(encoding="utf-8").strip()
     return ""
+
+
+def _built_hub() -> str:
+    return _built("HUB_URL")
+
+
+def _is_dev() -> bool:
+    """A dev installer (AGENT_CHANNEL=dev), or the agent run from source."""
+    return _built("CHANNEL") == "dev" or not (agent_code.INSTALLED / "BUILD").exists()
+
+
+def start_hub(asked: str, creds: dict, built: str, dev: bool) -> tuple[str, dict]:
+    """The hub to start with and the credentials still good for it.
+
+    `asked` is --hub or FOXPROFILE_HUB_URL. A production agent stays on the hub it
+    was built for; a dev agent keeps the last hub it signed in to, and the built
+    one is only where it starts."""
+    hub = asked.strip().rstrip("/")
+    if not hub and not dev:
+        hub = built
+    if hub and creds.get("hub") not in (None, hub):
+        creds = {}  # a key for another hub is no use here
+    if not hub and not creds.get("hub"):
+        hub = built
+    return hub, creds
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="FoxProfile agent (runs hub profiles here)")
     parser.add_argument(
         "--hub",
-        default=HUB_URL or _built_hub(),
+        default=HUB_URL,
         help="Hub URL (default: FOXPROFILE_HUB_URL, then the one the installer was built for)",
     )
     parser.add_argument("--home", action="store_true", help="Run from the per-user data folder")
@@ -664,11 +849,9 @@ def main() -> None:
     if lock is None:
         say(get_string("agent_already_running"))
         return
-    creds = _load_credentials()
-    hub_url = (args.hub or "").strip().rstrip("/")
-    if hub_url and creds.get("hub") not in (None, hub_url):
-        creds = {}  # a key for another hub is no use here
-    app = App(hub_url, creds)
+    dev = _is_dev()
+    hub_url, creds = start_hub(args.hub or "", _load_credentials(), _built_hub(), dev)
+    app = App(hub_url, creds, dev)
     try:
         if args.console or not app.run_tray():
             app.work()
