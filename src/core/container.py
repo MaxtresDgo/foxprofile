@@ -3,13 +3,15 @@ import threading
 from collections.abc import Callable
 
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
-from .config import LOG_DIR, LOG_LEVEL
+from .config import HUB, LOG_DIR, LOG_LEVEL
 from .events import EventBus
 from .logging import setup_logging
 
 
 class Container:
-    def __init__(self) -> None:
+    def __init__(self, hub: bool = HUB) -> None:
+        # Hub mode: browsers run on the operators' PCs (see src/hub).
+        self.hub = hub
         setup_logging(LOG_DIR, getattr(logging, LOG_LEVEL, logging.INFO))
         self._instances: dict = {}
         # The first API requests arrive on several worker threads at once; each
@@ -37,9 +39,34 @@ class Container:
 
     @property
     def browser_launcher(self) -> IBrowserLauncher:
+        if self.hub:
+            from ..hub.remote import RemoteLauncher
+
+            return self._get("bl", RemoteLauncher)
         from ..services.browser.launcher import BrowserLauncher
 
         return self._get("bl", BrowserLauncher)
+
+    @property
+    def sync(self):
+        from ..services.browser.sync import SyncManager
+
+        return self._get("sync", lambda: SyncManager(self.browser_launcher, self.event_bus.emit))
+
+    @property
+    def hub_store(self):
+        from ..hub.store import HubStore
+        from . import config
+
+        def build():
+            if not (config.AUTH_URL and config.AUTH_ORIGIN):
+                raise SystemExit(
+                    "Hub mode signs users in through FOXPROFILE_AUTH_URL with "
+                    "FOXPROFILE_AUTH_ORIGIN: set both."
+                )
+            return HubStore(config.HUB_FILE, config.API_TOKEN)
+
+        return self._get("hub", build)
 
     @property
     def proxy_service(self) -> IProxyService:

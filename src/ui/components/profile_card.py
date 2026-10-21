@@ -4,12 +4,13 @@ import flet as ft
 
 from ...core.strings import get_string
 from ...models.profile import Profile
+from ...services.profile.accounts import PLATFORM_LABELS
 from ...utils.proxy_parser import mask_proxy
 from ..theme.colors import COLORS, FONT_DATA, FONT_SEMIBOLD
 from ..theme.styles import DANGER_ICON_STYLE, ICON_STYLE
 from .launch_button import build_launch_button
 
-_OS_LABELS = {"windows": "WIN", "macos": "MAC", "linux": "LIN"}
+_OS_LABELS = {"windows": "WIN", "macos": "MAC", "linux": "LIN", "android": "AND"}
 
 # One column grid for the header and every row: (expand, fixed width).
 COLUMNS = {
@@ -22,7 +23,7 @@ COLUMNS = {
     "geo": (9, None),
     "status": (None, 100),
     # Launch button (112, wide enough for "Launch") + gap (8) + three 40px icon buttons.
-    "actions": (None, 244),
+    "actions": (None, 284),
 }
 ROW_HEIGHT = 58
 
@@ -76,6 +77,9 @@ def build_profile_card(
     is_selected: bool = False,
     on_select: Callable[[str], None] | None = None,
     on_cookies: Callable[[str], None] | None = None,
+    on_accounts: Callable[[str], None] | None = None,
+    accounts: list[dict] | None = None,
+    on_open_with: Callable[[str, dict], None] | None = None,
     device: str = "",
     since: str = "",
     failed: bool = False,
@@ -114,7 +118,7 @@ def build_profile_card(
                         color=COLORS["text_main"],
                         no_wrap=True,
                         overflow=ft.TextOverflow.ELLIPSIS,
-                        tooltip=profile.name,
+                        tooltip=accounts_tooltip(profile.name, accounts),
                     ),
                 ),
                 _cell("device", _device(profile, device)),
@@ -129,10 +133,22 @@ def build_profile_card(
                         alignment=ft.MainAxisAlignment.END,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
-                            build_launch_button(profile.name, is_loading, is_running, on_launch),
+                            build_launch_button(
+                                profile.name,
+                                is_loading,
+                                is_running,
+                                on_launch,
+                                accounts,
+                                on_open_with,
+                            ),
                             ft.Container(width=8),
                             *_action_buttons(
-                                profile.name, is_running, on_edit, on_delete, on_cookies
+                                profile.name,
+                                is_running,
+                                on_edit,
+                                on_delete,
+                                on_cookies,
+                                on_accounts,
                             ),
                         ],
                     ),
@@ -307,12 +323,27 @@ def _stamp(is_loading: bool, is_running: bool, since: str, failed: bool = False)
     )
 
 
+def accounts_tooltip(name: str, accounts: list[dict] | None) -> str:
+    """The name, then its saved accounts (like the web panel's popup); just the
+    name when it has none."""
+    if not accounts:
+        return name
+    lines = [get_string("accounts_title", name=name)]
+    for a in accounts:
+        two_fa = " · 2FA" if a["has_totp"] else ""
+        lines.append(
+            f"{PLATFORM_LABELS.get(a['platform'], a['platform'])}: {a['username']}{two_fa}"
+        )
+    return "\n".join(lines)
+
+
 def _action_buttons(
     name: str,
     is_running: bool,
     on_edit: Callable[[str], None],
     on_delete: Callable[[str], None],
     on_cookies: Callable[[str], None] | None,
+    on_accounts: Callable[[str], None] | None = None,
 ) -> list[ft.IconButton]:
     buttons = []
     if on_cookies:
@@ -325,6 +356,17 @@ def _action_buttons(
                 disabled=is_running,
                 style=ICON_STYLE,
                 on_click=lambda _, n=name: on_cookies(n),
+            ),
+        )
+    if on_accounts:
+        buttons.append(
+            ft.IconButton(
+                icon=ft.Icons.KEY_OUTLINED,
+                icon_size=19,
+                icon_color=COLORS["text_sub"],
+                tooltip=get_string("tooltip_accounts"),
+                style=ICON_STYLE,
+                on_click=lambda _, n=name: on_accounts(n),
             ),
         )
     return [

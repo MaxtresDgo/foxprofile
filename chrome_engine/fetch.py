@@ -7,6 +7,9 @@ Layout under the engine home (see `engine_home`):
 
 An install is built in a temporary sibling directory and renamed into place,
 so an interrupted download or extraction never leaves a half-usable browser.
+
+The agent installers ship the build next to this package (`BUNDLED_HOME`,
+read-only); it is used before the per-user engine home, so nothing is downloaded.
 """
 
 from __future__ import annotations
@@ -29,6 +32,10 @@ from pathlib import Path
 from .release import Asset, Release, get_release, host_platform
 
 MARKER = ".installed"
+# An agent running code the hub sent has it elsewhere (installer/agent_update_hook.py).
+BUNDLED_HOME = Path(
+    os.environ.get("FOXPROFILE_CHROME_BUILDS") or Path(__file__).resolve().parent / "builds"
+)
 _CHUNK = 1 << 20
 _EXECUTABLE_NAMES = ("chrome.exe", "chrome", "Chromium")
 
@@ -54,9 +61,16 @@ def engine_home() -> Path:
 
 
 def installed_executable(version: str | None = None, home: Path | None = None) -> Path | None:
-    """The browser executable of an installed version, or None."""
+    """The browser executable of an installed version, or None. Without `home`,
+    a build bundled by an installer comes first, then the per-user engine home."""
+    if home is None:
+        return _installed(version, BUNDLED_HOME) or _installed(version, engine_home())
+    return _installed(version, home)
+
+
+def _installed(version: str | None, home: Path) -> Path | None:
     release = get_release(version)
-    marker = (home or engine_home()) / release.version / MARKER
+    marker = home / release.version / MARKER
     try:
         data = json.loads(marker.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -78,6 +92,8 @@ def install(
     use its install instead of downloading the build again.
     """
     release = get_release(version)
+    if home is None and (bundled := _installed(release.version, BUNDLED_HOME)):
+        return bundled
     home = home or engine_home()
     existing = installed_executable(release.version, home)
     if existing:

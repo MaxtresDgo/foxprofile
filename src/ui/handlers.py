@@ -6,12 +6,30 @@ import flet as ft
 
 from ..core.strings import get_string
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
+from ..services.browser.login import login
+from ..services.browser.sync import SyncManager
+from ..services.profile.accounts import PLATFORM_LABELS, AccountsLocked
 from .actions.browser import launch_or_stop
-from .actions.bulk import bulk_delete_profiles, bulk_launch_profiles, bulk_stop_profiles
+from .actions.bulk import (
+    bulk_delete_profiles,
+    bulk_edit_profiles,
+    bulk_launch_profiles,
+    bulk_run_steps,
+    bulk_stop_profiles,
+    start_sync,
+    stop_sync,
+)
 from .actions.cookies import manage_cookies
 from .actions.profile import add_profile, delete_profile, edit_profile
 from .actions.transfer import export_profile, import_profile
-from .dialogs import open_log_dialog
+from .dialogs import (
+    open_accounts_dialog,
+    open_adspower_dialog,
+    open_bulk_edit_dialog,
+    open_log_dialog,
+    open_run_steps_dialog,
+    open_sync_dialog,
+)
 from .refs import UIRefs
 from .state import AppState
 
@@ -30,6 +48,7 @@ class AppHandlers:
         log_fn: Callable[[str], None],
         refresh_fn: Callable[[], None],
         get_page_profiles: Callable[[], tuple],
+        sync: SyncManager,
     ) -> None:
         self._pm = pm
         self._bl = bl
@@ -40,6 +59,7 @@ class AppHandlers:
         self._log = log_fn
         self._refresh = refresh_fn
         self._get_page_profiles = get_page_profiles
+        self._sync = sync
 
     def on_launch(self, name: str) -> None:
         launch_or_stop(name, self._pm, self._bl, self._state, self._log)
@@ -68,6 +88,37 @@ class AppHandlers:
         assert page is not None and refs is not None
         manage_cookies(page, name, refs.file_picker, self._pm, self._bl, self._log)
 
+    def on_open_with(self, name: str, account: dict) -> None:
+        """Launch, then fill the login of one of the profile's accounts."""
+        label = PLATFORM_LABELS.get(account["platform"], account["platform"])
+
+        def log_in() -> None:
+            try:
+                full = self._pm.accounts.get(name, account["id"])
+            except AccountsLocked:
+                full = None
+            if full is None:
+                self._log(
+                    get_string("profile_error", name=name, error=get_string("err_accounts_locked"))
+                )
+                return
+            self._log(get_string("account_login_started", platform=label, name=name))
+            result = login(self._bl, name, full)
+            if not result["ok"]:
+                self._log(get_string("profile_error", name=name, error=result["error"]))
+            else:
+                done = (
+                    "account_already_signed_in" if result.get("signed_in") else "account_login_done"
+                )
+                self._log(f"{name}: {get_string(done)}")
+
+        launch_or_stop(name, self._pm, self._bl, self._state, self._log, then=log_in)
+
+    def on_accounts(self, name: str) -> None:
+        page = self._get_page()
+        assert page is not None
+        open_accounts_dialog(page, name, self._pm, self._bl, self._log, self._refresh)
+
     def open_add_dialog(self) -> None:
         page = self._get_page()
         assert page is not None
@@ -77,6 +128,11 @@ class AppHandlers:
         refs = self._get_refs()
         assert refs is not None
         await import_profile(refs.file_picker, self._pm, self._log, self._refresh)
+
+    def on_adspower(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        open_adspower_dialog(page, self._pm, self._bl, self._log, self._refresh)
 
     def on_export_open(self) -> None:
         page = self._get_page()
@@ -125,6 +181,18 @@ class AppHandlers:
                 on_done=self._state.clear_selection,
             )
 
+    def on_bulk_edit(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        if names := list(self._state.selected_names()):
+            open_bulk_edit_dialog(
+                page,
+                len(names),
+                lambda changes: bulk_edit_profiles(
+                    names, changes, self._pm, self._log, self._refresh
+                ),
+            )
+
     def on_bulk_launch(self) -> None:
         if names := list(self._state.selected_names()):
             bulk_launch_profiles(names, self._pm, self._bl, self._state, self._log)
@@ -132,6 +200,35 @@ class AppHandlers:
     def on_bulk_stop(self) -> None:
         if names := list(self._state.selected_names()):
             bulk_stop_profiles(names, self._pm, self._bl, self._state, self._log)
+
+    def _selected_running(self) -> list[str]:
+        return [n for n in self._state.selected_names() if self._bl.is_running(n)]
+
+    def on_bulk_run_steps(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        if not (names := self._selected_running()):
+            self._log(get_string("need_running"))
+            return
+        open_run_steps_dialog(
+            page, len(names), lambda steps: bulk_run_steps(names, steps, self._bl, self._log)
+        )
+
+    def on_bulk_sync(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        names = self._selected_running()
+        if len(names) < 2:
+            self._log(get_string("sync_need_two"))
+            return
+        open_sync_dialog(
+            page,
+            names,
+            lambda leader: start_sync(self._sync, leader, names, self._log),
+        )
+
+    def on_sync_stop(self, leader: str) -> None:
+        stop_sync(self._sync, leader, self._log)
 
     # --- Log handlers ---
 

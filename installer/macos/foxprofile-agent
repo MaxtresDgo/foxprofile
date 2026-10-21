@@ -1,0 +1,7 @@
+#!/bin/bash
+# FoxProfile Agent.app: runs the agent with the Python bundled next to it. The code
+# is read-only in /Applications; each user's data, .env and logs live in
+# ~/Library/Application Support/FoxProfile (--home).
+res="$(cd "$(dirname "$0")/../Resources" && pwd)"
+export PYTHONPATH="$res/app" PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
+exec "$res/python/bin/python3" -m src.agent --home

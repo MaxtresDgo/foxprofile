@@ -3,10 +3,12 @@ from contextlib import AbstractContextManager
 from typing import Any, Protocol
 
 from ..models.profile import Profile
+from ..services.profile.accounts import AccountStore
 
 
 class IProfileManager(Protocol):
     profiles: dict[str, Profile]
+    accounts: AccountStore
 
     def add_profile(
         self,

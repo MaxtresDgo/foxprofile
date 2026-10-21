@@ -6,3 +6,8 @@ aiohttp>=3.9.0
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 mcp>=1.2,<2
+# Encrypts each profile's saved site accounts (services/profile/accounts.py).
+cryptography>=42
+# Agent tray icon (src/agent.py); Linux agents stay in the terminal.
+pystray>=0.19.5; sys_platform == "win32" or sys_platform == "darwin"
+Pillow>=10.0; sys_platform == "win32" or sys_platform == "darwin"

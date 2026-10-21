@@ -46,6 +46,14 @@ class CookieError(Exception):
 def _call_tool(
     action: str, profile_name: str, os_type: str, stdin: str = "", engine: str = "camoufox"
 ) -> dict:
+    if engine == "chrome":
+        # Here, without the tool's timeout: a profile new to this PC (imported, or
+        # from the hub) may find the Chrome engine not downloaded yet.
+        from chrome_engine import fetch
+
+        if not fetch.installed_executable():
+            logger.info("Installing the Chrome engine for %s", profile_name)
+            fetch.install()
     env = os.environ.copy()
     env["PYTHONPATH"] = _PROJECT_ROOT + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""

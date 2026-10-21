@@ -12,6 +12,7 @@ import socket
 from fastapi import HTTPException, Request
 
 from ..core.config import API_TOKEN
+from ..core.strings import get_string
 
 
 def _presented_token(request: Request) -> str:
@@ -21,14 +22,53 @@ def _presented_token(request: Request) -> str:
     return request.headers.get("X-API-Key", "").strip()
 
 
+def hub_store(request: Request):
+    """The HubStore when the app runs in hub mode, else None."""
+    container = getattr(request.app.state, "container", None)
+    return container.hub_store if getattr(container, "hub", False) else None
+
+
+def can_see(request: Request, profile: str) -> bool:
+    """Whether the hub user behind this request may see `profile` (always outside hub mode)."""
+    store = hub_store(request)
+    return store is None or store.can(request.state.user, profile)
+
+
+def _require_hub_user(request: Request, store) -> None:
+    presented = _presented_token(request)
+    if API_TOKEN and secrets.compare_digest(presented, API_TOKEN):
+        # The raw server token stays an admin key for scripts.
+        user = {"name": "api", "role": "admin"}
+    else:
+        user = store.verify(presented)
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail=get_string("err_session"),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    request.state.user = user
+    name = request.path_params.get("name")
+    if name is not None and not store.can(user, name):
+        # Same answer as a missing profile: others' profile names stay private.
+        raise HTTPException(status_code=404, detail=get_string("err_not_found", name=name))
+
+
 def require_token(request: Request) -> None:
-    """FastAPI dependency: reject the request unless it carries the API token."""
+    """FastAPI dependency: reject the request unless it carries the API token.
+
+    In hub mode it takes a user's session token instead and only lets the user
+    reach the profiles they own (admins reach all)."""
+    store = hub_store(request)
+    if store is not None:
+        _require_hub_user(request, store)
+        return
     if not API_TOKEN:
         return
     if not secrets.compare_digest(_presented_token(request), API_TOKEN):
         raise HTTPException(
             status_code=401,
-            detail="Missing or invalid API token",
+            detail=get_string("err_token"),
             headers={"WWW-Authenticate": "Bearer"},
         )
 

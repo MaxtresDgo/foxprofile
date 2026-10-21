@@ -10,6 +10,7 @@ from ..core.logging import get_logger
 from ..core.strings import current_language, get_string, set_language
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
 from ..services.browser import fingerprint
+from ..services.profile.accounts import AccountsLocked
 from .components import (
     build_content_area,
     build_empty_state,
@@ -37,6 +38,7 @@ class App:
         self.pm: IProfileManager = c.profile_manager
         self.bl: IBrowserLauncher = c.browser_launcher
         self.ps: IProxyService = c.proxy_service
+        self.sync = c.sync
         self.state = AppState()
         self.page: ft.Page | None = None
         self._reconcile_started = False
@@ -56,6 +58,7 @@ class App:
             log_fn=self._log,
             refresh_fn=self._refresh_profiles,
             get_page_profiles=self._get_page_profiles,
+            sync=self.sync,
         )
 
     def run(self) -> None:
@@ -123,6 +126,7 @@ class App:
             on_new_profile=lambda _: self.h.open_add_dialog(),
             on_import=self.h.on_import,
             on_export=lambda _: self.h.on_export_open(),
+            on_adspower=lambda _: self.h.on_adspower(),
             on_mcp=lambda _: open_mcp_guide(self.page, self.clipboard),
             on_toggle_log=lambda _: self.h.toggle_log(),
             on_fullscreen_log=lambda _: self.h.open_log_fullscreen(),
@@ -232,6 +236,9 @@ class App:
                     is_selected=self.state.is_selected(p.name),
                     on_select=self.h.on_toggle_select,
                     on_cookies=self.h.on_cookies,
+                    on_accounts=self.h.on_accounts,
+                    accounts=self._accounts(p.name),
+                    on_open_with=self.h.on_open_with,
                     device=self._device_label(p.name),
                     since=self._live_since.get(p.name, ""),
                     failed=p.name in self.state.failed,
@@ -248,11 +255,16 @@ class App:
             {
                 "launch": self.h.on_bulk_launch,
                 "stop": self.h.on_bulk_stop,
+                "edit": self.h.on_bulk_edit,
                 "delete": self.h.on_bulk_delete,
+                "run_steps": self.h.on_bulk_run_steps,
+                "sync": self.h.on_bulk_sync,
                 "select_page": self.h.on_select_all_page,
                 "deselect_page": self.h.on_deselect_page,
                 "clear": self.h.on_clear_selection,
             },
+            self.sync.sessions(),
+            self.h.on_sync_stop,
         )
         self._set_subtitle(r.content_subtitle)
         r.page_label.value = get_string(
@@ -263,6 +275,13 @@ class App:
         r.prev_btn.disabled = self.state.current_page <= 1
         r.next_btn.disabled = self.state.current_page >= total_pages
         self._safe_update()
+
+    def _accounts(self, name: str) -> list[dict] | None:
+        """For the name's tooltip; None (just the name) when they cannot be read."""
+        try:
+            return self.pm.accounts.list(name)
+        except AccountsLocked:
+            return None
 
     @staticmethod
     def _device_label(name: str) -> str:

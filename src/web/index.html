@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>FoxProfile</title>
+<script>/* Apply the saved theme before the first paint. */ try { const t = localStorage.getItem("foxprofile.theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23D9481A' d='M256 190H200L104 64 82 262 256 456Z'/%3E%3Cpath fill='%23FF6B2C' d='M256 190h56l96-126 22 198-174 194Z'/%3E%3Cpath fill='%23FFF4EC' d='M82 262l114 38 60 156ZM430 262l-114 38-60 156Z'/%3E%3C/svg%3E">
 <style>
 @font-face { font-family: "Be Vietnam Pro"; src: url("/assets/fonts/BeVietnamPro-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
@@ -25,9 +26,43 @@
   --live: #5B3FA8; --live-tint: #EFECF6; --ok: #1F7A50; --err: #B42330; --err-tint: #F7E7E8; --warn: #8A5A00; --warn-tint: #F6EEDB;
   --ui: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
   --data: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  /* Surfaces that differ between the light and dark themes */
+  color-scheme: light;
+  --row-hover: #F6F7F2; --row-live-hover: #E9E5F3; --row-selected: #E4EBE2;
+  --chrome-ink: var(--cover); --chrome-line: #9DB7AE; --chrome-tint: #E6EEEA; --warn-ink: #5E3E00;
+  --solid: #1E2422; --solid-hover: #000; --on-solid: #fff; --toast-icon: #9FD8B9;
+  --focus: var(--cover); --focus-ring: rgba(23, 51, 46, .14); --picked: var(--cover); --danger: #B42330; --danger-hover: #951c27;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2348514C' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   --row-h: 58px;
   --cols: 32px minmax(150px, 1.15fr) minmax(170px, 1.05fr) minmax(170px, 1.15fr) minmax(150px, 1fr) 112px 232px;
   --ease-out: cubic-bezier(.16, 1, .3, 1);
+}
+/* Night paper: same system, inverted paper and ink; the cover rail stays as it is. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #141917; --paper-raised: #1B211E; --paper-sunk: #101412; --rule: #2A322E; --rule-strong: #3A443F;
+    --ink: #E4E9E5; --ink-2: #B3BCB6; --ink-3: #8C968F;
+    --act: #D0591A; --act-hover: #E06A2A; --act-soft: #3A2315;
+    --live: #A994F0; --live-tint: #241E38; --ok: #43B884; --err: #F07F88; --err-tint: #3B1E22; --warn: #E2B04F; --warn-tint: #312811;
+    --row-hover: #1F2522; --row-live-hover: #2B2442; --row-selected: #1E2B26;
+    --chrome-ink: #8FC3B3; --chrome-line: #35574E; --chrome-tint: #18302A; --warn-ink: #F0D28E;
+    --solid: #E4E9E5; --solid-hover: #FFFFFF; --on-solid: #141917; --toast-icon: #1F7A50;
+    --focus: #7FB3A4; --focus-ring: rgba(127, 179, 164, .22); --picked: #2F6457; --danger-hover: #C93442;
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23B3BCB6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #141917; --paper-raised: #1B211E; --paper-sunk: #101412; --rule: #2A322E; --rule-strong: #3A443F;
+  --ink: #E4E9E5; --ink-2: #B3BCB6; --ink-3: #8C968F;
+  --act: #D0591A; --act-hover: #E06A2A; --act-soft: #3A2315;
+  --live: #A994F0; --live-tint: #241E38; --ok: #43B884; --err: #F07F88; --err-tint: #3B1E22; --warn: #E2B04F; --warn-tint: #312811;
+  --row-hover: #1F2522; --row-live-hover: #2B2442; --row-selected: #1E2B26;
+  --chrome-ink: #8FC3B3; --chrome-line: #35574E; --chrome-tint: #18302A; --warn-ink: #F0D28E;
+  --solid: #E4E9E5; --solid-hover: #FFFFFF; --on-solid: #141917; --toast-icon: #1F7A50;
+  --focus: #7FB3A4; --focus-ring: rgba(127, 179, 164, .22); --picked: #2F6457; --danger-hover: #C93442;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23B3BCB6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -49,12 +84,12 @@ svg.i.s { width: 16px; height: 16px; }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn-act { background: var(--act); color: #fff; }
 .btn-act:hover:not(:disabled) { background: var(--act-hover); }
-.btn-ink { background: var(--ink); color: #fff; }
-.btn-ink:hover:not(:disabled) { background: #000; }
+.btn-ink { background: var(--solid); color: var(--on-solid); }
+.btn-ink:hover:not(:disabled) { background: var(--solid-hover); }
 .btn-line { border-color: var(--rule-strong); color: var(--ink); background: var(--paper-raised); font-weight: 500; }
 .btn-line:hover:not(:disabled) { border-color: var(--ink-2); }
-.btn-danger { background: var(--err); color: #fff; }
-.btn-danger:hover:not(:disabled) { background: #951c27; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
 .btn-ghost { color: var(--ink-2); font-weight: 500; }
 .btn-ghost:hover:not(:disabled) { background: var(--paper-sunk); color: var(--ink); }
 .icon-btn { width: 34px; height: 34px; padding: 0; border-radius: 8px; color: var(--ink-2); background: transparent; border: 0; display: inline-grid; place-items: center; cursor: pointer; }
@@ -63,16 +98,16 @@ svg.i.s { width: 16px; height: 16px; }
 .icon-btn:disabled { opacity: .35; cursor: default; }
 
 /* Fields */
-input[type=text], input[type=search], input[type=password], input:not([type]), select, textarea {
+input[type=text], input[type=search], input[type=password], input[type=email], input[type=number], input:not([type]), select, textarea {
   width: 100%; height: 40px; padding: 0 12px; font-size: 14px; background-color: var(--paper-raised); border: 1px solid var(--rule-strong); border-radius: 8px; outline: none; transition: border-color .15s, box-shadow .15s; }
 textarea { height: auto; padding: 10px 12px; }
 select { appearance: none; -webkit-appearance: none; font-size: 14px; padding-right: 36px; cursor: pointer;
-  background: var(--paper-raised) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2348514C' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; }
+  background: var(--paper-raised) var(--chevron) no-repeat right 12px center; }
 select:disabled { cursor: default; }
 input::placeholder { color: var(--ink-3); }
-input:focus, select:focus, textarea:focus { border-color: var(--cover); box-shadow: 0 0 0 3px rgba(23, 51, 46, .14); }
+input:focus, select:focus, textarea:focus { border-color: var(--focus); box-shadow: 0 0 0 3px var(--focus-ring); }
 select:disabled { color: var(--ink-3); background-color: var(--paper-sunk); }
-input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--cover); cursor: pointer; }
+input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--picked); cursor: pointer; }
 .field { margin-top: 14px; }
 .field > label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
 .field .hint { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
@@ -98,12 +133,85 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .nav button .count { margin-left: auto; font-family: var(--data); font-size: 12px; opacity: .8; }
 .nav button.active .count { opacity: 1; }
 .rail .grow { flex: 1; }
+.rail { overflow-y: auto; }
+/* Hub group picker: one line in the rail, the list lives in a popover with its own search. */
+.group-pick { display: flex; flex-direction: column; }
+.group-btn { display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--cover-line); border-radius: 7px; background: var(--cover-deep); color: var(--cover-ink); cursor: pointer; font-weight: 600; text-align: left; }
+.group-btn:hover { border-color: var(--cover-muted); }
+.group-btn .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-btn .count { font-family: var(--data); font-size: 12px; font-weight: 500; opacity: .8; }
+.group-pop { inset: auto; margin: 0; padding: 8px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-raised); color: var(--ink); box-shadow: 0 24px 60px -12px rgba(16, 38, 34, .45), 0 2px 8px rgba(16, 38, 34, .12); flex-direction: column; gap: 6px; }
+.group-pop:popover-open { display: flex; }
+.group-pop .search { width: 100%; }
+.group-list { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; }
+.group-list button { flex: none; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer; text-align: left; font-weight: 500; }
+.group-list button:hover, .group-list button:focus-visible { background: var(--paper-sunk); }
+.group-list button.active { background: var(--picked); color: var(--cover-ink); font-weight: 600; }
+.group-list .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-list .tag { margin-left: 0; }
+.group-list button.active .tag { color: var(--cover-ink); border-color: var(--cover-muted); }
+.group-list .count { margin-left: auto; font-family: var(--data); font-size: 12px; opacity: .8; }
+.group-list .minor { padding: 8px 10px; font-size: 12.5px; color: var(--ink-3); }
 .rail-foot { display: flex; flex-direction: column; gap: 8px; }
+/* Settings replaces the rail's filters: General (language) and Administration (tools). */
+.settings-nav { gap: 8px; }
+.settings-nav .nav-title { padding-top: 10px; padding-bottom: 0; }
+.settings-nav #settings-back { font-weight: 700; }
+.rail.settings > #new-btn, .rail.settings > #group-pick, .rail.settings > #filters, .rail.settings #settings-btn { display: none; }
+.rail:not(.settings) > #settings-nav { display: none; }
 .rail-link { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 7px; border: 0; background: transparent; color: var(--cover-ink); text-decoration: none; cursor: pointer; font-weight: 500; }
 .rail-link:hover { background: var(--cover-deep); }
-.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 8px; background: var(--cover-deep); }
-.seg button { height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--cover-muted); cursor: pointer; font-size: 13px; font-weight: 500; }
-.seg button.active { background: var(--cover); color: var(--cover-ink); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.agent { display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 12.5px; color: var(--cover-muted); }
+.agent::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--cover-muted); }
+.agent.on { color: var(--cover-ink); }
+.agent.on::before { background: var(--ok); border-color: var(--ok); }
+.agent { align-items: flex-start; }
+.agent::before { flex: none; margin-top: 5px; }
+.agent .agent-text { display: flex; flex-direction: column; min-width: 0; }
+.agent .agent-detail { font-size: 11.5px; color: var(--cover-muted); overflow-wrap: anywhere; }
+.agent.busy { color: var(--cover-ink); }
+/* Busy reads by form: a bright ring that pulses (offline: a dim ring; connected: a filled dot). */
+.agent.busy::before { border-color: var(--cover-ink); animation: agent-pulse 1.4s ease-in-out infinite; }
+@keyframes agent-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .agent.busy::before { animation: none; } }
+.user-row { display: grid; grid-template-columns: minmax(70px, 1fr) 110px minmax(200px, 1.6fr) 34px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.user-row input, .user-row select { height: 34px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--paper-raised); min-width: 0; }
+.ads-form { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: end; }
+.ads-form .field { margin: 0; }
+.ads-list { max-height: min(52vh, 480px); overflow-y: auto; margin-top: 14px; border-top: 1px solid var(--rule); }
+.ads-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) minmax(0, 0.9fr) minmax(110px, auto); gap: 12px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--rule); }
+.ads-row .sub, .ads-row .proxy { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ads-row .proxy { font-family: var(--data); }
+.ads-row .state { font-size: 12px; text-align: right; color: var(--ink-2); }
+.ads-row .state.ok { color: var(--ok); } .ads-row .state.err { color: var(--err); white-space: normal; }
+.ads-all { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; }
+.ads-total { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.ads-group { border-bottom: 1px solid var(--rule); }
+.ads-group-head { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 2px; }
+.ads-toggle { display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; padding: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ads-toggle b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ads-toggle svg { flex: none; transform: rotate(-90deg); transition: transform .15s; color: var(--ink-3); }
+.ads-toggle[aria-expanded="true"] svg { transform: none; }
+.ads-target { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.ads-sum { font-size: 12px; color: var(--ink-3); text-align: right; }
+.ads-sum.err { color: var(--err); }
+.ads-group-body { padding-left: 28px; }
+.ads-group-body .ads-row:last-child { border-bottom: 0; }
+@media (max-width: 560px) { .ads-form { grid-template-columns: 1fr; } .ads-row { grid-template-columns: 16px minmax(0, 1fr) auto; } .ads-row .proxy { display: none; } }
+.inst-row a.btn { text-decoration: none; }
+.agent-row, .inst-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.agent-row .sub, .inst-row .sub { grid-column: 1; font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
+.agent-row .acts, .inst-row .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
+.agent-row .err { color: var(--err); } .agent-row .ok { color: var(--ok); }
+.modal-body h3 { margin: 18px 0 2px; font-size: 14px; } .modal-body h3:first-child { margin-top: 0; }
+/* General settings page */
+.settings-sheet { max-width: 760px; padding: 0 22px; }
+.setting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.setting:last-child { border-bottom: 0; }
+.setting b { display: block; font-weight: 600; }
+.setting p { margin: 2px 0 0; max-width: 380px; font-size: 13px; color: var(--ink-2); }
+.setting .chips { margin-top: 0; }
+.rail-link[aria-current="page"], .rail-link[aria-current="page"]:hover { background: var(--cover-ink); color: var(--cover); font-weight: 600; }
 
 main { min-width: 0; padding: 26px 32px 40px; }
 .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
@@ -116,28 +224,32 @@ main { min-width: 0; padding: 26px 32px 40px; }
 
 /* Table */
 .sheet { container: sheet / inline-size; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 10px; }
-.bulk { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-sunk); border-radius: 10px 10px 0 0; }
+.bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-sunk); border-radius: 10px 10px 0 0; }
 .bulk .n { font-weight: 600; margin-right: 6px; }
 .bulk .btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.sync-chip { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
+.results { margin: 10px 0 0; padding: 0; list-style: none; font-size: 12.5px; max-height: 180px; overflow: auto; }
+.results li { padding: 3px 0; overflow-wrap: anywhere; }
 .row { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 16px; min-height: var(--row-h); padding: 0 14px; border-bottom: 1px solid var(--rule); }
 .row:last-child { border-bottom: 0; }
 .row.head-row { min-height: 40px; color: var(--ink-3); font-size: 12px; font-weight: 600; background: var(--paper); border-radius: 10px 10px 0 0; }
 .bulk + .row.head-row { border-radius: 0; }
-.row.body:hover { background: #F6F7F2; }
+.row.body:hover { background: var(--row-hover); }
 .row.live { background: var(--live-tint); }
-.row.live:hover { background: #E9E5F3; }
-.row.selected { background: #E4EBE2; }
+.row.live:hover { background: var(--row-live-hover); }
+.row.selected { background: var(--row-selected); }
 .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell.sub { color: var(--ink-2); }
 .stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
 .stack > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stack .minor { font-size: 11.5px; color: var(--ink-3); }
+.modal-body .minor { font-size: 12px; color: var(--ink-3); }
 .geo-inline { display: none; }
 .name { font-weight: 600; font-size: 14.5px; }
 .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; margin-left: 8px; border-radius: 5px; border: 1px solid var(--rule-strong); color: var(--ink-2); font-size: 11.5px; font-weight: 600; vertical-align: 1px; }
-.tag.chrome { border-color: #9DB7AE; color: var(--cover); background: #E6EEEA; }
+.tag.chrome { border-color: var(--chrome-line); color: var(--chrome-ink); background: var(--chrome-tint); }
 .engine { font-weight: 500; font-size: 13px; }
-.engine.chrome { color: var(--cover); font-weight: 600; }
+.engine.chrome { color: var(--chrome-ink); font-weight: 600; }
 .device { display: flex; align-items: center; gap: 8px; }
 .os { display: inline-grid; place-items: center; width: 38px; height: 22px; border-radius: 4px; border: 1px solid var(--ink-2); font-family: var(--data); font-size: 11px; font-weight: 600; color: var(--ink); flex: none; }
 .muted { color: var(--ink-3); }
@@ -171,7 +283,7 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .inline-btns .btn { height: 34px; padding: 0 12px; font-size: 13px; }
 .msg { font-size: 13px; margin-top: 10px; min-height: 0; }
 .msg.err { color: var(--err); } .msg.ok { color: var(--ok); } .msg.info { color: var(--ink-2); }
-.note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-tint); color: #5E3E00; }
+.note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-tint); color: var(--warn-ink); }
 .note svg { margin-top: 1px; color: var(--warn); }
 .note.calm { background: var(--paper-sunk); color: var(--ink-2); }
 .note.calm svg { color: var(--ink-3); }
@@ -179,7 +291,7 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .geo .line { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-top: 1px solid var(--rule); }
 .geo .line:first-child { border-top: 0; }
 .geo .line.lead { background: var(--paper); font-weight: 600; }
-.geo .line.warn { color: #6B4500; background: var(--warn-tint); }
+.geo .line.warn { color: var(--warn-ink); background: var(--warn-tint); }
 .geo .line.warn svg { color: var(--warn); }
 .geo .line.ok { color: var(--ok); }
 .geo .line.src { color: var(--ink-2); }
@@ -190,21 +302,56 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .choice button svg { color: var(--ink-2); }
 .choice b { display: block; font-weight: 600; }
 .choice span { display: block; font-size: 12.5px; color: var(--ink-3); }
+.os-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 14px; }
+.os-pick a { display: grid; justify-items: center; gap: 6px; padding: 22px 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-raised); color: var(--ink); text-align: center; text-decoration: none; }
+.os-pick a:hover:not([aria-disabled]) { border-color: var(--ink-2); }
+.os-pick a[aria-disabled] { opacity: .5; pointer-events: none; }
+.os-pick svg.i { width: 44px; height: 44px; stroke-width: 1.4; color: var(--ink-2); }
+.os-pick span { font-size: 12.5px; color: var(--ink-3); }
 .fp-card { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 16px; padding: 12px 14px; border-radius: 9px; background: var(--paper); border: 1px solid var(--rule); font-size: 13px; }
 .fp-card dt { color: var(--ink-3); }
 .fp-card dd { margin: 0; }
+.acct { margin-top: 12px; padding: 10px 14px; border-radius: 9px; background: var(--paper); border: 1px solid var(--rule); font-size: 13px; }
+.acct-head { display: flex; align-items: center; gap: 8px; min-height: 34px; }
+.acct-head .acct-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.acct-head .btn { height: 30px; padding: 0 12px; font-size: 13px; margin-right: 4px; }
+.acct-line { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.acct-line .acct-k { width: 110px; flex: none; color: var(--ink-3); }
+.acct-line .data { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-line .btn { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.acct-line .icon-btn { width: 30px; height: 30px; }
+.acct-code { font-size: 17px; letter-spacing: .12em; }
+.acct-pop { position: fixed; z-index: 25; width: 300px; padding: 12px 14px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-raised); color: var(--ink); box-shadow: 0 24px 60px -12px rgba(16, 38, 34, .45), 0 2px 8px rgba(16, 38, 34, .12); font-size: 13px; pointer-events: none; }
+.acct-pop .pop-title { font-weight: 600; margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-pop .pop-row { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.acct-pop .pop-row .pop-k { width: 118px; flex: none; }
+.acct-pop .pop-row .data { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split { display: inline-flex; }
+.split > .btn { height: 36px; }
+.split > .btn:first-child { flex: 1; min-width: 0; padding: 0 8px; border-radius: 8px 0 0 8px; }
+.split > .caret { width: 26px; padding: 0; border-radius: 0 8px 8px 0; border-left: 1px solid var(--cover-muted); }
+.menu { position: fixed; z-index: 26; min-width: 220px; max-width: 320px; padding: 6px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-raised); color: var(--ink); box-shadow: 0 24px 60px -12px rgba(16, 38, 34, .45), 0 2px 8px rgba(16, 38, 34, .12); }
+.menu .menu-title { padding: 4px 10px 6px; font-size: 12px; color: var(--ink-3); }
+.menu button { display: flex; width: 100%; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer; text-align: left; font-size: 13px; }
+.menu button:hover, .menu button:focus-visible { background: var(--paper-sunk); }
+.menu button .data { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.c-name .name[tabindex] { cursor: default; border-radius: 4px; }
+.acct-form { margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--rule); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.chips button { height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--rule-strong); background: var(--paper-raised); cursor: pointer; font-weight: 500; font-size: 13px; }
-.chips button.active { background: var(--cover); border-color: var(--cover); color: var(--cover-ink); }
+.chips button { height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--rule-strong); background: var(--paper-raised); color: var(--ink); cursor: pointer; font-weight: 500; font-size: 13px; }
+.chips button.active { background: var(--picked); border-color: var(--picked); color: var(--cover-ink); }
 .step { margin-top: 18px; font-weight: 600; }
 pre.code { margin: 8px 0 0; padding: 12px 14px; border-radius: 8px; background: var(--cover-deep); color: #DDE8E3; font: 12px/1.55 var(--data); white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
 .where-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
 code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk); padding: 1px 5px; border-radius: 4px; }
 
 /* Toast */
-.toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; display: flex; align-items: center; gap: 10px; max-width: 440px; padding: 12px 16px; border-radius: 10px; background: var(--ink); color: #F2F4F1; box-shadow: 0 12px 30px -8px rgba(0,0,0,.4); animation: rise .2s var(--ease-out); }
-.toast svg { color: #9FD8B9; }
-.toast.error { background: var(--err); }
+.toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; display: flex; align-items: center; gap: 10px; max-width: 440px; padding: 12px 16px; border-radius: 10px; background: var(--solid); color: var(--on-solid); box-shadow: 0 12px 30px -8px rgba(0,0,0,.4); animation: rise .2s var(--ease-out); }
+.toast svg { color: var(--toast-icon); }
+.toast.error { background: var(--danger); color: #fff; }
+.toast.busy svg { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .toast.busy svg { animation: none; } }
 .toast.error svg { color: #fff; }
 
 /* Login */
@@ -215,6 +362,13 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 .login form { align-self: center; justify-self: center; width: min(380px, 100% - 40px); }
 .login h1 { margin: 0 0 6px; font-size: 24px; }
 .login .btn { width: 100%; margin-top: 18px; height: 42px; }
+.login .agent-card { align-self: center; justify-self: center; width: min(400px, 100% - 40px); }
+.login .agent-card h1:focus { outline: none; }
+.agent-who { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; margin: 18px 0 0; padding: 14px 16px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-raised); }
+.agent-who dt { color: var(--ink-3); }
+.agent-who dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.login .agent-actions { display: flex; gap: 8px; margin-top: 8px; }
+.login .agent-actions .btn { margin-top: 0; flex: 1; }
 
 /* Remote viewer */
 .viewer { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; background: var(--paper-sunk); }
@@ -230,7 +384,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 .viewer-bar .btn-line { background: transparent; color: var(--cover-ink); border-color: var(--cover-line); }
 .viewer-tabs { display: flex; gap: 6px; padding: 8px 14px; overflow-x: auto; background: var(--paper); border-bottom: 1px solid var(--rule); }
 .viewer-tabs button { max-width: 220px; height: 30px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 7px; background: var(--paper-raised); color: var(--ink-2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.viewer-tabs button.active { border-color: var(--cover); color: var(--ink); font-weight: 600; }
+.viewer-tabs button.active { border-color: var(--focus); color: var(--ink); font-weight: 600; }
 .screen-wrap { flex: 1; overflow: auto; display: grid; place-items: start center; padding: 18px; }
 .screen-wrap img:not([src]) { display: none; }
 .screen-wrap img { max-width: 100%; border-radius: 8px; background: #fff; cursor: crosshair; box-shadow: 0 10px 30px -10px rgba(16,38,34,.35); }
@@ -266,10 +420,9 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   .rail .btn-act { width: auto; order: 2; margin-left: auto; height: 38px; }
   .rail .nav { order: 3; flex-direction: row; overflow-x: auto; width: 100%; min-width: 0; scrollbar-width: none; mask-image: linear-gradient(to right, #000 85%, transparent); }
   .rail .nav button { width: auto; flex: none; }
+  .rail .group-pick { order: 3; width: 100%; }
   .nav-title, .rail .grow { display: none; }
   .rail-foot { order: 4; flex-direction: row; flex-wrap: wrap; width: 100%; }
-  .seg { width: 200px; }
-  .seg button { white-space: nowrap; }
   main { padding: 18px 14px 32px; }
   .search { width: 100%; }
   .login { grid-template-columns: 1fr; }
@@ -292,8 +445,12 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
+  <symbol id="i-windows" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
+  <symbol id="i-apple" viewBox="0 0 24 24"><path d="M16.5 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8C7 7.4 5.5 8.3 4.7 9.8c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.4 2.9 2.4 1.2-.1 1.6-.8 3-.8s1.8.8 3 .8 2-1.2 2.8-2.3c.9-1.3 1.2-2.6 1.3-2.7-.1 0-2.4-.9-2.4-4.2zM14.3 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
   <symbol id="i-cookie" viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 0 9.5 9.5 4 4 0 0 1-4.8-4.7A4 4 0 0 1 12 2.5Z"/><path d="M8.5 8.5h.01M15.5 15h.01M11.5 12.5h.01M11 17h.01M7.5 14h.01"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16 7l3 3M18.5 4.5l2 2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M16.9 3.6a2.3 2.3 0 0 1 3.3 3.3L8 19.1l-4.5 1.2 1.2-4.5Z"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 6.5h16M18.5 6.5v12.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V6.5M9 6.5V4.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4.5v2M10 11v6M14 11v6"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
@@ -309,6 +466,12 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
   <symbol id="i-fingerprint" viewBox="0 0 24 24"><path d="M12 10a2 2 0 0 0-2 2c0 1-.1 2.5-.3 4M14 13.1c0 2.4 0 6.4-1 8.9M17.3 21c.1-.6.4-2.3.5-3M2 12a10 10 0 0 1 18-6M21.8 16c.2-2 .1-5.4 0-6M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .3-2M8.7 22c.2-.7.4-1.3.6-2M9 6.8a6 6 0 0 1 9 5.2v2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 4v4h-4M20 15a8 8 0 0 1-14 3l-2-2M4 20v-4h4"/></symbol>
+  <symbol id="i-steps" viewBox="0 0 24 24"><path d="M4 6h9M4 12h9M4 18h6M15 14.5v7l5.5-3.5Z"/></symbol>
   <symbol id="i-tab" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M12 13v4M10 15h4"/></symbol>
 </svg>
 
@@ -320,36 +483,72 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <form id="login-form">
     <h1 data-t="login"></h1>
     <p class="muted" data-t="login_hint"></p>
+    <div class="field hidden" id="user-field"><label for="email" data-t="email"></label><input id="email" type="email" autocomplete="username"></div>
     <div class="field"><label for="token" data-t="token"></label><input id="token" type="password" autocomplete="current-password" required></div>
     <div class="msg err" id="login-err" role="alert"></div>
     <button class="btn btn-act" type="submit" data-t="login"></button>
   </form>
+  <div id="agent-card" class="agent-card hidden" aria-live="polite"></div>
 </div>
 
 <div id="app" class="layout hidden">
-  <aside class="rail">
+  <aside class="rail" id="rail">
     <div class="brand">
       <svg aria-hidden="true"><use href="#fox"/></svg>
       <div><b>FoxProfile</b><span data-t="tagline"></span></div>
     </div>
     <button class="btn btn-act" id="new-btn"><svg class="i"><use href="#i-plus"/></svg><span data-t="new_profile"></span></button>
+    <div class="group-pick hidden" id="group-pick">
+      <div class="nav-title" data-t="group"></div>
+      <button class="group-btn" id="group-btn" popovertarget="group-pop" aria-haspopup="listbox"><svg class="i"><use href="#i-users"/></svg><span class="label" id="group-label"></span><span class="count" id="group-count"></span><svg class="i s" aria-hidden="true"><use href="#i-down"/></svg></button>
+    </div>
+    <div class="group-pop" id="group-pop" popover>
+      <label class="search"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg><input id="group-q" type="search" autocomplete="off"></label>
+      <div class="group-list" id="group-list" role="listbox"></div>
+    </div>
     <nav class="nav" id="filters" aria-label="Filters">
       <div class="nav-title" data-t="filters"></div>
     </nav>
+    <nav class="nav settings-nav" id="settings-nav" aria-label="Settings">
+      <button class="rail-link" id="settings-back"><svg class="i"><use href="#i-back"/></svg><span data-t="settings"></span></button>
+      <button class="rail-link" id="general-btn"><svg class="i"><use href="#i-settings"/></svg><span data-t="general"></span></button>
+      <div class="nav-title" data-t="administration"></div>
+      <button class="rail-link hidden" id="users-btn"><svg class="i"><use href="#i-user"/></svg><span data-t="users"></span></button>
+      <button class="rail-link hidden" id="groups-btn"><svg class="i"><use href="#i-users"/></svg><span data-t="groups"></span></button>
+      <button class="rail-link hidden" id="agents-btn"><svg class="i"><use href="#i-monitor"/></svg><span data-t="agents_button"></span></button>
+      <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
+      <button class="rail-link" id="ads-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="ads_button"></span></button>
+      <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
+    </nav>
     <div class="grow"></div>
     <div class="rail-foot">
-      <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
-      <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
+      <div class="agent hidden" id="agent-status" role="status"></div>
+      <button class="rail-link hidden" id="agent-get-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="agent_get"></span></button>
+      <button class="rail-link" id="settings-btn"><svg class="i"><use href="#i-settings"/></svg><span data-t="settings"></span></button>
       <button class="rail-link hidden" id="logout-btn"><svg class="i"><use href="#i-logout"/></svg><span data-t="logout"></span></button>
-      <div class="seg" role="group" aria-label="Language"><button data-lang="vi">Tiếng Việt</button><button data-lang="en">English</button></div>
     </div>
   </aside>
   <main>
+    <section class="hidden" id="general-page" aria-labelledby="general-h">
+      <div class="head"><div><h1 id="general-h" tabindex="-1" data-t="general"></h1><div class="counts" data-t="general_sub"></div></div></div>
+      <div class="sheet settings-sheet">
+        <div class="setting">
+          <div><b data-t="theme"></b><p data-t="theme_hint"></p></div>
+          <div class="chips" role="group" aria-labelledby="general-h"><button data-theme-pick="light" data-t="theme_light"></button><button data-theme-pick="dark" data-t="theme_dark"></button><button data-theme-pick="system" data-t="theme_system"></button></div>
+        </div>
+        <div class="setting">
+          <div><b data-t="language"></b><p data-t="language_hint"></p></div>
+          <div class="chips" role="group" aria-label="Language"><button data-lang="es">Español</button><button data-lang="en">English</button><button data-lang="vi">Tiếng Việt</button></div>
+        </div>
+      </div>
+    </section>
+    <div id="profiles-view">
     <div class="head">
       <div><h1 data-t="your_profiles"></h1><div class="counts" id="counts"></div></div>
       <label class="search"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg><input id="search" type="search" autocomplete="off"></label>
     </div>
     <div class="sheet" id="sheet" role="table"></div>
+    </div>
   </main>
 </div>
 
@@ -375,6 +574,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 </div>
 
 <div id="modal-root"></div>
+<div id="acct-pop" class="acct-pop hidden" role="tooltip"></div>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script>
@@ -391,8 +591,15 @@ const I18N = {
     launch: "Mở", stop: "Dừng", view: "Xem màn hình", cookies: "Cookie & fingerprint", edit: "Sửa", delete: "Xoá",
     stamp_live: "Đang chạy", stamp_starting: "Đang mở", stamp_stopping: "Đang dừng", stamp_failed: "Lỗi", idle: "Đã dừng",
     direct: "Trực tiếp", follow_ip: "Theo IP", no_fp_short: "chưa có fingerprint", no_proxy_short: "không proxy", selected: "Đã chọn {n}", bulk_launch: "Mở", bulk_stop: "Dừng", bulk_delete: "Xoá", clear_sel: "Bỏ chọn",
+    run_steps: "Chạy bước", run_steps_title: "Chạy các bước", run_steps_sub: "Trên {n} profile đang chạy", run: "Chạy", running_steps: "Đang chạy...",
+    run_steps_hint: "Mỗi dòng một bước: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Dòng bắt đầu bằng // là chú thích.",
+    steps_done: "Xong: {ok} thành công, {failed} lỗi", need_running: "Hãy mở các profile đã chọn trước",
+    sync: "Đồng bộ", sync_title: "Đồng bộ cửa sổ", sync_leader: "Profile chính", sync_start: "Bắt đầu đồng bộ",
+    sync_hint: "Click, gõ phím, chọn và Enter/Tab/Escape ở profile chính được lặp lại ở tab đang mở của các profile khác khi chúng ở cùng trang web.",
+    sync_need_two: "Chọn ít nhất hai profile đang chạy", syncing: "Đang đồng bộ {leader} → {n} profile", sync_stop: "Dừng đồng bộ",
+    sync_started: "Đã bắt đầu đồng bộ từ {leader}", sync_stopped: "Đã dừng đồng bộ: {leader}",
     select_all: "Chọn tất cả", select_row: "Chọn {name}",
-    confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile",
+    confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile", bulk_edit: "Sửa", bulk_edit_title: "Sửa {n} profile", bulk_edit_hint: "Đánh dấu các trường cần đổi; các trường khác giữ nguyên giá trị của từng profile. Để trống sẽ bỏ proxy, hoặc đưa timezone và locale về tự động.", bulk_edit_nothing: "Hãy đánh dấu ít nhất một trường cần đổi", updated_n: "Đã cập nhật {n} profile",
     login_side: "Server này chạy FoxProfile. Đăng nhập bằng API token để quản lý profile từ xa.",
     login_hint: "Nhập API token (biến FOXPROFILE_API_TOKEN) của server.", token: "API token", login: "Đăng nhập",
     bad_token: "Token không đúng", create: "Tạo profile", edit_title: "Sửa profile", edit_sub: "Đang sửa {name}", create_sub: "Một profile là một danh tính: thiết bị, proxy và vị trí riêng.",
@@ -406,7 +613,7 @@ const I18N = {
     export_txt: "Xuất cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Nhập cookie", import_hint: "Từ file JSON hoặc cookies.txt",
     reset_fp: "Tạo fingerprint mới", reset_fp_hint: "Lần mở sau trang web sẽ thấy một thiết bị khác", fp_title: "Fingerprint hiện tại", no_fp: "Chưa có fingerprint. Nó được tạo ở lần mở đầu tiên.",
     fp_platform: "Nền tảng", fp_screen: "Màn hình", fp_cpu: "CPU",
-    confirm_reset: "Tạo fingerprint mới cho “{name}”? Trang web sẽ thấy đây là một máy khác.", close: "Đóng",
+    confirm_reset: "Tạo fingerprint mới cho “{name}”? Trang web sẽ thấy đây là một máy khác.", close: "Đóng", open_with: "Mở với tài khoản", accounts: "Tài khoản", accounts_title: "Tài khoản · {name}", accounts_hint: "Các tài khoản profile này dùng. Được lưu mã hoá; mã 2FA được tạo từ mã bí mật đã lưu.", accounts_empty: "Chưa lưu tài khoản nào", account_add: "Thêm tài khoản", account_platform: "Nền tảng", account_username: "Tên đăng nhập", account_password: "Mật khẩu", account_otp: "Mã 2FA", account_totp_secret: "Mã bí mật 2FA", account_totp_hint: "Khoá base32 hiện ra khi cài ứng dụng xác thực", account_unchanged: "Để trống để giữ giá trị đã lưu", account_copy: "Sao chép", account_copied: "Đã sao chép {what}", account_show: "Hiện", account_hide: "Ẩn", account_login: "Đăng nhập", account_login_started: "Đang điền đăng nhập {platform} trong {name}...", account_need_running: "Hãy mở profile trước", account_confirm_delete: "Xoá tài khoản {platform} {username}?", account_saved: "Đã lưu tài khoản", account_left: "còn {s} giây",
     launching: "Đang mở {name}...", started: "Đã mở {name}", stopped: "Đã dừng {name}", created: "Đã tạo {name}", saved: "Đã lưu",
     deleted: "Đã xoá {name}", deleted_n: "Đã xoá {n} profile", exported: "Đã xuất {n} cookie", imported: "Đã nhập {n} cookie", fp_reset: "Đã tạo fingerprint mới",
     mcp_button: "Kết nối AI (MCP)", mcp_title: "Kết nối AI agent qua MCP",
@@ -431,6 +638,42 @@ const I18N = {
     go: "Đi", new_tab: "Tab mới", type: "Gõ", type_hint: "Gõ vào ô đang chọn (bấm lên ảnh để chọn ô)", working: "Đang xử lý...",
     back: "Quay lại", reload: "Tải lại",
     retry: "Thử lại", boot_error: "Không thể kết nối với server",
+    email: "Email", password: "Mật khẩu", bad_login: "Sai email hoặc mật khẩu",
+    users_managed_externally: "Tài khoản, mật khẩu và vai trò được quản lý trên nền tảng đăng nhập nội bộ. Xoá ở đây chỉ xoá dữ liệu cục bộ (profile được giao, nhóm, key).",
+    login_side_hub: "Server FoxProfile của nhóm. Profile mở trên máy tính của bạn qua FoxProfile agent.",
+    login_hint_hub: "Đăng nhập bằng email và mật khẩu của nền tảng nội bộ.",
+    ads_button: "Nhập từ AdsPower", ads_sub: "Mang theo tên, proxy, User-Agent và cookie. Profile dùng engine Chrome; fingerprint (canvas, audio, WebGL) là mới.",
+    ads_hint_local: "AdsPower phải đang mở trên máy này và bật Local API (Settings › API).", ads_hint_hub: "Đọc từ AdsPower trên máy của bạn qua agent: AdsPower đang mở và bật Local API.",
+    ads_port: "Cổng API", ads_key: "API key (nếu AdsPower yêu cầu)", ads_find: "Tìm profile", ads_none: "AdsPower không có profile nào.",
+    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_busy: "Đang có một lần nhập từ AdsPower", ads_progress: "Đang nhập {i}/{n} từ AdsPower: {name}", ads_progress_failed: "{n} lỗi", ads_reimport: "Nhập lại các profile đã có (làm mới cookie của chúng)", ads_done_re: "Đã tạo {created}, nhập lại {reimported}, bỏ qua {skipped}, lỗi {failed}",
+    ads_done: "Đã tạo {created}, bỏ qua {skipped}, lỗi {failed}", ads_no_proxy: "Không proxy", ads_no_group: "Không có nhóm", ads_summary: "{total} profile · đã nhập {done} · còn {pending} · lỗi {failed}", ads_hub_group: "→ nhóm {group}",
+    agent_auth_title: "Cấp quyền đăng nhập cho agent", agent_auth_hint: "FoxProfile agent trên {pc} sẽ mở các profile của tài khoản này trên máy đó.",
+    agent_auth_this_pc: "máy tính này", agent_auth_role: "Vai trò", agent_auth_hub: "Hub",
+    agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
+    agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
+    agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
+    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
+    agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
+    agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Chưa có bộ cài",
+    agents_download: "Tải về", agents_upload: "Tải lên bộ cài", agents_uploading: "Đang tải lên… {pct}%", agents_uploaded: "Đã tải lên {name}",
+    agents_upload_failed: "Không tải lên được bộ cài", agents_upload_cors: "Trình duyệt không tải lên được bucket. Kiểm tra quy tắc CORS của bucket (cho phép PUT từ địa chỉ panel này) và proxy phía trước bucket.", agents_upload_etag: "Bucket không cho trình duyệt đọc ETag: thêm ExposeHeaders: [\"ETag\"] vào quy tắc CORS.", agents_list: "Agent đã kết nối", agents_none: "Chưa có agent nào kết nối từ khi hub khởi động.",
+    agents_hub_code: "Phiên bản code của hub: {code}", agents_running: "{n} profile đang mở", agents_refresh: "Làm mới", agents_online: "đang kết nối", agents_offline: "mất kết nối",
+    agents_update_now: "Cập nhật ngay", agents_update_hint: "Đóng các profile đang mở trên máy đó và cập nhật agent", agents_update_queued: "Sẽ cập nhật trong vài giây",
+    agent_state_current: "Đã cập nhật", agent_state_pending: "Sẽ cập nhật khi đóng hết profile", agent_state_installer: "Cần bộ cài mới (thư viện đã thay đổi)",
+    agent_state_script: "Chạy bằng script: cập nhật bằng git", agent_state_old: "Bản cũ: cài bộ cài mới một lần",
+    users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên",
+    owner: "Người dùng", unassigned: "Chưa giao",
+    confirm_delete_user: "Xoá người dùng “{name}”? Profile của họ vẫn còn, chỉ quản trị viên thấy cho đến khi giao lại.",
+    settings: "Cài đặt", general: "Chung", administration: "Quản trị",
+    general_sub: "Các cài đặt này chỉ áp dụng cho trình duyệt này.", theme: "Giao diện", theme_hint: "Hệ thống: theo cài đặt của máy tính.",
+    theme_light: "Sáng", theme_dark: "Tối", theme_system: "Hệ thống", language: "Ngôn ngữ", language_hint: "Cũng áp dụng cho thông báo lỗi từ server.",
+    groups: "Nhóm", group: "Nhóm", no_group: "Không có nhóm", all_groups: "Tất cả nhóm", search_groups: "Tìm nhóm", no_group_match: "Không có nhóm nào khớp", new_group: "Tên nhóm mới", add_group: "Tạo nhóm",
+    group_member: "Thành viên", group_lead: "Trưởng nhóm", add_member: "Thêm", pick_user: "Chọn người dùng",
+    group_profiles: "{n} profile", no_groups: "Chưa có nhóm nào.", group_hint: "Thành viên của nhóm thấy và mở được profile của nhóm trên máy của họ.",
+    confirm_delete_group: "Xoá nhóm “{name}”? Profile của nhóm vẫn còn, thuộc về người dùng của chúng.",
+    mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
+    mcp_key_note: "Key chỉ hiện một lần và thay thế key cũ. AI dùng key này chỉ thấy profile của bạn và mở chúng trên máy của bạn.",
   },
   en: {
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
@@ -443,8 +686,15 @@ const I18N = {
     launch: "Launch", stop: "Stop", view: "View screen", cookies: "Cookies & fingerprint", edit: "Edit", delete: "Delete",
     stamp_live: "Running", stamp_starting: "Starting", stamp_stopping: "Stopping", stamp_failed: "Failed", idle: "Stopped",
     direct: "Direct", follow_ip: "Follows IP", no_fp_short: "no fingerprint yet", no_proxy_short: "no proxy", selected: "{n} selected", bulk_launch: "Launch", bulk_stop: "Stop", bulk_delete: "Delete", clear_sel: "Clear",
+    run_steps: "Run steps", run_steps_title: "Run steps", run_steps_sub: "On {n} running profile(s)", run: "Run", running_steps: "Running...",
+    run_steps_hint: "One step per line: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Lines starting with // are comments.",
+    steps_done: "Steps finished: {ok} OK, {failed} failed", need_running: "Launch the selected profiles first",
+    sync: "Sync", sync_title: "Sync windows", sync_leader: "Leader", sync_start: "Start sync",
+    sync_hint: "Clicks, typing, selects and Enter/Tab/Escape in the leader are repeated in the other profiles' active tab while they are on the same site.",
+    sync_need_two: "Select at least two running profiles", syncing: "Syncing {leader} → {n} profile(s)", sync_stop: "Stop sync",
+    sync_started: "Sync started from {leader}", sync_stopped: "Sync stopped: {leader}",
     select_all: "Select all", select_row: "Select {name}",
-    confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}",
+    confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}", bulk_edit: "Edit", bulk_edit_title: "Edit {n} profiles", bulk_edit_hint: "Tick the fields to change; the rest keep each profile's own value. An empty field removes the proxy, or puts timezone and locale back on automatic.", bulk_edit_nothing: "Tick at least one field to change", updated_n: "Updated {n} profiles",
     login_side: "This server runs FoxProfile. Log in with the API token to manage profiles remotely.",
     login_hint: "Enter the server's API token (FOXPROFILE_API_TOKEN).", token: "API token", login: "Log in",
     bad_token: "Invalid token", create: "Create profile", edit_title: "Edit profile", edit_sub: "Editing {name}", create_sub: "A profile is an identity: its own device, proxy and location.",
@@ -458,7 +708,7 @@ const I18N = {
     export_txt: "Export cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Import cookies", import_hint: "From a JSON or cookies.txt file",
     reset_fp: "New fingerprint", reset_fp_hint: "Sites see a different device on the next launch", fp_title: "Current fingerprint", no_fp: "No fingerprint yet. It is created on the first launch.",
     fp_platform: "Platform", fp_screen: "Screen", fp_cpu: "CPU",
-    confirm_reset: "Create a new fingerprint for “{name}”? Sites will see a different machine.", close: "Close",
+    confirm_reset: "Create a new fingerprint for “{name}”? Sites will see a different machine.", close: "Close", open_with: "Open with an account", accounts: "Accounts", accounts_title: "Accounts · {name}", accounts_hint: "Logins this profile uses. They are stored encrypted; the 2FA code is generated from the saved secret.", accounts_empty: "No accounts saved yet", account_add: "Add account", account_platform: "Platform", account_username: "Username", account_password: "Password", account_otp: "2FA code", account_totp_secret: "2FA secret", account_totp_hint: "The base32 key shown when setting up an authenticator app", account_unchanged: "Leave blank to keep the saved one", account_copy: "Copy", account_copied: "{what} copied", account_show: "Show", account_hide: "Hide", account_login: "Log in", account_login_started: "Filling the {platform} login in {name}...", account_need_running: "Launch the profile first", account_confirm_delete: "Delete the {platform} account {username}?", account_saved: "Account saved", account_left: "{s} s left",
     launching: "Launching {name}...", started: "Started {name}", stopped: "Stopped {name}", created: "Created {name}", saved: "Saved",
     deleted: "Deleted {name}", deleted_n: "Deleted {n} profiles", exported: "Exported {n} cookies", imported: "Imported {n} cookies", fp_reset: "New fingerprint created",
     mcp_button: "Connect AI (MCP)", mcp_title: "Connect an AI agent over MCP",
@@ -483,6 +733,137 @@ const I18N = {
     go: "Go", new_tab: "New tab", type: "Type", type_hint: "Type into the focused field (click the screen to focus one)", working: "Working...",
     back: "Back", reload: "Reload",
     retry: "Retry", boot_error: "Cannot reach the server",
+    email: "Email", password: "Password", bad_login: "Wrong email or password",
+    users_managed_externally: "Accounts, passwords and roles are managed on the internal sign-in platform. Deleting here only removes the local data (assigned profiles, groups, keys).",
+    login_side_hub: "Your team's FoxProfile server. Profiles open on your own computer through the FoxProfile agent.",
+    login_hint_hub: "Log in with your internal platform email and password.",
+    ads_button: "Import from AdsPower", ads_sub: "Brings name, proxy, User-Agent and cookies. Profiles use the Chrome engine; the fingerprint (canvas, audio, WebGL) is new.",
+    ads_hint_local: "AdsPower must be open on this PC with its Local API on (Settings › API).", ads_hint_hub: "Read from AdsPower on your PC through the agent: AdsPower open with its Local API on.",
+    ads_port: "API port", ads_key: "API key (if AdsPower asks for one)", ads_find: "Find profiles", ads_none: "AdsPower has no profiles.",
+    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_busy: "An AdsPower import is already running", ads_progress: "Importing {i} of {n} from AdsPower: {name}", ads_progress_failed: "{n} failed", ads_reimport: "Reimport the ones already here (refreshes their cookies)", ads_done_re: "{created} created, {reimported} reimported, {skipped} already here, {failed} failed",
+    ads_done: "{created} created, {skipped} already here, {failed} failed", ads_no_proxy: "No proxy", ads_no_group: "No group", ads_summary: "{total} profiles · {done} imported · {pending} pending · {failed} failed", ads_hub_group: "→ group {group}",
+    agent_auth_title: "Authorize the agent sign-in", agent_auth_hint: "The FoxProfile agent on {pc} will open this account's profiles on that PC.",
+    agent_auth_this_pc: "this computer", agent_auth_role: "Role", agent_auth_hub: "Hub",
+    agent_authorize: "Authorize", agent_switch: "Switch account",
+    agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
+    agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
+    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
+    agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
+    agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "No installer yet",
+    agents_download: "Download", agents_upload: "Upload installer", agents_uploading: "Uploading… {pct}%", agents_uploaded: "{name} uploaded",
+    agents_upload_failed: "The installer could not be uploaded", agents_upload_cors: "The browser could not upload to the bucket. Check the bucket\u2019s CORS rule (PUT from this panel\u2019s address) and the proxy in front of the bucket.", agents_upload_etag: "The bucket hides the ETag from the browser: add ExposeHeaders: [\"ETag\"] to its CORS rule.", agents_list: "Connected agents", agents_none: "No agent has connected since the hub started.",
+    agents_hub_code: "Hub code version: {code}", agents_running: "{n} profiles open", agents_refresh: "Refresh", agents_online: "connected", agents_offline: "offline",
+    agents_update_now: "Update now", agents_update_hint: "Closes the profiles open on that PC and updates its agent", agents_update_queued: "Updating in a few seconds",
+    agent_state_current: "Up to date", agent_state_pending: "Updates once its profiles are closed", agent_state_installer: "Needs the new installer (libraries changed)",
+    agent_state_script: "Runs from a script: update it with git", agent_state_old: "Older version: install the new installer once",
+    users: "Users", role_admin: "Admin", role_operator: "Operator",
+    owner: "Operator", unassigned: "Unassigned",
+    confirm_delete_user: "Delete user “{name}”? Their profiles stay, visible to admins until reassigned.",
+    settings: "Settings", general: "General", administration: "Administration",
+    general_sub: "These settings apply to this browser only.", theme: "Theme", theme_hint: "System follows your computer's setting.",
+    theme_light: "Light", theme_dark: "Dark", theme_system: "System", language: "Language", language_hint: "Server error messages follow it too.",
+    groups: "Groups", group: "Group", no_group: "No group", all_groups: "All groups", search_groups: "Search groups", no_group_match: "No group matches", new_group: "New group name", add_group: "Create group",
+    group_member: "Member", group_lead: "Lead", add_member: "Add", pick_user: "Pick a user",
+    group_profiles: "{n} profiles", no_groups: "No groups yet.", group_hint: "Group members see the group's profiles and open them on their own PC.",
+    confirm_delete_group: "Delete group “{name}”? Its profiles stay with their operators.",
+    mcp_new_key: "Create my personal key and insert it",
+    mcp_key_note: "The key is shown only now and replaces your previous one. An AI using it sees only your profiles and opens them on your PC.",
+  },
+  es: {
+    tagline: "Gestor de profiles anti-detect", new_profile: "Nuevo profile", filters: "Filtrar",
+    f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome",
+    api_docs: "Docs de la API", logout: "Cerrar sesión", your_profiles: "Profiles", search: "Buscar por nombre o proxy",
+    counts: "{n} profiles · {r} en ejecución", counts_none: "{n} profiles · ninguno en ejecución",
+    col_profile: "Profile", col_device: "Dispositivo", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Estado",
+    empty_title: "Aún no hay profiles", empty: "Cada profile es una identidad propia: su fingerprint, sus cookies y su proxy. Crea el primero para empezar.",
+    no_match_title: "No se encontró ningún profile", no_match: "Nada coincide con “{q}” en este filtro.", clear_filters: "Quitar filtros",
+    launch: "Abrir", stop: "Detener", view: "Ver pantalla", cookies: "Cookies y fingerprint", edit: "Editar", delete: "Eliminar",
+    stamp_live: "En ejecución", stamp_starting: "Iniciando", stamp_stopping: "Deteniendo", stamp_failed: "Falló", idle: "Detenido",
+    direct: "Directo", follow_ip: "Según la IP", no_fp_short: "sin fingerprint aún", no_proxy_short: "sin proxy", selected: "{n} seleccionados", bulk_launch: "Abrir", bulk_stop: "Detener", bulk_delete: "Eliminar", clear_sel: "Limpiar",
+    run_steps: "Ejecutar pasos", run_steps_title: "Ejecutar pasos", run_steps_sub: "En {n} profile(s) en ejecución", run: "Ejecutar", running_steps: "Ejecutando...",
+    run_steps_hint: "Un paso por línea: navigate <url> · click <selector> · type <selector> | <texto> · select <selector> | <valor> · press <tecla> · wait <selector> · sleep <ms>. Las líneas que empiezan con // son comentarios.",
+    steps_done: "Pasos terminados: {ok} OK, {failed} fallidos", need_running: "Primero abre los profiles seleccionados",
+    sync: "Sincronizar", sync_title: "Sincronizar ventanas", sync_leader: "Principal", sync_start: "Iniciar sincronización",
+    sync_hint: "Los clics, lo que se escribe, los select y Enter/Tab/Escape en el profile principal se repiten en la pestaña activa de los demás profiles mientras estén en el mismo sitio.",
+    sync_need_two: "Selecciona al menos dos profiles en ejecución", syncing: "Sincronizando {leader} → {n} profile(s)", sync_stop: "Detener sincronización",
+    sync_started: "Sincronización iniciada desde {leader}", sync_stopped: "Sincronización detenida: {leader}",
+    select_all: "Seleccionar todos", select_row: "Seleccionar {name}",
+    confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}", bulk_edit: "Editar", bulk_edit_title: "Editar {n} profiles", bulk_edit_hint: "Marca los campos que quieres cambiar; los demás conservan el valor de cada profile. Un campo vacío quita el proxy, o devuelve timezone y locale a automático.", bulk_edit_nothing: "Marca al menos un campo para cambiar", updated_n: "{n} profiles actualizados",
+    login_side: "Este servidor ejecuta FoxProfile. Inicia sesión con el token de la API para gestionar los profiles a distancia.",
+    login_hint: "Introduce el token de la API del servidor (FOXPROFILE_API_TOKEN).", token: "Token de la API", login: "Iniciar sesión",
+    bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
+    name: "Nombre del profile", os: "Sistema operativo", engine: "Engine",
+    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "El engine no se puede cambiar después de crearlo.",
+    engine_note: "Engine Chromium experimental. Se descarga automáticamente en la máquina de FoxProfile la primera vez (~150 MB). Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
+    proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass o socks5://... Vacío = conexión directa.",
+    check_proxy: "Probar proxy", cancel: "Cancelar", save: "Guardar cambios", checking: "Comprobando...",
+    confirm_delete: "¿Eliminar el profile “{name}”? Sus cookies y datos se borran para siempre.", confirm_title: "Confirmar", stop_first: "Primero detén el navegador",
+    cookie_hint: "El navegador del profile debe estar detenido.", export_json: "Exportar cookies en JSON", export_json_hint: "Cookie-Editor, GoLogin, GPM",
+    export_txt: "Exportar cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Importar cookies", import_hint: "Desde un archivo JSON o cookies.txt",
+    reset_fp: "Nuevo fingerprint", reset_fp_hint: "Los sitios verán otro dispositivo en la próxima apertura", fp_title: "Fingerprint actual", no_fp: "Aún no hay fingerprint. Se crea la primera vez que se abre.",
+    fp_platform: "Plataforma", fp_screen: "Pantalla", fp_cpu: "CPU",
+    confirm_reset: "¿Crear un fingerprint nuevo para “{name}”? Los sitios verán otra máquina.", close: "Cerrar", open_with: "Abrir con una cuenta", accounts: "Cuentas", accounts_title: "Cuentas · {name}", accounts_hint: "Las cuentas que usa este profile. Se guardan cifradas; el código 2FA se genera con el secreto guardado.", accounts_empty: "Todavía no hay cuentas guardadas", account_add: "Agregar cuenta", account_platform: "Plataforma", account_username: "Usuario", account_password: "Contraseña", account_otp: "Código 2FA", account_totp_secret: "Secreto 2FA", account_totp_hint: "La clave base32 que muestra el sitio al configurar una app de autenticación", account_unchanged: "Déjalo vacío para conservar el guardado", account_copy: "Copiar", account_copied: "{what} copiado", account_show: "Mostrar", account_hide: "Ocultar", account_login: "Iniciar sesión", account_login_started: "Rellenando el inicio de sesión de {platform} en {name}...", account_need_running: "Primero abre el profile", account_confirm_delete: "¿Eliminar la cuenta de {platform} {username}?", account_saved: "Cuenta guardada", account_left: "quedan {s} s",
+    launching: "Abriendo {name}...", started: "{name} abierto", stopped: "{name} detenido", created: "{name} creado", saved: "Guardado",
+    deleted: "{name} eliminado", deleted_n: "{n} profiles eliminados", exported: "{n} cookies exportadas", imported: "{n} cookies importadas", fp_reset: "Nuevo fingerprint creado",
+    mcp_button: "Conectar IA (MCP)", mcp_title: "Conectar un agente de IA por MCP",
+    mcp_intro: "Deja que Claude, Cursor o VS Code gestionen profiles y naveguen por ti: abrir páginas, leerlas, hacer clic, escribir y tomar capturas.",
+    mcp_endpoint: "Endpoint MCP", mcp_pick: "1. Elige tu app de IA", mcp_paste: "2. Pega en: {where}",
+    mcp_copy: "Copiar", mcp_copied: "Copiado", mcp_insert_token: "Insertar el token con el que iniciaste sesión",
+    mcp_restart: "3. Reinicia la app de IA, deja FoxProfile abierto y prueba:",
+    mcp_example: "Abre el profile {name}, busca en google.com “clima en Ciudad de México” y mándame una captura.",
+    mcp_remote_note: "Claude Desktop solo inicia servidores MCP locales, así que esta configuración pasa por mcp-remote (requiere Node.js).",
+    mcp_security: "El contenido de las páginas no es de confianza: se le indica a la IA que nunca siga instrucciones encontradas en páginas web. Los profiles no se pueden eliminar por MCP.",
+    mcp_http_warn: "Estás en HTTP sin cifrar: el token puede interceptarse. Pon el servidor detrás de HTTPS.",
+    timezone: "Timezone", locale: "Locale", geo_hint: "Déjalo vacío para seguir la IP del proxy.", check_ip: "Comprobar IP", tz_hint: "America/Mexico_City", locale_hint: "es-MX",
+    geo_exit: "IP de salida {ip} · {country}", geo_tz: "Timezone: {v} ({m})", geo_locale: "Locale: {v} ({m})",
+    geo_auto: "automático", geo_pinned: "fijado", geo_random: "aleatorio en cada apertura", geo_ok: "No se encontraron discrepancias",
+    geo_failed: "No se pudo obtener la IP de salida: {e}", geo_use: "Usar {v}",
+    geo_warn_country_mismatch: "{source} ubica la IP en {got}; el navegador usa {expected}",
+    geo_warn_timezone_mismatch: "{source} indica la timezone {got}; el navegador usa {expected}",
+    geo_warn_hosting: "{source} marca esta IP como de datacenter/hosting: espera captchas y bloqueos",
+    geo_warn_ip_differs: "Proxy dual-stack: la timezone sigue a {exit_ip} pero los sitios ven {seen_ip}",
+    geo_warn_locale_country: "El locale {locale} no corresponde al país de la IP ({country})",
+    geo_warn_locale_random: "El locale automático se vuelve a sortear en cada apertura ({suggested} solo ~{share}% de las veces); fíjalo",
+    go: "Ir", new_tab: "Nueva pestaña", type: "Escribir", type_hint: "Escribe en el campo con foco (haz clic en la pantalla para enfocar uno)", working: "Procesando...",
+    back: "Atrás", reload: "Recargar",
+    retry: "Reintentar", boot_error: "No se puede conectar con el servidor",
+    email: "Correo", password: "Contraseña", bad_login: "Correo o contraseña incorrectos",
+    users_managed_externally: "Las cuentas, contraseñas y roles se administran en la plataforma de inicio de sesión interna. Eliminar aquí solo borra los datos locales (profiles asignados, grupos, claves).",
+    login_side_hub: "El servidor FoxProfile de tu equipo. Los profiles se abren en tu propia computadora a través del agente de FoxProfile.",
+    login_hint_hub: "Inicia sesión con el correo y la contraseña de la plataforma interna.",
+    ads_button: "Importar desde AdsPower", ads_sub: "Trae nombre, proxy, User-Agent y cookies. Se crean con el motor Chrome; el fingerprint (canvas, audio, WebGL) es nuevo.",
+    ads_hint_local: "AdsPower debe estar abierto en este PC con la API local activada (Ajustes › API).", ads_hint_hub: "Se lee del AdsPower de tu PC a través del agente: AdsPower abierto y con la API local activada.",
+    ads_port: "Puerto de la API", ads_key: "API key (si AdsPower la pide)", ads_find: "Buscar perfiles", ads_none: "AdsPower no tiene perfiles.",
+    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_busy: "Ya hay una importación de AdsPower en curso", ads_progress: "Importando {i} de {n} desde AdsPower: {name}", ads_progress_failed: "{n} con error", ads_reimport: "Reimportar los que ya existen (actualiza sus cookies)", ads_done_re: "{created} creados, {reimported} reimportados, {skipped} ya existían, {failed} con error",
+    ads_done: "{created} creados, {skipped} ya existían, {failed} con error", ads_no_proxy: "Sin proxy", ads_no_group: "Sin grupo", ads_summary: "{total} perfiles · {done} importados · {pending} pendientes · {failed} con error", ads_hub_group: "→ grupo {group}",
+    agent_auth_title: "Autorizar el inicio de sesión en el agente", agent_auth_hint: "El agente de FoxProfile en {pc} abrirá los profiles de esta cuenta en ese PC.",
+    agent_auth_this_pc: "esta computadora", agent_auth_role: "Rol", agent_auth_hub: "Hub",
+    agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
+    agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
+    agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
+    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
+    agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
+    agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene perfiles abiertos.",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Todavía no hay instalador",
+    agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo… {pct}%", agents_uploaded: "{name} subido",
+    agents_upload_failed: "No se pudo subir el instalador", agents_upload_cors: "El navegador no pudo subir al bucket. Revisa la regla CORS del bucket (PUT desde la dirección de este panel) y el proxy que tenga delante.", agents_upload_etag: "El bucket no deja al navegador leer el ETag: añade ExposeHeaders: [\"ETag\"] a su regla CORS.", agents_list: "Agentes conectados", agents_none: "Ningún agente se ha conectado desde que arrancó el hub.",
+    agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} perfiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
+    agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los perfiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
+    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus perfiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)",
+    agent_state_script: "Corre con el script: actualizar con git", agent_state_old: "Versión anterior: instalar el instalador nuevo una vez",
+    users: "Usuarios", role_admin: "Administrador", role_operator: "Operador",
+    owner: "Operador", unassigned: "Sin asignar",
+    confirm_delete_user: "¿Eliminar al usuario “{name}”? Sus profiles se conservan y solo los administradores los ven hasta que se reasignen.",
+    settings: "Configuración", general: "General", administration: "Administración",
+    general_sub: "Estos ajustes solo se aplican a este navegador.", theme: "Tema", theme_hint: "Sistema sigue la configuración de tu computadora.",
+    theme_light: "Claro", theme_dark: "Oscuro", theme_system: "Sistema", language: "Idioma", language_hint: "Los mensajes de error del servidor también lo siguen.",
+    groups: "Grupos", group: "Grupo", no_group: "Sin grupo", all_groups: "Todos los grupos", search_groups: "Buscar grupos", no_group_match: "Ningún grupo coincide", new_group: "Nombre del nuevo grupo", add_group: "Crear grupo",
+    group_member: "Miembro", group_lead: "Líder", add_member: "Agregar", pick_user: "Elige un usuario",
+    group_profiles: "{n} profiles", no_groups: "Aún no hay grupos.", group_hint: "Los miembros del grupo ven sus profiles y los abren en su propia PC.",
+    confirm_delete_group: "¿Eliminar el grupo “{name}”? Sus profiles se quedan con sus operadores.",
+    mcp_new_key: "Crear mi clave personal e insertarla",
+    mcp_key_note: "La clave solo se muestra ahora y reemplaza a la anterior. Una IA que la use solo ve tus profiles y los abre en tu PC.",
   },
 };
 
@@ -490,15 +871,18 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
 };
-let lang = store.get("foxprofile.lang") || "en";
+let lang = store.get("foxprofile.lang") || "es";
 let token = store.get("foxprofile.token") || "";
 let profiles = [], running = new Set(), fingerprints = {};
+let hub = false, me = null;      // hub mode: browsers open on each operator's PC
 let filter = "all";
+let scope = store.get("foxprofile.group");  // hub: null = all groups, "" = no group, else a group name
 const busy = new Map();          // name -> "starting" | "stopping"
 const failed = new Map();        // name -> error message of the last failed launch
 const liveSince = new Map();     // name -> Date the profile was first seen running
 const justLanded = new Set();    // stamps to animate on the next render
 const selected = new Set();
+let syncs = [];                  // running window-sync sessions
 const $ = (id) => document.getElementById(id);
 
 function t(key, vars = {}) {
@@ -511,6 +895,8 @@ function applyI18n() {
   document.querySelectorAll("[data-title]").forEach((el) => { el.title = t(el.dataset.title); el.setAttribute("aria-label", t(el.dataset.title)); });
   $("search").placeholder = t("search");
   $("search").setAttribute("aria-label", t("search"));
+  $("group-q").placeholder = t("search_groups");
+  $("group-q").setAttribute("aria-label", t("search_groups"));
   $("sheet").setAttribute("aria-label", t("your_profiles"));
   $("v-text").placeholder = t("type_hint");
   document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
@@ -536,21 +922,22 @@ function icon(name, small = false) {
   return svg;
 }
 let toastTimer;
-function toast(msg, isError = false) {
+// `busy`: a long task's progress; it stays until the next toast replaces it.
+function toast(msg, isError = false, busy = false) {
   const el = $("toast");
-  el.replaceChildren(icon(isError ? "alert" : "check", true), h("span", {}, msg));
-  el.className = "toast" + (isError ? " error" : "");
+  el.replaceChildren(icon(isError ? "alert" : busy ? "sync" : "check", true), h("span", {}, msg));
+  el.className = "toast" + (isError ? " error" : "") + (busy ? " busy" : "");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), isError ? 7000 : 3200);
+  if (!busy) toastTimer = setTimeout(() => el.classList.add("hidden"), isError ? 7000 : 3200);
 }
 
 class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
 async function api(method, path, body, { raw = false } = {}) {
-  const headers = {};
+  const headers = { "Accept-Language": lang };  // server error messages follow the panel's language
   if (token) headers.Authorization = "Bearer " + token;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch("/api/v1" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (res.status === 401) { showLogin(); throw new ApiError(401, t("bad_token")); }
+  if (res.status === 401) { showLogin(); throw new ApiError(401, t(hub ? "bad_login" : "bad_token")); }
   if (!res.ok) {
     let msg = res.statusText;
     try { const j = await res.json();
@@ -565,6 +952,8 @@ async function api(method, path, body, { raw = false } = {}) {
   return ct.includes("json") ? res.json() : res.text();
 }
 const enc = encodeURIComponent;
+// Hub users by their first name from the identity platform; the email until it has sent one.
+const firstName = (u) => (u.display || u.name || "").trim().split(/\s+/)[0];
 
 function maskProxy(p) {
   if (!p) return "";
@@ -578,13 +967,18 @@ const hhmm = (d) => d.toTimeString().slice(0, 5);
 
 async function refresh() {
   try {
-    const [list, run] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser")]);
+    const [list, run, who, sync, accts] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
+      hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync"),
+      // A locked accounts store must not keep the profiles from showing.
+      api("GET", "/accounts").catch(() => ({}))]);
     profiles = list.profiles;
+    syncs = sync.sessions;
+    accountsOf = accts;
+    if (hub) renderMe(who);
     const now = new Set(run.running);
     for (const name of now) if (!liveSince.has(name)) liveSince.set(name, new Date());
     for (const name of [...liveSince.keys()]) if (!now.has(name)) liveSince.delete(name);
     running = now;
-    for (const name of [...selected]) if (!profiles.some((p) => p.name === name)) selected.delete(name);
     for (const name of [...failed.keys()]) if (now.has(name) || !profiles.some((p) => p.name === name)) failed.delete(name);
     await Promise.all(profiles.filter((p) => !(p.name in fingerprints)).map(loadFingerprint));
     render();
@@ -601,33 +995,43 @@ const FILTERS = [
   ["direct", "f_direct", (p) => !p.proxy],
   ["chrome", "f_chrome", (p) => p.engine === "chrome"],
 ];
+// Hub groups the user can see; the picked one scopes the list and the filter counts.
+function groupNames() {
+  return hub && me ? [...new Set([...Object.keys(me.my_groups), ...Object.values(me.groups)])].sort() : [];
+}
+const inGroup = (p, g) => g === null || !me || (me.groups[p.name] || "") === g;
 function visible() {
   const q = $("search").value.trim().toLowerCase();
   const pass = FILTERS.find((f) => f[0] === filter)[2];
-  return profiles.filter((p) => pass(p) && (!q || p.name.toLowerCase().includes(q) || (p.proxy || "").toLowerCase().includes(q)));
+  return profiles.filter((p) => inGroup(p, scope) && pass(p) && (!q || p.name.toLowerCase().includes(q) || (p.proxy || "").toLowerCase().includes(q)));
 }
 
 let lastRender = "";
 function render() {
   const q = $("search").value.trim();
+  // The selection only holds profiles of the picked group: one deleted or moved to
+  // another group leaves it, so bulk actions never reach rows the user cannot see.
+  for (const name of [...selected]) if (!profiles.some((p) => p.name === name && inGroup(p, scope))) selected.delete(name);
   const shown = visible();
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
-  const key = JSON.stringify([lang, q, filter, profiles, [...running].sort(), [...busy], [...failed], [...selected].sort(),
-    [...justLanded], shown.map((p) => fingerprints[p.name] || null)]);
+  const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, [...running].sort(), [...busy], [...failed], [...selected].sort(),
+    [...justLanded], syncs, shown.map((p) => fingerprints[p.name] || null)]);
   if (key === lastRender) return;
   lastRender = key;
+  hideAccountsPop();
 
   if (running.size) {
     const [before, after] = t("counts", { n: profiles.length, r: "\u0000" }).split("\u0000");
     $("counts").replaceChildren(before, h("b", {}, String(running.size)), after);
   } else $("counts").replaceChildren(t("counts_none", { n: profiles.length }));
   renderFilters();
+  renderGroupPick();
 
   const sheet = $("sheet");
   sheet.replaceChildren();
   if (!profiles.length) return sheet.append(emptyState(false));
-  if (selected.size) sheet.append(bulkBar());
+  if (selected.size || syncs.length) sheet.append(bulkBar());
   sheet.append(headRow(shown));
   if (!shown.length) sheet.append(emptyState(true, q));
   for (const p of shown) sheet.append(row(p));
@@ -638,7 +1042,33 @@ function renderFilters() {
   const nav = $("filters");
   nav.replaceChildren(h("div", { class: "nav-title" }, t("filters")),
     ...FILTERS.map(([id, label, pass]) => h("button", { class: filter === id ? "active" : "", "aria-pressed": String(filter === id),
-      onclick: () => { filter = id; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter(pass).length)))));
+      onclick: () => { filter = id; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, scope) && pass(p)).length)))));
+}
+
+function setScope(g) {
+  scope = g;
+  store.set("foxprofile.group", g);
+}
+function renderGroupPick() {
+  const names = groupNames();
+  if (scope && !names.includes(scope)) setScope(null);  // group deleted or user removed from it
+  $("group-pick").classList.toggle("hidden", !names.length);
+  $("group-label").textContent = scope === null ? t("all_groups") : scope || t("no_group");
+  $("group-count").textContent = String(profiles.filter((p) => inGroup(p, scope)).length);
+}
+// The list is drawn when the popover opens and on each keystroke, not by render(),
+// so a periodic refresh never wipes what the user is typing.
+function drawGroups() {
+  const q = $("group-q").value.trim().toLowerCase();
+  const opts = [[null, t("all_groups")], ["", t("no_group")], ...groupNames().map((g) => [g, g])]
+    .filter(([, label]) => !q || label.toLowerCase().includes(q));
+  const lead = (g) => g && me.role !== "admin" && me.my_groups[g] === "lead";
+  $("group-list").replaceChildren(...opts.map(([g, label]) => h("button", { type: "button", role: "option",
+    class: g === scope ? "active" : "", "aria-selected": String(g === scope),
+    onclick: () => { setScope(g); $("group-pop").hidePopover(); render(); } },
+    h("span", { class: "name" }, label), lead(g) ? h("span", { class: "tag" }, t("group_lead")) : null,
+    h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, g)).length)))));
+  if (!opts.length) $("group-list").append(h("div", { class: "minor" }, t("no_group_match")));
 }
 
 function emptyState(filtered, q = "") {
@@ -646,7 +1076,7 @@ function emptyState(filtered, q = "") {
     h("h2", {}, filtered ? t("no_match_title") : t("empty_title")),
     h("p", {}, filtered ? t("no_match", { q }) : t("empty")),
     filtered
-      ? h("button", { class: "btn btn-line", onclick: () => { filter = "all"; $("search").value = ""; render(); } }, t("clear_filters"))
+      ? h("button", { class: "btn btn-line", onclick: () => { filter = "all"; setScope(null); $("search").value = ""; render(); } }, t("clear_filters"))
       : h("button", { class: "btn btn-act", onclick: () => openEditor(null) }, icon("plus"), t("new_profile")));
 }
 
@@ -667,8 +1097,10 @@ function stamp(p) {
   if (state) return h("span", { class: "stamp pending" }, t(state === "stopping" ? "stamp_stopping" : "stamp_starting"));
   if (running.has(p.name)) {
     const since = liveSince.get(p.name);
+    const holder = hub && me.leases[p.name] !== me.name ? me.leases[p.name] : null;
+    const small = [since && hhmm(since), holder].filter(Boolean).join(" · ");
     return h("span", { class: "stamp" + (justLanded.has(p.name) ? " land" : "") },
-      t("stamp_live"), since ? h("small", {}, hhmm(since)) : null);
+      t("stamp_live"), small ? h("small", {}, small) : null);
   }
   if (failed.has(p.name)) return h("span", { class: "stamp failed", title: failed.get(p.name) }, t("stamp_failed"));
   return h("span", { class: "idle" }, t("idle"));
@@ -678,21 +1110,27 @@ function row(p) {
   const on = running.has(p.name);
   const fp = fingerprints[p.name];
   const isBusy = busy.has(p.name);
-  const os = { windows: "WIN", macos: "MAC", linux: "LIN" }[p.os_type] || "OS";
+  const os = { windows: "WIN", macos: "MAC", linux: "LIN", android: "AND" }[p.os_type] || "OS";
   const engine = p.engine === "chrome" ? "Chrome" : "Camoufox";
   const box = h("input", { type: "checkbox", "aria-label": t("select_row", { name: p.name }),
     onchange: (e) => { e.target.checked ? selected.add(p.name) : selected.delete(p.name); render(); } });
   box.checked = selected.has(p.name);
   const proxy = maskProxy(p.proxy);
+  const launch = h("button", { class: "btn btn-act" + (accountsFor(p.name).length ? "" : " main"), disabled: isBusy, onclick: () => toggle(p) }, icon("play", true), t("launch"));
   const main = on
     ? h("button", { class: "btn btn-ink main", disabled: isBusy, onclick: () => toggle(p) }, icon("stop", true), t("stop"))
-    : h("button", { class: "btn btn-act main", disabled: isBusy, onclick: () => toggle(p) }, icon("play", true), t("launch"));
+    : accountsFor(p.name).length
+      ? h("div", { class: "split main" }, launch,
+          h("button", { class: "btn btn-act caret", disabled: isBusy, title: t("open_with"), "aria-label": `${t("open_with")}: ${p.name}`,
+            "aria-haspopup": "menu", onclick: (e) => openWithMenu(p, e.currentTarget) }, icon("down", true)))
+      : launch;
   const iconBtn = (name, label, fn, cls = "", disabled = false) =>
     h("button", { class: "icon-btn " + cls, title: label, "aria-label": `${label}: ${p.name}`, disabled, onclick: fn }, icon(name));
   return h("div", { class: "row body" + (on ? " live" : "") + (selected.has(p.name) ? " selected" : ""), role: "row" },
     h("div", { class: "c-sel", role: "cell" }, box),
     h("div", { class: "c-name stack", role: "cell" },
-      h("span", { class: "name", title: p.name }, p.name),
+      h("span", { class: "name", tabindex: 0, onmouseenter: (e) => showAccountsPop(p, e.currentTarget), onmouseleave: hideAccountsPop,
+        onfocus: (e) => showAccountsPop(p, e.currentTarget), onblur: hideAccountsPop }, p.name),
       h("span", { class: "minor" }, engine)),
     h("div", { class: "c-device device", role: "cell" }, h("span", { class: "os", title: p.os_type }, os),
       h("div", { class: "stack" }, h("span", { class: p.engine === "chrome" ? "engine chrome" : "engine" }, engine),
@@ -709,18 +1147,91 @@ function row(p) {
     h("div", { class: "actions", role: "cell" }, main,
       iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
       iconBtn("cookie", t("cookies"), () => openCookies(p), "", on),
+      iconBtn("key", t("accounts"), () => openAccounts(p)),
       iconBtn("edit", t("edit"), () => openEditor(p)),
       iconBtn("trash", t("delete"), () => removeProfile(p), "danger", on)));
 }
 
 function bulkBar() {
   const names = [...selected];
+  // A running sync stays visible (and stoppable) with nothing selected.
+  const chips = syncs.map((s) => h("span", { class: "sync-chip", title: Object.entries(s.errors).map(([n, e]) => `${n}: ${e}`).join("\n") },
+    icon("sync", true), t("syncing", { leader: s.leader, n: s.followers.length }),
+    Object.keys(s.errors).length ? icon("alert", true) : null,
+    h("button", { class: "btn btn-line", onclick: () => stopSync(s.leader) }, icon("stop", true), t("sync_stop"))));
+  if (!names.length) return h("div", { class: "bulk" }, chips);
   return h("div", { class: "bulk" },
     h("span", { class: "n" }, t("selected", { n: names.length })),
     h("button", { class: "btn btn-act", onclick: () => bulk("launch") }, icon("play", true), t("bulk_launch")),
     h("button", { class: "btn btn-line", onclick: () => bulk("stop") }, icon("stop", true), t("bulk_stop")),
+    h("button", { class: "btn btn-line", onclick: openBulkEdit }, icon("edit", true), t("bulk_edit")),
+    h("button", { class: "btn btn-line", onclick: openRunSteps }, icon("steps", true), t("run_steps")),
+    h("button", { class: "btn btn-line", onclick: openSync }, icon("sync", true), t("sync")),
     h("button", { class: "btn btn-line", onclick: () => bulk("delete") }, icon("trash", true), t("bulk_delete")),
+    chips,
     h("button", { class: "btn btn-ghost", style: "margin-left:auto", onclick: () => { selected.clear(); render(); } }, t("clear_sel")));
+}
+
+const selectedRunning = () => [...selected].filter((n) => running.has(n));
+
+function openRunSteps() {
+  const names = selectedRunning();
+  if (!names.length) return toast(t("need_running"), true);
+  modal((close) => {
+    const script = h("textarea", { id: "f-steps", class: "data", rows: 10, spellcheck: false });
+    script.value = store.get("foxprofile.steps") || "navigate https://example.com\n";
+    const msg = h("div", { class: "msg", role: "status" });
+    const results = h("ul", { class: "results data" });
+    return h("form", { onsubmit: async (e) => {
+      e.preventDefault();
+      const runBtn = e.currentTarget.querySelector(".modal-foot .btn-act");
+      runBtn.disabled = true; msg.className = "msg info"; msg.textContent = t("running_steps"); results.replaceChildren();
+      store.set("foxprofile.steps", script.value);
+      try {
+        const r = (await api("POST", "/automation/run", { profiles: names, script: script.value })).results;
+        const bad = Object.entries(r).filter(([, v]) => !v.ok);
+        msg.className = "msg " + (bad.length ? "err" : "ok");
+        msg.textContent = t("steps_done", { ok: names.length - bad.length, failed: bad.length });
+        results.replaceChildren(...bad.map(([n, v]) => h("li", {}, `${n}: ${v.error}`)));
+      } catch (ex) { msg.className = "msg err"; msg.textContent = ex.message; }
+      runBtn.disabled = false;
+    } },
+      modalHead(t("run_steps_title"), t("run_steps_sub", { n: names.length }), close),
+      h("div", { class: "modal-body" }, field(t("run_steps"), script, t("run_steps_hint")), msg, results),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
+        h("button", { class: "btn btn-act" }, icon("play", true), t("run"))));
+  }, { wide: true });
+}
+
+function openSync() {
+  const names = selectedRunning();
+  if (names.length < 2) return toast(t("sync_need_two"), true);
+  modal((close) => {
+    const leader = h("select", { id: "f-leader" }, names.map((n) => h("option", { value: n }, n)));
+    const msg = h("div", { class: "msg", role: "status" });
+    return h("form", { onsubmit: async (e) => {
+      e.preventDefault();
+      try {
+        await api("POST", "/automation/sync", { leader: leader.value, followers: names });
+        toast(t("sync_started", { leader: leader.value }));
+        close(); refresh();
+      } catch (ex) { msg.className = "msg err"; msg.textContent = ex.message; }
+    } },
+      modalHead(t("sync_title"), null, close),
+      h("div", { class: "modal-body" },
+        h("p", { style: "margin:4px 0 12px;color:var(--ink-2)" }, t("sync_hint")),
+        field(t("sync_leader"), leader), msg),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
+        h("button", { class: "btn btn-act" }, icon("sync", true), t("sync_start"))));
+  });
+}
+
+async function stopSync(leader) {
+  try { await api("DELETE", `/automation/sync/${enc(leader)}`); toast(t("sync_stopped", { leader })); }
+  catch (e) { toast(e.message, true); }
+  refresh();
 }
 
 async function bulk(action) {
@@ -737,6 +1248,59 @@ async function bulk(action) {
   }
   const targets = profiles.filter((p) => names.includes(p.name) && (action === "launch" ? !running.has(p.name) : running.has(p.name)));
   await Promise.all(targets.map((p) => toggle(p, { quiet: true })));
+}
+
+// The same PATCH as the editor, once per profile; only the ticked fields are sent.
+function openBulkEdit() {
+  const names = [...selected];
+  modal((close) => {
+    const msg = h("div", { class: "msg", role: "status" });
+    const os = h("select", { id: "b-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"], ["android", "Android (Chrome)"]].map(([v, label]) =>
+      h("option", { value: v }, label)));
+    const proxy = h("input", { id: "b-proxy", placeholder: "socks5://user:pass@host:port", autocomplete: "off", class: "data" });
+    const tz = h("input", { id: "b-tz", placeholder: t("tz_hint"), autocomplete: "off", class: "data" });
+    const loc = h("input", { id: "b-locale", placeholder: t("locale_hint"), autocomplete: "off", class: "data" });
+    const owner = hub && me.role === "admin" ? h("select", { id: "b-owner" }, h("option", { value: "" }, t("unassigned"))) : null;
+    if (owner) api("GET", "/hub/users").then((users) => users.forEach((u) => owner.append(h("option", { value: u.name }, u.name))));
+    const led = hub ? Object.keys(me.my_groups).filter((g) => me.my_groups[g] === "lead") : [];
+    const group = led.length ? h("select", { id: "b-group" }, h("option", { value: "" }, t("no_group")), led.map((g) => h("option", { value: g }, g))) : null;
+    const fields = [["os_type", t("os"), os], ["proxy", t("proxy_label"), proxy], ["timezone", t("timezone"), tz], ["locale", t("locale"), loc],
+      owner && ["owner", t("owner"), owner], group && ["group", t("group"), group]].filter(Boolean);
+    const ticked = {};
+    const rows = fields.map(([key, label, input]) => {
+      input.disabled = true;
+      ticked[key] = h("input", { type: "checkbox", id: "b-on-" + key, onchange: (e) => { input.disabled = !e.target.checked; msg.className = "msg"; msg.textContent = ""; if (e.target.checked) input.focus(); } });
+      return h("div", { class: "field" },
+        h("label", { for: ticked[key].id, style: "display:flex;gap:8px;align-items:center" }, ticked[key], label), input);
+    });
+    return h("form", { onsubmit: async (e) => {
+      e.preventDefault();
+      const on = fields.filter(([key]) => ticked[key].checked).map(([key, , input]) => [key, input.value.trim()]);
+      if (!on.length) { msg.className = "msg err"; msg.textContent = t("bulk_edit_nothing"); return; }
+      const values = Object.fromEntries(on);
+      const body = {};
+      for (const key of ["os_type", "proxy", "timezone", "locale"]) if (key in values) body[key] = key === "proxy" ? values.proxy || null : values[key];
+      const submitBtn = e.currentTarget.querySelector(".modal-foot .btn-act");
+      submitBtn.disabled = true;
+      let updated = 0;
+      // One at a time: the server writes profiles.json for each.
+      for (const n of names) {
+        try {
+          if (Object.keys(body).length) { await api("PATCH", `/profiles/${enc(n)}`, body); delete fingerprints[n]; }
+          if ("owner" in values) await api("PUT", `/hub/owners/${enc(n)}`, { user: values.owner || null });
+          if ("group" in values) await api("PUT", `/hub/profile-group/${enc(n)}`, { group: values.group || null });
+          updated++;
+        } catch (ex) { toast(`${n}: ${ex.message}`, true); }
+      }
+      if (updated) toast(t("updated_n", { n: updated }));
+      close(); refresh();
+    } },
+      modalHead(t("bulk_edit_title", { n: names.length }), t("bulk_edit_hint"), close),
+      h("div", { class: "modal-body" }, rows, msg),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
+        h("button", { class: "btn btn-act" }, t("save"))));
+  });
 }
 
 async function toggle(p, { quiet = false } = {}) {
@@ -807,7 +1371,7 @@ function field(label, input, hint) {
 function openEditor(p) {
   modal((close) => {
     const name = h("input", { id: "f-name", value: p ? p.name : "", required: true, maxlength: 64, autocomplete: "off" });
-    const os = h("select", { id: "f-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"]].map(([v, label]) =>
+    const os = h("select", { id: "f-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"], ["android", "Android (Chrome)"]].map(([v, label]) =>
       h("option", { value: v, selected: (p ? p.os_type : "windows") === v }, label)));
     // The engine is fixed once a profile exists: the two keep incompatible browser data.
     const engine = h("select", { id: "f-engine", disabled: !!p },
@@ -821,6 +1385,21 @@ function openEditor(p) {
     const loc = h("input", { id: "f-locale", value: p && p.locale ? p.locale : "", placeholder: t("locale_hint"), autocomplete: "off", class: "data" });
     const msg = h("div", { class: "msg", role: "status" });
     const geo = h("div");
+    const owner = hub && me.role === "admin" ? h("select", { id: "f-owner" }) : null;
+    if (owner) {
+      const current = p ? me.owners[p.name] || "" : me.name;
+      owner.append(h("option", { value: "" }, t("unassigned")));
+      api("GET", "/hub/users").then((users) => users.forEach((u) =>
+        owner.append(h("option", { value: u.name, selected: u.name === current }, u.name))));
+    }
+    // Admins and leads move profiles between the groups they lead; a group they
+    // only belong to stays as it is.
+    const led = hub ? Object.keys(me.my_groups).filter((g) => me.my_groups[g] === "lead") : [];
+    const currentGroup = p && hub ? me.groups[p.name] || "" : "";
+    const group = led.length && (!currentGroup || led.includes(currentGroup))
+      ? h("select", { id: "f-group" }, h("option", { value: "" }, t("no_group")),
+        led.map((g) => h("option", { value: g, selected: g === currentGroup }, g)))
+      : null;
     const say = (cls, text) => { msg.className = "msg " + cls; msg.textContent = text; };
     const checkIp = h("button", { type: "button", class: "btn btn-line", onclick: async () => {
       checkIp.disabled = true; geo.replaceChildren(h("div", { class: "msg info" }, t("checking")));
@@ -850,6 +1429,8 @@ function openEditor(p) {
       try {
         if (p) { await api("PATCH", `/profiles/${enc(p.name)}`, body); delete fingerprints[p.name]; toast(t("saved")); }
         else { await api("POST", "/profiles", body); toast(t("created", { name: body.name })); }
+        if (owner) await api("PUT", `/hub/owners/${enc(body.name)}`, { user: owner.value || null });
+        if (group && group.value !== currentGroup) await api("PUT", `/hub/profile-group/${enc(body.name)}`, { group: group.value || null });
         close(); refresh();
       } catch (ex) { say("err", ex.message); }
       finally { if (submitBtn) submitBtn.disabled = false; }
@@ -857,6 +1438,7 @@ function openEditor(p) {
       modalHead(p ? t("edit_title") : t("create"), p ? t("edit_sub", { name: p.name }) : t("create_sub"), close),
       h("div", { class: "modal-body" },
         field(t("name"), name),
+        owner || group ? h("div", { class: "field-row" }, owner ? field(t("owner"), owner) : null, group ? field(t("group"), group) : null) : null,
         h("div", { class: "field-row" }, field(t("engine"), engine, p ? t("engine_locked") : null), field(t("os"), os)),
         engineNote,
         field(t("proxy_label"), proxy, t("proxy_hint")),
@@ -869,6 +1451,183 @@ function openEditor(p) {
         h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
         h("button", { class: "btn btn-act" }, p ? t("save") : t("create"))));
   });
+}
+
+// Each profile's accounts (no secrets), from GET /accounts on every refresh: the
+// popup on its name and the "Open with" menu of its Launch button.
+let accountsOf = {};
+const accountsFor = (name) => accountsOf[name] || [];
+let popTimer = null;
+function hideAccountsPop() {
+  clearTimeout(popTimer);
+  $("acct-pop").classList.add("hidden");
+}
+function showAccountsPop(p, anchor) {
+  clearTimeout(popTimer);
+  const accounts = accountsFor(p.name);
+  if (!accounts.length) return;
+  popTimer = setTimeout(() => {
+    if (!anchor.isConnected) return;
+    const pop = $("acct-pop");
+    pop.replaceChildren(
+      h("div", { class: "pop-title" }, t("accounts_title", { name: p.name })),
+      ...accounts.map((a) => h("div", { class: "pop-row" },
+        h("span", { class: "pop-k" }, PLATFORM_LABELS[a.platform] || a.platform),
+        h("span", { class: "data" }, a.username),
+        a.has_totp ? h("span", { class: "tag" }, "2FA") : null)));
+    pop.classList.remove("hidden");
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8)) + "px";
+    const below = r.bottom + 6;
+    pop.style.top = (below + pop.offsetHeight > innerHeight - 8 ? r.top - pop.offsetHeight - 6 : below) + "px";
+  }, 250);
+}
+
+// The caret on a stopped profile's Launch button: launch, then fill one account's login.
+function closeOpenWith() {
+  const menu = $("open-with");
+  if (menu) menu.remove();
+}
+function openWithMenu(p, anchor) {
+  const was = $("open-with");
+  closeOpenWith();
+  if (was && was.dataset.for === p.name) return;  // a second click closes it
+  const pick = (a) => { closeOpenWith(); launchWithAccount(p, a); };
+  const menu = h("div", { id: "open-with", class: "menu", role: "menu", "data-for": p.name },
+    h("div", { class: "menu-title" }, t("open_with")),
+    accountsFor(p.name).map((a) => h("button", { type: "button", role: "menuitem", onclick: () => pick(a) },
+      h("b", {}, PLATFORM_LABELS[a.platform] || a.platform), h("span", { class: "data" }, a.username))));
+  document.body.append(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8)) + "px";
+  const below = r.bottom + 4;
+  menu.style.top = (below + menu.offsetHeight > innerHeight - 8 ? r.top - menu.offsetHeight - 4 : below) + "px";
+  const first = menu.querySelector("button");
+  if (first) first.focus();
+}
+document.addEventListener("mousedown", (e) => {
+  const menu = $("open-with");
+  if (menu && !menu.contains(e.target) && !e.target.closest(".caret")) closeOpenWith();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeOpenWith(); });
+addEventListener("scroll", closeOpenWith, true);
+async function launchWithAccount(p, a) {
+  await toggle(p, { quiet: true });
+  if (!running.has(p.name)) return;  // the launch failed and said so
+  toast(t("account_login_started", { platform: PLATFORM_LABELS[a.platform] || a.platform, name: p.name }));
+  try { toast((await api("POST", `/profiles/${enc(p.name)}/accounts/${a.id}/login`)).message); }
+  catch (e) { toast(`${p.name}: ${e.message}`, true); }
+}
+
+// Brand names: the same in every language.
+const PLATFORM_LABELS = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", x: "X", gmail: "Gmail", hotmail: "Hotmail / Outlook" };
+
+function openAccounts(p) {
+  const base = `/profiles/${enc(p.name)}/accounts`;
+  modal((close) => {
+    const list = h("div");
+    const formBox = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const say = (cls, text) => { msg.className = "msg " + cls; msg.textContent = text; };
+    const btn = (name, label, fn, cls = "") => h("button", { type: "button", class: "icon-btn " + cls, title: label, "aria-label": label, onclick: fn }, icon(name, true));
+    const copy = async (text, what) => { if (await copyText(text)) toast(t("account_copied", { what })); };
+    const password = async (a) => (await api("GET", `${base}/${a.id}/password`)).password;
+    // 2FA codes: fetched when one runs out, counted down here in between.
+    const codes = [];
+    let timer = null;
+    const tick = async () => {
+      if (!list.isConnected) return clearInterval(timer);
+      for (const c of codes) {
+        if (Date.now() >= c.until && !c.loading) {
+          c.loading = true;
+          try { const r = await api("GET", `${base}/${c.id}/totp`); c.code = r.code; c.until = Date.now() + r.remaining * 1000; }
+          catch (e) { say("err", e.message); c.until = Date.now() + 5000; }
+          c.loading = false;
+        }
+        c.codeEl.textContent = c.code;
+        c.leftEl.textContent = t("account_left", { s: Math.max(0, Math.ceil((c.until - Date.now()) / 1000)) });
+      }
+    };
+    const row = (a) => {
+      const label = PLATFORM_LABELS[a.platform] || a.platform;
+      const pw = h("span", { class: "data" }, a.has_password ? "••••••••" : "—");
+      let shown = false;
+      const show = h("button", { type: "button", class: "btn btn-ghost", onclick: async () => {
+        try {
+          shown = !shown;
+          pw.textContent = shown ? await password(a) : "••••••••";
+          show.textContent = t(shown ? "account_hide" : "account_show");
+        } catch (e) { say("err", e.message); }
+      } }, t("account_show"));
+      let codeLine = null;
+      if (a.has_totp) {
+        const c = { id: a.id, until: 0, code: "······", codeEl: h("b", { class: "data acct-code" }), leftEl: h("span", { class: "minor" }) };
+        codes.push(c);
+        codeLine = h("div", { class: "acct-line" }, h("span", { class: "acct-k" }, t("account_otp")), c.codeEl, c.leftEl,
+          btn("copy", t("account_copy"), () => copy(c.code, t("account_otp"))));
+      }
+      const on = running.has(p.name);
+      const login = h("button", { type: "button", class: "btn btn-act", disabled: !on, title: on ? "" : t("account_need_running"), onclick: async () => {
+        login.disabled = true;
+        say("info", t("account_login_started", { platform: label, name: p.name }));
+        try { say("ok", (await api("POST", `${base}/${a.id}/login`)).message); } catch (e) { say("err", e.message); }
+        login.disabled = false;
+      } }, t("account_login"));
+      return h("div", { class: "acct" },
+        h("div", { class: "acct-head" }, h("b", {}, label),
+          h("span", { class: "acct-actions" }, login, btn("edit", t("edit"), () => openForm(a)), btn("trash", t("delete"), () => remove(a, label), "danger"))),
+        h("div", { class: "acct-line" }, h("span", { class: "acct-k" }, t("account_username")), h("span", { class: "data" }, a.username),
+          btn("copy", t("account_copy"), () => copy(a.username, t("account_username")))),
+        a.has_password ? h("div", { class: "acct-line" }, h("span", { class: "acct-k" }, t("account_password")), pw, show,
+          btn("copy", t("account_copy"), async () => { try { copy(await password(a), t("account_password")); } catch (e) { say("err", e.message); } })) : null,
+        codeLine);
+    };
+    const draw = async () => {
+      codes.length = 0;
+      try {
+        const accounts = await api("GET", base);
+        if (accounts.length) accountsOf[p.name] = accounts; else delete accountsOf[p.name];
+        render();
+        list.replaceChildren(...(accounts.length ? accounts.map(row) : [h("div", { class: "note calm" }, icon("key", true), h("span", {}, t("accounts_empty")))]));
+      } catch (e) { say("err", e.message); }
+      tick();
+    };
+    const remove = async (a, label) => {
+      if (!(await confirmDialog(t("account_confirm_delete", { platform: label, username: a.username }), t("delete"), true))) return;
+      try { await api("DELETE", `${base}/${a.id}`); draw(); } catch (e) { say("err", e.message); }
+    };
+    const addBtn = h("button", { type: "button", class: "btn btn-line", style: "margin-top:14px", onclick: () => openForm(null) }, icon("plus", true), t("account_add"));
+    const openForm = (a) => {
+      const platform = h("select", { id: "a-platform" }, Object.entries(PLATFORM_LABELS).map(([v, l]) => h("option", { value: v, selected: !!a && a.platform === v }, l)));
+      const user = h("input", { id: "a-user", value: a ? a.username : "", required: true, maxlength: 320, autocomplete: "off", class: "data" });
+      const pass = h("input", { id: "a-pass", type: "password", maxlength: 1000, autocomplete: "new-password", placeholder: a && a.has_password ? t("account_unchanged") : "" });
+      const secret = h("input", { id: "a-secret", maxlength: 200, autocomplete: "off", class: "data", placeholder: a && a.has_totp ? t("account_unchanged") : "JBSW Y3DP EHPK 3PXP" });
+      formBox.replaceChildren(h("form", { class: "acct-form", onsubmit: async (e) => {
+        e.preventDefault();
+        const body = { platform: platform.value, username: user.value.trim() };
+        // Editing: a blank password or secret keeps the saved one.
+        if (pass.value || !a) body.password = pass.value;
+        if (secret.value.trim() || !a) body.totp_secret = secret.value.trim();
+        try {
+          await api(a ? "PATCH" : "POST", a ? `${base}/${a.id}` : base, body);
+          toast(t("account_saved")); say("", ""); formBox.replaceChildren(addBtn); draw();
+        } catch (ex) { say("err", ex.message); }
+      } },
+        h("div", { class: "field-row" }, field(t("account_platform"), platform), field(t("account_username"), user)),
+        h("div", { class: "field-row" }, field(t("account_password"), pass), field(t("account_totp_secret"), secret, t("account_totp_hint"))),
+        h("div", { class: "inline-btns" },
+          h("button", { type: "button", class: "btn btn-line", onclick: () => formBox.replaceChildren(addBtn) }, t("cancel")),
+          h("button", { class: "btn btn-act" }, t("save")))));
+      user.focus();
+    };
+    formBox.append(addBtn);
+    draw();
+    timer = setInterval(tick, 1000);
+    return h("div", {},
+      modalHead(t("accounts_title", { name: p.name }), t("accounts_hint"), close),
+      h("div", { class: "modal-body" }, list, formBox, msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
 }
 
 function geoLines(r, useLocale) {
@@ -970,6 +1729,401 @@ function openCookies(p) {
   });
 }
 
+// --- Hub: who is logged in, their agent, user admin ---------------------------
+function renderMe(who) {
+  me = who;
+  const el = $("agent-status");
+  el.classList.remove("hidden");
+  // Busy (downloading the browser, updating, opening or saving a profile) says
+  // what with; the agent reports that even before it polls.
+  const act = me.agent_activity;
+  const main = act && !me.agent_online ? "agent_preparing"
+    : me.agent_online ? (me.agent_running ? "agent_on_n" : "agent_on") : "agent_off";
+  const detail = !act ? null
+    : act.state === "downloading" ? t(act.pct == null ? "act_downloading" : "act_downloading_pct", { pct: act.pct })
+    : t("act_" + act.state, { name: act.profile || "" });
+  el.classList.toggle("on", me.agent_online && !act);
+  el.classList.toggle("busy", !!act);
+  el.replaceChildren(h("span", { class: "agent-text" },
+    h("span", {}, `${firstName(me)} · ${t(main, { n: me.agent_running })}`),
+    detail ? h("span", { class: "agent-detail" }, detail) : null));
+  el.title = me.name;
+  $("agent-get-btn").classList.toggle("hidden", me.agent_online || !!act);
+  $("users-btn").classList.toggle("hidden", me.role !== "admin");
+  $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
+  $("agents-btn").classList.remove("hidden");
+}
+function showSettings(on) {
+  $("rail").classList.toggle("settings", on);
+  if (on) $("settings-back").focus();
+  else showGeneral(false);
+}
+// The General page replaces the profile list while Settings is open.
+function showGeneral(on) {
+  $("profiles-view").classList.toggle("hidden", on);
+  $("general-page").classList.toggle("hidden", !on);
+  $("general-btn").setAttribute("aria-current", on ? "page" : "false");
+  if (on) $("general-h").focus();
+}
+
+// Theme: "light", "dark" or "system" (no data-theme: the CSS follows the OS).
+let theme = store.get("foxprofile.theme") || "system";
+function applyTheme() {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  document.querySelectorAll("[data-theme-pick]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.themePick === theme);
+    b.setAttribute("aria-pressed", String(b.dataset.themePick === theme));
+  });
+}
+
+function openUsers() {
+  // Accounts, passwords and roles live on the identity platform; here only the local data is dropped.
+  modal((close) => {
+    const list = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
+    const load = async () => {
+      let users;
+      try { users = await api("GET", "/hub/users"); } catch (e) { return fail(e); }
+      list.replaceChildren(...users.map((u) => h("div", { class: "user-row" },
+        h("b", {}, u.display || u.name), h("span", { class: "muted" }, t("role_" + u.role)), h("span", { class: "muted" }, u.display ? u.name : ""),
+        h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u.name}`, disabled: u.name === me.name,
+          onclick: async () => {
+            if (!(await confirmDialog(t("confirm_delete_user", { name: u.name }), t("delete"), true))) return;
+            try { await api("DELETE", `/hub/users/${enc(u.name)}`); load(); } catch (e) { fail(e); }
+          } }, icon("trash")))));
+    };
+    load();
+    return h("div", {},
+      modalHead(t("users"), null, close),
+      h("div", { class: "modal-body" }, h("p", { class: "muted" }, t("users_managed_externally")), list, msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
+// --- Agents: installers for new PCs, and (admins) each PC's version -------------
+// Installed agents update themselves to the hub's code (src/hub/agent_code.py).
+function openAgents() {
+  modal((close) => {
+    const admin = me.role === "admin";
+    const installs = h("div"), agents = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const say = (text, cls = "info") => { msg.className = "msg " + cls; msg.textContent = text; };
+    const mb = (n) => (n / 1048576).toFixed(0) + " MB";
+    // One PUT, with progress (XHR): resolves with the response's ETag. `done` is
+    // what earlier PUTs of this upload already sent.
+    const put = (url, body, headers, done, total) => new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", url);
+      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.upload.onprogress = (e) => say(t("agents_uploading", { pct: Math.floor(100 * (done + e.loaded) / total) }));
+      xhr.onload = () => {
+        if (xhr.status < 300) return resolve(xhr.getResponseHeader("ETag"));
+        let detail = `${t("agents_upload_failed")} (${xhr.status})`;
+        try { detail = JSON.parse(xhr.responseText).detail || detail; } catch {}
+        reject(new Error(detail));
+      };
+      xhr.onerror = () => reject(new Error(""));
+      xhr.send(body);
+    });
+    const upload = async (platform, file) => {
+      // The hub says where to PUT: its own route, or a bucket through a presigned
+      // URL per part (proxies such as Cloudflare refuse bodies over 100 MB).
+      let target;
+      try { target = await api("POST", `/hub/installers/${platform}/upload-url?name=${enc(file.name)}&size=${file.size}`); } catch (e) { return say(e.message, "err"); }
+      say(t("agents_uploading", { pct: 0 }));
+      const done = { name: file.name, upload_id: target.upload_id };
+      try {
+        if (!target.direct) {
+          await put(target.url, file, { Authorization: "Bearer " + token, "Accept-Language": lang }, 0, file.size);
+        } else {
+          const etags = [];
+          for (const [i, url] of target.parts.entries()) {
+            const start = i * target.part_size;
+            const etag = await put(url, file.slice(start, start + target.part_size), {}, start, file.size);
+            // Without ExposeHeaders: ETag in the bucket's CORS rule the browser hides it.
+            if (!etag) throw new Error(t("agents_upload_etag"));
+            etags.push(etag);
+          }
+          await api("POST", `/hub/installers/${platform}/uploaded`, { ...done, etags });
+        }
+      } catch (e) {
+        if (target.direct) api("POST", `/hub/installers/${platform}/abort`, done).catch(() => {});
+        // A network error (no status): a bucket without a CORS rule for this origin,
+        // or a proxy in front of it closing the connection.
+        return say(e.message || t(target.direct ? "agents_upload_cors" : "agents_upload_failed"), "err");
+      }
+      say(t("agents_uploaded", { name: file.name }), "ok");
+      loadInstallers();
+    };
+    const loadInstallers = async () => {
+      let files;
+      try { files = await api("GET", "/hub/installers"); } catch (e) { return say(e.message, "err"); }
+      installs.replaceChildren(...[["windows", ".msi"], ["macos", ".pkg"]].map(([platform, ext]) => {
+        const f = files.find((x) => x.platform === platform);
+        const pick = h("input", { type: "file", accept: ext, class: "hidden", "aria-label": t("agents_upload") });
+        pick.onchange = () => pick.files[0] && upload(platform, pick.files[0]);
+        return h("div", { class: "inst-row" },
+          h("b", {}, t("agents_" + platform)),
+          h("div", { class: "sub" }, f ? `${f.name} · ${mb(f.size)}` : t("agents_no_file")),
+          h("div", { class: "acts" },
+            f ? h("a", { class: "btn btn-act", href: `/api/v1/hub/installers/${platform}`, download: f.name }, icon("download", true), t("agents_download")) : null,
+            admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => pick.click() }, icon("upload", true), t("agents_upload")) : null,
+            pick));
+      }));
+    };
+    const loadAgents = async () => {
+      let res;
+      try { res = await api("GET", "/hub/agents"); } catch (e) { return say(e.message, "err"); }
+      if (!res.agents.length) { agents.replaceChildren(h("p", { class: "muted" }, t("agents_none"))); return; }
+      agents.replaceChildren(h("p", { class: "muted" }, t("agents_hub_code", { code: res.code.slice(0, 7) })), ...res.agents.map((a) => {
+        const state = a.update_now ? t("agents_update_queued") : t("agent_state_" + a.state);
+        const cls = a.state === "current" ? "ok" : a.state === "installer" || a.state === "old" ? "err" : "";
+        const where = [a.pc, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
+        return h("div", { class: "agent-row" },
+          h("b", {}, a.user),
+          h("div", { class: "sub" }, where, " · ", h("span", { class: cls }, state)),
+          h("div", { class: "acts" }, a.state === "pending" && a.online && !a.update_now
+            ? h("button", { type: "button", class: "btn btn-line", title: t("agents_update_hint"), onclick: async () => {
+                try { await api("POST", `/hub/agents/${enc(a.user)}/update`); loadAgents(); } catch (e) { say(e.message, "err"); }
+              } }, icon("sync", true), t("agents_update_now"))
+            : null));
+      }));
+    };
+    loadInstallers();
+    if (admin) loadAgents();
+    return h("div", {},
+      modalHead(t("agents_title"), null, close),
+      h("div", { class: "modal-body" },
+        h("h3", {}, t("agents_install")), h("p", { class: "muted" }, t("agents_install_hint")), installs,
+        admin ? h("h3", {}, t("agents_list")) : null, admin ? agents : null,
+        msg),
+      h("div", { class: "modal-foot" },
+        admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => { loadInstallers(); loadAgents(); } }, icon("reload", true), t("agents_refresh")) : null,
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
+// First install: only pick the system and download (uploads stay in openAgents).
+function openAgentDownload() {
+  modal((close) => {
+    const tiles = h("div", { class: "os-pick" });
+    const msg = h("div", { class: "msg", role: "status" });
+    api("GET", "/hub/installers").then((files) => {
+      tiles.replaceChildren(...[["windows", "windows"], ["macos", "apple"]].map(([platform, ico]) => {
+        const f = files.find((x) => x.platform === platform);
+        return h("a", f ? { href: `/api/v1/hub/installers/${platform}`, download: f.name } : { "aria-disabled": "true" },
+          icon(ico), h("b", {}, t("agents_" + platform)), h("span", {}, f ? f.name : t("agents_no_file")));
+      }));
+    }).catch((e) => { msg.className = "msg err"; msg.textContent = e.message; });
+    return h("div", {},
+      modalHead(t("agent_get"), null, close),
+      h("div", { class: "modal-body" }, h("p", { class: "muted" }, t("agent_get_hint")), tiles, msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  });
+}
+
+// --- Import from AdsPower (src/api/routes/adspower.py) ----------------------------
+// The import runs after the dialog closes (AdsPower answers once a second, so a
+// big batch takes minutes): a toast when it starts, the profiles appear as they
+// are created, a toast with the result at the end.
+let adsImporting = false;
+async function runAdsImport(todo, access) {
+  adsImporting = true;
+  const done = { created: 0, reimported: 0, skipped: 0, failed: 0 }, errors = [];
+  for (const [i, r] of todo.entries()) {
+    // Stays on screen while it runs: which one, out of how many, and errors so far.
+    toast(t("ads_progress", { i: i + 1, n: todo.length, name: r.target }) + (done.failed ? " · " + t("ads_progress_failed", { n: done.failed }) : ""), false, true);
+    try {
+      // A profile that is here already only gets its cookies refreshed.
+      const res = await api("POST", "/adspower/import", { ...access, profile_id: r.id, name: r.target, group: r.group || "", reimport: r.status === "exists" });
+      if (res.status === "created") { done.created++; refresh(); }
+      else if (res.status === "reimported") done.reimported++;
+      else done.skipped++;
+    } catch (err) { done.failed++; errors.push(`${r.target}: ${err.message}`); }
+  }
+  adsImporting = false;
+  await refresh();
+  toast([t(done.reimported ? "ads_done_re" : "ads_done", done), ...errors.slice(0, 2)].join(" · "), done.failed > 0);
+}
+
+function openAdsPower() {
+  modal((close) => {
+    // AdsPower's profiles by AdsPower group. With thousands of them, a group's
+    // rows are built only when it is opened; each row's state lives in its data.
+    let groups = [];
+    const port = h("input", { id: "ads-port", type: "number", min: 1, max: 65535, value: store.get("foxprofile.adsPort") || "50325", required: true });
+    const key = h("input", { id: "ads-key", type: "password", autocomplete: "off" });
+    const msg = h("div", { class: "msg", role: "status" });
+    const list = h("div", { class: "ads-list hidden" });
+    const total = h("div", { class: "ads-total" });
+    const all = h("input", { type: "checkbox", id: "ads-all" });
+    const allRow = h("label", { class: "ads-all hidden", for: "ads-all" }, all, t("ads_select_all"), total);
+    // Profiles imported before can be picked too: their cookies are read again.
+    const again = h("input", { type: "checkbox", id: "ads-again" });
+    const againRow = h("label", { class: "ads-all hidden", for: "ads-again" }, again, h("span", {}, t("ads_reimport")));
+    const go = h("button", { class: "btn btn-act", type: "button", disabled: true }, t("ads_import_n", { n: 0 }));
+    const access = () => ({ port: Number(port.value), api_key: key.value });
+    const rows = () => groups.flatMap((g) => g.rows);
+    const open = (r) => r.status !== "created" && (r.status !== "exists" || again.checked);
+    const counts = (rs) => {
+      const done = rs.filter((r) => r.status === "exists" || r.status === "created").length;
+      return { total: rs.length, done, pending: rs.length - done, failed: rs.filter((r) => r.status === "failed").length };
+    };
+    const stateText = (r) => ({ exists: t("ads_exists"), created: t("ads_created", { n: r.cookies }), failed: r.error }[r.status] || "");
+    const drawRow = (r) => {
+      if (!r.el) return;
+      r.box.checked = r.picked; r.box.disabled = !open(r) || adsImporting;
+      r.state.className = "state" + (r.status === "failed" ? " err" : r.status === "created" ? " ok" : "");
+      r.state.textContent = stateText(r);
+      r.state.title = (r.warnings || []).join("\n");
+    };
+    const buildRow = (r) => {
+      r.box = h("input", { type: "checkbox", "aria-label": r.target });
+      r.box.onchange = () => { r.picked = r.box.checked; sync(); };
+      r.state = h("div", { class: "state" });
+      r.el = h("label", { class: "ads-row" }, r.box,
+        h("div", {}, h("div", {}, r.target), h("div", { class: "sub" }, r.name !== r.target ? r.name : " ")),
+        h("div", { class: "proxy" }, r.proxy || t("ads_no_proxy")), r.state);
+      drawRow(r);
+      return r.el;
+    };
+    const drawGroup = (g) => {
+      const c = counts(g.rows), openRows = g.rows.filter(open);
+      g.sum.textContent = t("ads_summary", c);
+      g.sum.classList.toggle("err", c.failed > 0);
+      g.box.checked = openRows.length > 0 && openRows.every((r) => r.picked);
+      g.box.indeterminate = !g.box.checked && openRows.some((r) => r.picked);
+      g.box.disabled = !openRows.length || adsImporting;
+      g.rows.forEach(drawRow);
+    };
+    const sync = () => {
+      groups.forEach(drawGroup);
+      const n = rows().filter((r) => r.picked && open(r)).length;
+      go.textContent = t("ads_import_n", { n });
+      go.disabled = adsImporting || !n;
+      const openRows = rows().filter(open);
+      all.checked = openRows.length > 0 && openRows.every((r) => r.picked);
+      all.indeterminate = !all.checked && openRows.some((r) => r.picked);
+      all.disabled = adsImporting;
+      total.textContent = t("ads_summary", counts(rows()));
+    };
+    const pick = (rs, value) => { rs.filter(open).forEach((r) => { r.picked = value; }); sync(); };
+    all.onchange = () => pick(rows(), all.checked);
+    again.onchange = () => { if (!again.checked) rows().forEach((r) => { if (r.status === "exists") r.picked = false; }); sync(); };
+    const buildGroup = (g) => {
+      g.box = h("input", { type: "checkbox", "aria-label": g.label });
+      g.box.onchange = () => pick(g.rows, g.box.checked);
+      g.sum = h("span", { class: "ads-sum" });
+      g.body = h("div", { class: "ads-group-body hidden" });
+      const toggle = h("button", { type: "button", class: "ads-toggle", "aria-expanded": "false" },
+        icon("down", true), h("b", {}, g.label),
+        g.hubGroup ? h("span", { class: "ads-target" }, t("ads_hub_group", { group: g.hubGroup })) : null);
+      toggle.onclick = () => {
+        const opened = g.body.classList.toggle("hidden") === false;
+        toggle.setAttribute("aria-expanded", String(opened));
+        if (opened && !g.body.childElementCount) g.body.append(...g.rows.map(buildRow));
+      };
+      return h("section", { class: "ads-group" }, h("div", { class: "ads-group-head" }, g.box, toggle, g.sum), g.body);
+    };
+    const find = async (e) => {
+      e.preventDefault();
+      msg.className = "msg info"; msg.textContent = "…";
+      store.set("foxprofile.adsPort", port.value);
+      let res;
+      try { res = await api("POST", "/adspower/profiles", access()); }
+      catch (err) { msg.className = "msg err"; msg.textContent = err.message; return; }
+      msg.textContent = res.profiles.length ? "" : t("ads_none");
+      const byGroup = new Map();
+      for (const p of res.profiles) {
+        const r = { ...p, status: p.exists ? "exists" : "pending", picked: !p.exists };
+        if (!byGroup.has(p.group)) byGroup.set(p.group, { label: p.group || t("ads_no_group"), hubGroup: p.hub_group, rows: [] });
+        byGroup.get(p.group).rows.push(r);
+      }
+      // By name, "no group" last.
+      groups = [...byGroup.entries()].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b)).map(([, g]) => g);
+      list.replaceChildren(...groups.map(buildGroup));
+      list.classList.toggle("hidden", !groups.length);
+      allRow.classList.toggle("hidden", !groups.length);
+      againRow.classList.toggle("hidden", !rows().some((r) => r.status === "exists"));
+      sync();
+    };
+    go.onclick = () => {
+      if (adsImporting) { msg.className = "msg err"; msg.textContent = t("ads_busy"); return; }
+      const todo = rows().filter((r) => r.picked && open(r));
+      close();
+      runAdsImport(todo, access());
+    };
+    return h("div", {},
+      modalHead(t("ads_button"), t("ads_sub"), close),
+      h("div", { class: "modal-body" },
+        h("p", { class: "minor", style: "margin:0 0 12px" }, t(hub ? "ads_hint_hub" : "ads_hint_local")),
+        h("form", { class: "ads-form", onsubmit: find },
+          field(t("ads_port"), port), field(t("ads_key"), key),
+          h("button", { class: "btn btn-line" }, icon("search", true), t("ads_find"))),
+        msg, allRow, againRow, list),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close")), go));
+  }, { wide: true });
+}
+
+function openGroups() {
+  modal((close) => {
+    const list = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
+    const admin = me.role === "admin";
+    const call = (method, path, body) => api(method, path, body)
+      .then(() => { msg.textContent = ""; load(); refresh(); return true; }, (e) => { fail(e); return false; });
+    const load = async () => {
+      let groups, users = [];
+      try {
+        groups = await api("GET", "/hub/groups");
+        if (groups.some((g) => g.my_role === "lead")) users = await api("GET", "/hub/users");
+      } catch (e) { return fail(e); }
+      if (!groups.length) return list.replaceChildren(h("p", { class: "minor" }, t("no_groups")));
+      list.replaceChildren(...groups.map((g) => {
+        const lead = g.my_role === "lead";
+        const base = `/hub/groups/${enc(g.name)}`;
+        const members = Object.entries(g.members).map(([u, r]) => {
+          // Only admins promote, demote or remove leads.
+          const role = admin
+            ? h("select", { "aria-label": `Role: ${u}`, onchange: (e) => call("PUT", `${base}/members/${enc(u)}`, { role: e.target.value }) },
+              ["member", "lead"].map((v) => h("option", { value: v, selected: v === r }, t("group_" + v))))
+            : h("span", {}, t("group_" + r));
+          return h("div", { class: "user-row" }, h("span", {}, u), role, h("span"),
+            lead ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u}`,
+              disabled: !admin && r === "lead", onclick: () => call("DELETE", `${base}/members/${enc(u)}`) }, icon("x")) : h("span"));
+        });
+        const pick = h("select", { "aria-label": t("pick_user") }, h("option", { value: "" }, t("pick_user")),
+          users.filter((u) => !(u.name in g.members)).map((u) => h("option", { value: u.name }, u.name)));
+        return h("section", { style: "margin-bottom:18px" },
+          h("div", { style: "display:flex;align-items:center;gap:10px" },
+            h("h3", { style: "margin:0" }, g.name), h("span", { class: "minor" }, t("group_profiles", { n: g.profiles })),
+            h("span", { style: "flex:1" }),
+            admin ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${g.name}`,
+              onclick: async () => {
+                if (await confirmDialog(t("confirm_delete_group", { name: g.name }), t("delete"), true)) call("DELETE", base);
+              } }, icon("trash")) : null),
+          ...members,
+          lead ? h("form", { style: "display:flex;gap:8px;margin-top:8px", onsubmit: (e) => {
+            e.preventDefault(); if (pick.value) call("PUT", `${base}/members/${enc(pick.value)}`, { role: "member" });
+          } }, pick, h("button", { class: "btn btn-line" }, icon("plus", true), t("add_member"))) : null);
+      }));
+    };
+    const name = h("input", { id: "g-name", placeholder: t("new_group"), autocomplete: "off", required: true });
+    load();
+    return h("div", {},
+      modalHead(t("groups"), t("group_hint"), close),
+      h("div", { class: "modal-body" }, list,
+        admin ? h("form", { style: "display:flex;gap:8px;margin-top:14px", onsubmit: (e) => {
+          e.preventDefault(); call("POST", "/hub/groups", { name: name.value.trim() }).then((ok) => { if (ok) name.value = ""; });
+        } }, name, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_group"))) : null,
+        msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
 // --- MCP setup guide -----------------------------------------------------------
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
@@ -996,7 +2150,16 @@ async function openMcpGuide() {
       h("input", { type: "checkbox", onchange: (e) => { state.insertToken = e.target.checked; draw(); } }),
       t("mcp_insert_token"));
     const example = t("mcp_example", { name: sample });
-    const fill = (text) => (state.insertToken && token ? text.split(setup.token_placeholder).join(token) : text);
+    // Hub: sessions expire, so MCP clients get the user's personal key instead.
+    const secret = () => (hub ? state.key : token);
+    const fill = (text) => (state.insertToken && secret() ? text.split(setup.token_placeholder).join(secret()) : text);
+    const keyBox = h("div", { style: "margin-top:12px" },
+      h("button", { type: "button", class: "btn btn-line", onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { state.key = (await api("POST", "/hub/me/key")).key; state.insertToken = true; draw(); }
+        catch (ex) { toast(ex.message, true); e.currentTarget.disabled = false; }
+      } }, t("mcp_new_key")),
+      h("div", { class: "note calm" }, icon("alert", true), h("span", {}, t("mcp_key_note"))));
     function draw() {
       const cfg = setup.configs.find((c) => c.id === state.client);
       chips.replaceChildren(...setup.configs.map((c) => h("button", { type: "button", class: c.id === state.client ? "active" : "",
@@ -1018,7 +2181,7 @@ async function openMcpGuide() {
         h("div", { class: "where-row", style: "margin-top:16px" }, where,
           h("button", { type: "button", class: "btn btn-act", onclick: () => copyBtn(code.textContent) }, t("mcp_copy"))),
         code, note,
-        setup.auth_required ? tokenBox : null,
+        setup.auth_required ? (hub ? keyBox : tokenBox) : null,
         h("div", { class: "step" }, t("mcp_restart")),
         h("div", { class: "where-row" }, h("i", {}, example),
           h("button", { type: "button", class: "btn btn-line", onclick: () => copyBtn(example) }, t("mcp_copy"))),
@@ -1096,8 +2259,73 @@ document.querySelectorAll("[data-key]").forEach((b) => { b.onclick = () => act("
 let listTimer = null;
 function showLogin() {
   clearInterval(listTimer); listTimer = null;
+  showSettings(false);
   $("app").classList.add("hidden"); $("viewer").classList.add("hidden"); $("login").classList.remove("hidden");
-  $("token").focus();
+  $("agent-card").classList.add("hidden"); $("login-form").classList.remove("hidden");
+  (hub ? $("email") : $("token")).focus();
+}
+
+// --- Agent sign-in (src/hub/agent_auth.py) ---------------------------------------
+// The PC agent opens #agent=<port>&state=<state>&pc=<host>. Authorize creates an
+// agent key and POSTs it as a form to the agent's loopback server, so the key never
+// sits in a URL or in history. Pending in sessionStorage so it survives the login.
+let agentAuth = (() => { try { return JSON.parse(sessionStorage.getItem("foxprofile.agent")); } catch { return null; } })();
+function saveAgentAuth(v) {
+  agentAuth = v;
+  try { v ? sessionStorage.setItem("foxprofile.agent", JSON.stringify(v)) : sessionStorage.removeItem("foxprofile.agent"); } catch {}
+}
+function takeAgentHash() {
+  if (!location.hash.startsWith("#agent")) return null;
+  const done = location.hash === "#agent-done", p = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, "", location.pathname + location.search);
+  if (done) return "done";
+  const port = p.get("agent") || "", state = p.get("state") || "";
+  if (!/^\d{1,5}$/.test(port) || !/^[\w-]{20,}$/.test(state)) return null;
+  saveAgentAuth({ port, state, pc: (p.get("pc") || "").slice(0, 64) });
+  return "pending";
+}
+// The agent reusing an open panel tab only changes the hash: boot again for it.
+addEventListener("hashchange", () => { if (location.hash.startsWith("#agent=")) location.reload(); });
+function showAgentCard(...children) {
+  clearInterval(listTimer); listTimer = null;
+  showSettings(false);
+  $("app").classList.add("hidden"); $("viewer").classList.add("hidden"); $("login").classList.remove("hidden");
+  $("login-form").classList.add("hidden");
+  const card = $("agent-card");
+  card.replaceChildren(...children); card.classList.remove("hidden");
+  card.querySelector("h1").focus();
+}
+function showAgentEnd(title, text) {
+  saveAgentAuth(null);
+  showAgentCard(h("h1", { tabindex: "-1" }, title), h("p", { class: "muted" }, text),
+    h("button", { class: "btn btn-line", type: "button", onclick: () => (token ? showApp(true) : showLogin()) }, t("agent_to_panel")));
+}
+async function showAgentAuth() {
+  const who = await api("GET", "/hub/me");  // a 401 shows the login, keeping agentAuth
+  const groups = Object.keys(who.my_groups || {});
+  const row = (k, v) => [h("dt", {}, t(k)), h("dd", {}, v)];
+  const err = h("div", { class: "msg err", role: "alert" });
+  const authorize = h("button", { class: "btn btn-act", type: "button", onclick: async () => {
+    authorize.disabled = true; err.textContent = "";
+    try {
+      const { key } = await api("POST", "/hub/me/agent-key");
+      const { port, state } = agentAuth;
+      saveAgentAuth({ ...agentAuth, user: firstName(who) });  // for the #agent-done page
+      const form = h("form", { method: "post", action: `http://127.0.0.1:${port}/callback`, class: "hidden" },
+        h("input", { type: "hidden", name: "state", value: state }), h("input", { type: "hidden", name: "key", value: key }));
+      document.body.append(form);
+      form.submit();
+    } catch (e) { err.textContent = e.message; authorize.disabled = false; }
+  } }, t("agent_authorize"));
+  showAgentCard(
+    h("h1", { tabindex: "-1" }, t("agent_auth_title")),
+    h("p", { class: "muted" }, t("agent_auth_hint", { pc: agentAuth.pc || t("agent_auth_this_pc") })),
+    h("dl", { class: "agent-who" }, row("email", who.name), row("agent_auth_role", t("role_" + who.role)),
+      groups.length ? row("groups", groups.join(", ")) : null, row("agent_auth_hub", location.host)),
+    err, authorize,
+    h("div", { class: "agent-actions" },
+      h("button", { class: "btn btn-line", type: "button", onclick: () => { token = ""; store.set("foxprofile.token", null); showLogin(); } }, t("agent_switch")),
+      h("button", { class: "btn btn-ghost", type: "button", onclick: () => showAgentEnd(t("agent_cancelled_title"), t("agent_cancelled")) }, t("cancel"))));
 }
 async function showApp(authRequired) {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
@@ -1107,6 +2335,21 @@ async function showApp(authRequired) {
 }
 $("login-form").onsubmit = async (e) => {
   e.preventDefault();
+  if (hub) {
+    try {
+      const res = await fetch("/api/v1/hub/login", { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang },
+        body: JSON.stringify({ email: $("email").value.trim(), password: $("token").value }) });
+      if (!res.ok) {
+        // The hub answers in our language: wrong credentials, no access, lockout wait, platform down.
+        const detail = (await res.json().catch(() => ({}))).detail;
+        throw new ApiError(res.status, typeof detail === "string" ? detail : t("bad_login"));
+      }
+      token = (await res.json()).token;
+      store.set("foxprofile.token", token); $("token").value = ""; $("login-err").textContent = "";
+      agentAuth ? showAgentAuth() : showApp(true);
+    } catch (err) { $("login-err").textContent = err.message; }
+    return;
+  }
   token = $("token").value.trim();
   try { await api("GET", "/profiles"); store.set("foxprofile.token", token); $("login-err").textContent = ""; showApp(true); }
   catch (err) { $("login-err").textContent = err.status === 401 ? t("bad_token") : (err.message || t("bad_token")); token = ""; }
@@ -1114,6 +2357,41 @@ $("login-form").onsubmit = async (e) => {
 $("logout-btn").onclick = () => { token = ""; store.set("foxprofile.token", null); showLogin(); };
 $("new-btn").onclick = () => openEditor(null);
 $("mcp-btn").onclick = openMcpGuide;
+$("ads-btn").onclick = openAdsPower;
+$("users-btn").onclick = openUsers;
+$("groups-btn").onclick = openGroups;
+$("agents-btn").onclick = openAgents;
+$("agent-get-btn").onclick = openAgentDownload;
+$("settings-btn").onclick = () => showSettings(true);
+$("general-btn").onclick = () => showGeneral(true);
+document.querySelectorAll("[data-theme-pick]").forEach((b) => {
+  b.onclick = () => { theme = b.dataset.themePick; store.set("foxprofile.theme", theme === "system" ? null : theme); applyTheme(); };
+});
+applyTheme();
+$("settings-back").onclick = () => { showSettings(false); $("settings-btn").focus(); };
+$("group-pop").addEventListener("toggle", (e) => {
+  if (e.newState !== "open") return;
+  const r = $("group-btn").getBoundingClientRect(), pop = $("group-pop");
+  pop.style.left = `${r.left}px`;
+  pop.style.top = `${r.bottom + 6}px`;
+  pop.style.width = `${Math.min(Math.max(r.width, 280), innerWidth - r.left - 16)}px`;
+  pop.style.maxHeight = `${Math.max(200, innerHeight - r.bottom - 22)}px`;
+  $("group-q").value = "";
+  drawGroups();
+  $("group-q").focus();
+});
+$("group-q").oninput = drawGroups;
+$("group-q").onkeydown = (e) => {
+  const first = $("group-list").querySelector("button");
+  if (e.key === "Enter" && first) { e.preventDefault(); first.click(); }
+  if (e.key === "ArrowDown" && first) { e.preventDefault(); first.focus(); }
+};
+$("group-list").onkeydown = (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  e.preventDefault();
+  const next = e.key === "ArrowDown" ? document.activeElement.nextElementSibling : document.activeElement.previousElementSibling;
+  (next || (e.key === "ArrowUp" ? $("group-q") : null))?.focus();
+};
 $("search").oninput = render;
 document.querySelectorAll("[data-lang]").forEach((b) => { b.onclick = () => { lang = b.dataset.lang; store.set("foxprofile.lang", lang); applyI18n(); lastRender = ""; render(); }; });
 document.addEventListener("keydown", (e) => {
@@ -1131,6 +2409,16 @@ document.addEventListener("keydown", (e) => {
     const res = await fetch("/api/v1/info");
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const info = await res.json();
+    if (info.mode === "hub") {
+      hub = true;
+      $("user-field").classList.remove("hidden");
+      $("email").required = true;
+      for (const [sel, key] of [["#login [data-t=token]", "password"], ["#login [data-t=login_side]", "login_side_hub"], ["#login [data-t=login_hint]", "login_hint_hub"]])
+        document.querySelector(sel).dataset.t = key;
+      applyI18n();
+    }
+    if (hub && takeAgentHash() === "done") return showAgentEnd(t("agent_done_title"), t("agent_done", { user: (agentAuth && agentAuth.user) || "" }));
+    if (hub && agentAuth) return token ? showAgentAuth().catch(showLogin) : showLogin();
     if (info.auth_required && !token) return showLogin();
     try { await showApp(info.auth_required); } catch { showLogin(); }
   } catch (e) {

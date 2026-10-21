@@ -42,6 +42,7 @@ python -m chrome_engine.runner <tên> <proxy|None> <windows|macos|linux> [timezo
 | Headless báo màn hình 800x600, scrollbar 0px | `--screen-info`/`--window-size` 1920x1080, giữ scrollbar | `engine.py` |
 | WebRTC: fork chặn hết UDP; nếu mở lại thì lộ IP LAN (fork không che bằng mDNS) | Có proxy: chặn UDP. Không proxy: chỉ lộ IP public (`default_public_interface_only`), không bao giờ lộ IP LAN | `engine.py` |
 | Persona OS khác host tự mâu thuẫn | Bảng tương thích; persona Linux trên host Windows hoặc macOS bị từ chối (WebGL vẫn báo GPU thật của máy) | `persona.py` |
+| Không có persona điện thoại (fork chỉ có windows/linux/macos) | Persona `android`: bỏ `--fingerprint-platform` (nó ghim `navigator.platform` và client hints về OS desktop), `--user-agent` (tới cả ServiceWorker/SharedWorker), giả lập di động của Playwright (màn hình, cảm ứng) và CDP `Emulation.setUserAgentOverride` cho `navigator.platform` (`Linux armv81`) và client hints đầy đủ trên mọi trang | `persona.py`, `engine.py` |
 | Cần biết trang web thực sự thấy gì | Probe đọc từ window, worker, iframe, ServiceWorker, SharedWorker, header HTTP; `check()` liệt kê mọi chỗ lệch | `probe.py` |
 
 ## Tương thích persona ↔ máy chủ
@@ -53,6 +54,8 @@ python -m chrome_engine.runner <tên> <proxy|None> <windows|macos|linux> [timezo
 | macOS | cảnh báo: font macOS, scrollbar overlay 0px | ok | **từ chối**: WebGL báo GPU Apple thật |
 
 Hàng Windows và macOS được đo trực tiếp; hàng Linux là suy luận và chưa kiểm chứng.
+
+Persona `android` luôn là **cảnh báo** trên mọi máy: font desktop của máy lộ qua đo font, WebGL báo GPU desktop (sinh từ seed, như kiểu Windows) và `navigator.platform` bên trong worker là của máy (CDP từ persistent context của Playwright không tới được worker). Đo trên macOS 26 (Apple Silicon): `probe.check()` chỉ còn đúng ba lệch `worker_platform`, `serviceWorker_platform`, `sharedWorker_platform`.
 
 Bản macOS của fork chỉ có arm64: Mac Intel không được hỗ trợ (`fetch` báo lỗi thay vì tải về một bản không chạy được). Python x86_64 chạy qua Rosetta trên Mac Apple Silicon vẫn được nhận là arm64.
 
@@ -88,5 +91,6 @@ python chrome_engine/e2e/detection_e2e.py headed headless   # cần internet
 - Persona macOS luôn báo `devicePixelRatio` 1, trong khi MacBook thật gần như luôn là 2 (Retina). Ở headless, `availHeight` bằng `height` (không trừ thanh menu).
 - Persona Windows trên macOS: scrollbar 0px. Đặt `defaults write org.chromium.Chromium AppleShowScrollBars Always` đưa về 15px (Windows thật 17px), nhưng cài đặt đó áp dụng cho mọi Chromium cùng bundle id trên máy.
 - Phát hiện qua thời gian phản hồi CDP chưa được xử lý.
+- Persona `android`: engine là Chrome 148 còn User-Agent có thể báo bản cũ hơn (vd. 141 khi chuyển từ AdsPower); kiểm tra tính năng JS có thể thấy engine mới hơn. Trang mới mở rất sớm (popup) có thể chạy vài script trước khi override CDP được áp dụng.
 - Proxy bridge nghe trên `127.0.0.1` cổng ngẫu nhiên, không có mật khẩu (Chromium không gửi được). Trang web không dùng được nó (không gửi được `CONNECT`, request thường bị trả 400), nhưng tiến trình khác trên cùng máy có thể đi ra ngoài qua proxy của profile trong lúc profile đang mở.
 - Phụ thuộc fork bên ngoài: nâng phiên bản phải chạy lại toàn bộ test (đặc biệt `test_emoji_canvas_does_not_crash`) trước khi đổi `DEFAULT_VERSION`.

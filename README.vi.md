@@ -35,7 +35,9 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - [Timezone, locale và Kiểm tra IP](#timezone-locale-và-kiểm-tra-ip)
 - [Chế độ server và web panel](#chế-độ-server-và-web-panel)
 - [MCP: cho AI điều khiển trình duyệt](#mcp-cho-ai-điều-khiển-trình-duyệt)
+- [Chạy bước và đồng bộ](#chạy-bước-và-đồng-bộ)
 - [Engine Chrome (thử nghiệm)](#engine-chrome-thử-nghiệm)
+- [Chuyển từ AdsPower](#chuyển-từ-adspower)
 - [Cookie và fingerprint](#cookie-và-fingerprint)
 - [Cấu hình](#cấu-hình)
 - [REST API](#rest-api)
@@ -57,7 +59,9 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - **Xuất/nhập cả profile** ra file ZIP để chuyển sang máy khác, có hoặc không kèm dữ liệu trình duyệt. Fingerprint luôn đi kèm.
 - **Bảng profile dễ quét**: mỗi dòng cho thấy engine, thiết bị đang giả lập, proxy (đã ẩn mật khẩu), timezone/locale và trạng thái. Trạng thái phân biệt bằng cả hình lẫn màu: dấu tím viền kép kèm giờ mở là đang chạy, viền xám là đang mở, dấu đỏ gạch ngang là mở lỗi.
 - **Lọc và tìm kiếm**: lọc theo đang chạy, có/không proxy, engine Chrome (kèm số đếm); tìm theo tên hoặc proxy.
-- **Thao tác hàng loạt**: chọn nhiều profile để mở, dừng hoặc xóa cùng lúc.
+- **Tài khoản mạng xã hội**: lưu tài khoản Facebook, Instagram, TikTok, X, Gmail và Hotmail/Outlook của từng profile (tên đăng nhập, mật khẩu, mã bí mật 2FA), được mã hoá khi lưu; sao chép, xem mã 2FA hiện tại hoặc tự điền form đăng nhập trong profile đang chạy. Rê chuột lên tên profile để xem các tài khoản của nó, và mũi tên trên nút Mở cho phép mở profile rồi đăng nhập bằng một tài khoản. Cũng được nhập từ AdsPower. Không mở qua MCP.
+- **Thao tác hàng loạt**: chọn nhiều profile để mở, dừng, sửa hoặc xóa cùng lúc. Sửa hàng loạt chỉ đổi các trường được đánh dấu (hệ điều hành, proxy, timezone, locale; ở chế độ hub thêm người dùng và nhóm), các trường khác của từng profile giữ nguyên.
+- **Chạy bước và đồng bộ** (RPA đơn giản): chạy một đoạn script ngắn (navigate, click, type…) song song trên nhiều profile đang chạy, hoặc lặp lại thao tác của một profile sang các profile khác theo thời gian thực.
 - **MCP server**: Claude, Cursor... tự mở profile, lướt web, click, gõ, chụp màn hình.
 - **Chế độ server + web panel**: chạy trên VPS, quản lý và xem màn hình từ xa qua trình duyệt, có token bảo vệ.
 - **REST API** để điều khiển bằng script, có trang tài liệu Swagger.
@@ -91,7 +95,7 @@ Chạy ứng dụng:
 python -m src.main
 ```
 
-Trên Windows có thể bấm đúp `run_foxprofile.bat`. Ứng dụng mở cửa sổ quản lý và đồng thời chạy API tại `http://127.0.0.1:8000`; tài liệu API ở `http://127.0.0.1:8000/docs`. Đặt `FOXPROFILE_LANG=vi` để dùng giao diện tiếng Việt.
+Trên Windows có thể bấm đúp `run_foxprofile.bat`. Ứng dụng mở cửa sổ quản lý và đồng thời chạy API tại `http://127.0.0.1:8000`; tài liệu API ở `http://127.0.0.1:8000/docs`. Đặt `FOXPROFILE_LANG=vi` hoặc `FOXPROFILE_LANG=es` để dùng giao diện tiếng Việt hoặc tiếng Tây Ban Nha.
 
 ## Timezone, locale và Kiểm tra IP
 
@@ -131,6 +135,8 @@ Khi đưa lên VPS, nên đặt server sau reverse proxy có HTTPS (Caddy, Nginx
 
 Hướng dẫn triển khai đầy đủ (Ubuntu, systemd, nginx, HTTPS): [docs/DEPLOY.md](docs/DEPLOY.md).
 
+**Chế độ hub (server cho nhóm, trình duyệt chạy trên từng máy):** `docker compose up -d` chạy panel trung tâm với tài khoản riêng cho từng nhân viên, đăng nhập qua nền tảng định danh của bạn (hub không lưu mật khẩu); mỗi người chạy `foxprofile-agent.bat` / `foxprofile-agent.command` (hoặc các bộ cài, đã kèm Python và tự chạy agent khi đăng nhập: `FoxProfileAgent-<version>.msi` trên Windows, `FoxProfileAgent-<version>-macos.pkg` trên Mac Apple silicon chạy macOS 15 trở lên) và profile mở trên chính máy của họ. Agent đăng nhập qua trình duyệt (panel hỏi nhân viên cấp quyền cho agent, không cần mật khẩu trên máy) và chạy ở khay hệ thống / thanh menu, với menu để đổi tài khoản hoặc xem log. Agent cài bằng bộ cài tự cập nhật theo phiên bản của hub (chỉ phần code; thư viện mới cần bộ cài mới), và mục Cài đặt › Agent trong panel cung cấp bộ cài (từ ổ đĩa của hub hoặc bucket S3 riêng tư như RustFS, qua URL ký sẵn) và cho xem phiên bản của từng máy. Nhóm cho phép nhiều nhân viên dùng chung một số profile từ các máy khác nhau. Hướng dẫn (tiếng Tây Ban Nha): [docs/HUB.md](docs/HUB.md).
+
 ## MCP: cho AI điều khiển trình duyệt
 
 FoxProfile có sẵn MCP server, để Claude Code, Claude Desktop, Cursor, VS Code... tự quản lý profile và thao tác trên trang: mở URL, đọc trang, click, gõ, chụp màn hình.
@@ -163,14 +169,58 @@ Sau đó chỉ cần nhắn AI, ví dụ: *"Mở profile tiktok-us-02, vào tikt
 | Cookie & fingerprint | `export_cookies`, `import_cookies`, `get_fingerprint`, `reset_fingerprint`, `check_proxy`, `check_profile_ip` |
 | Trang | `browser_navigate`, `browser_back`, `browser_snapshot`, `browser_get_text`, `browser_click`, `browser_click_at`, `browser_type`, `browser_press`, `browser_wait_for`, `browser_screenshot`, `browser_evaluate` |
 | Tab | `browser_tabs`, `browser_tab_new`, `browser_tab_select`, `browser_tab_close` |
+| Nhiều profile | `run_steps` |
 
 MCP **không** có tool xóa profile, để AI không thể vô tình xóa cookie của tài khoản. Trang chỉ mở được `http`, `https` và `about:blank`; `file://` và `about:config` bị chặn.
 
+## Chạy bước và đồng bộ
+
+Chọn các profile đang chạy trong bảng (app desktop hoặc web panel) rồi dùng thanh thao tác hàng loạt:
+
+**Chạy bước** chạy một đoạn script ngắn trên mọi profile đã chọn cùng lúc, mỗi dòng một bước. Tham số hai phần ngăn cách bằng ` | `, dòng bắt đầu bằng `//` là chú thích:
+
+```text
+navigate https://example.com
+click text=Sign in
+type input[name="email"] | user@example.com
+select select[name="country"] | VN
+press Enter
+wait #dashboard
+sleep 2000
+```
+
+Các bước: `navigate <url>`, `back`, `click <selector>`, `type <selector> | <text>`, `select <selector> | <value>`, `press <key> [| <selector>]`, `wait <selector>`, `sleep <ms>` (tối đa 60000), `keyboard <text>`, `click_at <x> <y>`, `evaluate <js>`, `tab_new [url]`, `tab_select <i>`, `tab_close <i>`. Selector là selector Playwright, giống API điều khiển trang. Tối đa 100 bước mỗi lần chạy. Trong một profile các bước chạy theo thứ tự; profile dừng ở bước lỗi đầu tiên, các profile khác vẫn chạy tiếp. Kết quả ghi bước lỗi của từng profile.
+
+**Đồng bộ** chọn một profile làm profile chính. Trong khi đồng bộ, click, chữ đã gõ, thay đổi `<select>` và Enter/Tab/Escape trên các trang của profile chính, cùng địa chỉ gõ vào profile chính, được lặp lại ở tab đang mở của các profile đã chọn còn lại. Dùng được cả với trình duyệt chạy ẩn: thao tác trên profile chính qua màn hình từ xa. Cần biết:
+
+- Phần tử được tìm theo selector (id, `name`, `aria-label`…, nếu không có thì theo vị trí trong trang). Profile có trang khác đi (ngôn ngữ khác, A/B test) sẽ lỗi ở bước đó, và lỗi hiện trên nhãn đồng bộ.
+- Một bước chỉ được lặp lại ở profile đang ở **cùng trang web** (origin) với profile chính, nên profile đã đi sang trang khác không bao giờ bị click nhầm vào trang đó.
+- Mỗi profile chỉ ở trong một phiên đồng bộ, và không thể vừa là profile chính của phiên này vừa là profile theo của phiên khác.
+- Đồng bộ cài một listener nhỏ vào các trang của profile chính, tồn tại đến khi trình duyệt đó khởi động lại (không làm gì khi không đồng bộ). Với engine Chrome, script của trang có thể thấy nó; với Camoufox nó tách biệt khỏi trang.
+
+Qua API: `POST /api/v1/automation/run` với `{"profiles": [...], "script": "..."}` (hoặc `steps` dạng JSON), và `POST` / `GET` / `DELETE /api/v1/automation/sync`. Tool MCP `run_steps` cũng chạy được script; đồng bộ chỉ dành cho người dùng, không có trong MCP.
+
 ## Engine Chrome (thử nghiệm)
 
-Ngoài Camoufox (Firefox), profile có thể chạy trên engine **Chrome**: một bản Chromium đã vá fingerprint ở tầng C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), giấy phép BSD-3). Chọn ở ô **Engine** khi tạo profile; không đổi được sau khi tạo. Bản trình duyệt (~140-190 MB tuỳ hệ điều hành, tải từ GitHub của fingerprint-chromium và kiểm tra SHA-256) được tự tải ở nền ngay khi tạo profile Chrome đầu tiên, hoặc lúc mở profile nếu chưa có; tiến độ hiện trong log. Muốn tải trước bằng tay: `python -m chrome_engine fetch`.
+Ngoài Camoufox (Firefox), profile có thể chạy trên engine **Chrome**: một bản Chromium đã vá fingerprint ở tầng C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), giấy phép BSD-3). Chọn ở ô **Engine** khi tạo profile; không đổi được sau khi tạo. Bản trình duyệt (~140-190 MB tuỳ hệ điều hành, tải từ GitHub của fingerprint-chromium và kiểm tra SHA-256) được tự tải ở nền ngay khi tạo profile Chrome đầu tiên, hoặc lúc mở profile nếu chưa có; tiến độ hiện trong log. Muốn tải trước bằng tay: `python -m chrome_engine fetch`. Các bộ cài agent (MSI, pkg macOS) đã kèm sẵn.
 
 Nên chọn đúng hệ điều hành của máy đang chạy FoxProfile: persona khác hệ điều hành sẽ lộ font của máy, và persona Linux trên Windows/macOS bị từ chối vì WebGL lộ GPU thật. Hỗ trợ Windows x64, macOS Apple Silicon và Linux x64 (chưa kiểm chứng). Chi tiết và kết quả kiểm thử: [chrome_engine/README.md](chrome_engine/README.md).
+
+**Profile Android (điện thoại).** Với engine Chrome, hệ điều hành còn có thể là **Android**: profile hiện ra như một điện thoại (User-Agent Chrome Android, client hints và `navigator.platform` khớp theo, màn hình điện thoại, cảm ứng, con trỏ coarse) trên bất kỳ máy Windows hay Mac nào. Tính năng này dùng để chuyển profile Android từ các trình duyệt anti-detect khác mà giữ nguyên User-Agent trang web đã biết. Giới hạn đã biết: font desktop của máy lộ qua đo font, WebGL báo GPU desktop, và `navigator.platform` bên trong web worker là của máy.
+
+## Chuyển từ AdsPower
+
+**Nhập từ AdsPower** (web panel: Settings; app desktop: nút **Từ AdsPower** ở thanh bên) sao chép profile từ AdsPower đang chạy trên cùng máy, qua Local API của nó (bật trong AdsPower: Settings > API; nhập API key nếu đã bật). Danh sách được nhóm theo nhóm của AdsPower, có số đếm cho từng nhóm (đã nhập, còn lại, lỗi) để kiểm tra một lần chuyển lớn theo từng nhóm; tích cả nhóm hoặc từng profile rồi nhập. Nhập lại chỉ thêm những profile chưa có; tích **Nhập lại các profile đã có** để làm mới cookie của chúng từ AdsPower (gộp: cookie của AdsPower thay cookie cùng tên và domain; proxy, tài khoản, fingerprint và dữ liệu trình duyệt giữ nguyên, profile đang mở bị bỏ qua). AdsPower chỉ trả lời một yêu cầu mỗi giây, nên mỗi profile mất khoảng 8-10 giây. Khi bấm nhập, hộp thoại đóng lại và việc nhập chạy nền: một thông báo luôn hiện tiến độ ("Đang nhập 3/10 từ AdsPower: <profile>" cùng số lỗi), profile hiện dần trong danh sách, và một thông báo kết quả khi xong. Hãy để tab panel (hoặc app desktop) mở cho đến lúc đó.
+
+| Được chuyển | Không chuyển được |
+|---|---|
+| Tên (sửa cho hợp lệ làm tên thư mục; tên trùng được thêm số của AdsPower) | Nhiễu fingerprint (canvas, audio, client rects, ảnh WebGL): thuật toán riêng của SunBrowser, trình duyệt khác không tái tạo được |
+| Proxy, kể cả proxy chọn từ danh sách proxy của AdsPower | Local storage, extension, lịch sử |
+| Đúng User-Agent, từ đó suy ra hệ điều hành; profile Android thành điện thoại Android (xem trên) | Ghi chú, nhóm |
+| Cookie (Chrome giới hạn hạn dùng 400 ngày, giống SunBrowser) | Tài khoản nền tảng của trang mà FoxProfile không lưu tài khoản (báo bằng cảnh báo) |
+| Tài khoản nền tảng (tên đăng nhập, mật khẩu, khoá 2FA) khi trang là Facebook, Instagram, TikTok, X, Google hoặc Outlook/Hotmail, vào danh sách tài khoản mã hoá của profile | |
+
+Profile được tạo trên engine Chrome vì SunBrowser của AdsPower là Chromium: trang web vẫn thấy cùng loại trình duyệt. Timezone và ngôn ngữ theo IP của proxy, như tuỳ chọn "theo IP" của AdsPower. Ở chế độ hub, việc nhập chạy trên máy của bạn qua agent, nơi có AdsPower, và mỗi profile được đưa vào nhóm hub cùng tên với nhóm AdsPower của nó (quản trị viên nhập thì nhóm được tạo; tên chỉ giữ chữ, số, `-` và `_`, nên "Ventas México" thành `Ventas-Mexico`). Nhập lại cũng đưa các profile đã nhập trước đó vào đúng nhóm.
 
 ## Cookie và fingerprint
 
@@ -187,7 +237,7 @@ Mọi cấu hình đều không bắt buộc. Muốn đổi thì sao chép `.env
 
 | Biến | Mặc định | Ý nghĩa |
 | --- | --- | --- |
-| `FOXPROFILE_LANG` | `en` | Ngôn ngữ giao diện: `en` hoặc `vi` |
+| `FOXPROFILE_LANG` | `en` | Ngôn ngữ giao diện: `en`, `vi` hoặc `es`. Agent của hub dùng ngôn ngữ của hub nếu máy không tự đặt |
 | `FOXPROFILE_PROFILES_FILE` | `profiles.json` | File lưu danh sách profile |
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Thư mục dữ liệu, mỗi profile một thư mục con |
 | `FOXPROFILE_LOG_DIR` | `logs` | Thư mục log |
@@ -248,6 +298,9 @@ Tiền tố: `/api/v1`. Xem đầy đủ tại `/docs` khi ứng dụng đang ch
 | `POST` | `/browser/{name}/page/evaluate` | Chạy JavaScript |
 | `GET` / `POST` | `/browser/{name}/page/tabs` | Liệt kê / mở tab mới |
 | `POST` / `DELETE` | `/browser/{name}/page/tabs/{index}/select` · `/page/tabs/{index}` | Chọn / đóng tab |
+| `POST` | `/browser/{name}/page/select` | Chọn một option của `<select>` |
+| `POST` | `/automation/run` | Chạy các bước trên nhiều profile đang chạy |
+| `GET` / `POST` / `DELETE` | `/automation/sync` · `/automation/sync/{leader}` | Liệt kê / bắt đầu / dừng đồng bộ cửa sổ |
 | `GET` | `/mcp/setup?base_url=...` | Cấu hình MCP cho từng ứng dụng AI (dùng bởi hộp thoại Kết nối AI) |
 
 Khi có `FOXPROFILE_API_TOKEN`, mọi request (trừ `/health` và `/info`) phải gửi header `Authorization: Bearer <token>`.

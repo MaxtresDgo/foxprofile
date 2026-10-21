@@ -146,6 +146,7 @@ async () => {
     })(),
     plugins: navigator.plugins.length,
     maxTouchPoints: navigator.maxTouchPoints,
+    coarsePointer: matchMedia('(pointer: coarse)').matches,
     chrome: typeof window.chrome,
     timezoneOffset: new Date().getTimezoneOffset(),
   };
@@ -249,9 +250,19 @@ class Issue:
         return f"{self.code}: {self.detail}"
 
 
-_UA_OS = {"windows": "Windows NT", "macos": "Macintosh", "linux": "X11; Linux"}
-_NAV_PLATFORM = {"windows": "Win32", "macos": "MacIntel", "linux": "Linux x86_64"}
-_CH_PLATFORM = {"windows": "Windows", "macos": "macOS", "linux": "Linux"}
+_UA_OS = {
+    "windows": "Windows NT",
+    "macos": "Macintosh",
+    "linux": "X11; Linux",
+    "android": "Android",
+}
+_NAV_PLATFORM = {
+    "windows": "Win32",
+    "macos": "MacIntel",
+    "linux": "Linux x86_64",
+    "android": "Linux armv81",
+}
+_CH_PLATFORM = {"windows": "Windows", "macos": "macOS", "linux": "Linux", "android": "Android"}
 _BRAND = {"Chrome": "Google Chrome", "Edge": "Microsoft Edge"}
 _IDENTITY_KEYS = ("userAgent", "platform", "languages", "hardwareConcurrency", "timezone")
 
@@ -404,8 +415,15 @@ def check(persona: Persona, fp: dict[str, Any]) -> list[Issue]:
             f"Accept-Language is {headers.get('accept-language')!r}",
         )
 
+    if persona.platform == "android":
+        _check_phone(persona, fp, expect)
+
     webgl = fp.get("webgl") or {}
-    if "renderer" in webgl:
+    # An android persona keeps a desktop GPU (the host's real one is the
+    # alternative); no renderer string can be told apart from it here.
+    if persona.platform == "android":
+        pass
+    elif "renderer" in webgl:
         expect(
             _webgl_matches(persona.platform, webgl["renderer"]),
             "webgl_renderer",
@@ -429,19 +447,47 @@ def check(persona: Persona, fp: dict[str, Any]) -> list[Issue]:
         "screen is 800x600 (headless default)",
     )
     expect(
-        screen.get("width", 0) >= window.get("innerWidth", 0),
+        # Phones lay out pages without <meta name=viewport> 980px wide.
+        persona.platform == "android" or screen.get("width", 0) >= window.get("innerWidth", 0),
         "screen_window",
         f"window ({window.get('innerWidth')}) is wider than the screen ({screen.get('width')})",
     )
-    if persona.platform != "macos":
-        # macOS may hide scrollbars (overlay); Windows and Linux never do, but
-        # headless Chrome with --hide-scrollbars reports 0.
+    if persona.platform not in ("macos", "android"):
+        # macOS and phones may hide scrollbars (overlay); Windows and Linux never
+        # do, but headless Chrome with --hide-scrollbars reports 0.
         expect(
             (fp.get("scrollbarWidth") or 0) > 0,
             "scrollbar_width",
             f"scrollbars are {fp.get('scrollbarWidth')}px wide",
         )
     return issues
+
+
+def _check_phone(persona: Persona, fp: dict[str, Any], expect: Any) -> None:
+    ua_data = fp.get("uaData") or {}
+    headers = fp.get("headers") or {}
+    screen = fp.get("screen") or {}
+    expect(ua_data.get("mobile") is True, "uadata_mobile", "userAgentData.mobile is not true")
+    expect(
+        headers.get("sec-ch-ua-mobile") == "?1",
+        "header_mobile",
+        f"Sec-CH-UA-Mobile is {headers.get('sec-ch-ua-mobile')!r}",
+    )
+    expect(
+        (fp.get("main") or {}).get("userAgent") == persona.user_agent,
+        "ua_exact",
+        "navigator.userAgent is not the persona's User-Agent",
+    )
+    expect((fp.get("maxTouchPoints") or 0) > 0, "touch", "navigator.maxTouchPoints is 0")
+    expect(bool(fp.get("coarsePointer")), "pointer", "the primary pointer is not coarse")
+    if persona.screen:
+        w, h, dpr = persona.screen
+        expect(
+            (screen.get("width"), screen.get("height"), screen.get("dpr")) == (w, h, dpr),
+            "phone_screen",
+            f"screen is {screen.get('width')}x{screen.get('height')}@{screen.get('dpr')}, "
+            f"persona has {w}x{h}@{dpr}",
+        )
 
 
 _VERSION_IN_UA = re.compile(r"Chrome/(\d+)")

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextvars
 import json
 import os
 import urllib.error
@@ -23,6 +24,8 @@ from mcp.types import ToolAnnotations
 BASE_URL = os.getenv("FOXPROFILE_URL", "http://127.0.0.1:8000").rstrip("/") + "/api/v1"
 TOKEN = os.getenv("FOXPROFILE_API_TOKEN", "")
 TIMEOUT = 150
+# Hub mode: the credential of the MCP client being served, used instead of TOKEN.
+CALLER_TOKEN: contextvars.ContextVar[str | None] = contextvars.ContextVar("caller", default=None)
 
 INSTRUCTIONS = """\
 FoxProfile manages anti-detect Camoufox browser profiles. Each profile has its own
@@ -62,9 +65,10 @@ def _request(
     url = BASE_URL + path
     if query:
         url += "?" + urllib.parse.urlencode({k: v for k, v in query.items() if v is not None})
-    headers = {"Content-Type": "application/json"}
-    if TOKEN:
-        headers["Authorization"] = f"Bearer {TOKEN}"
+    # A custom agent: Cloudflare's Browser Integrity Check refuses Python-urllib (error 1010).
+    headers = {"Content-Type": "application/json", "User-Agent": "FoxProfile-MCP"}
+    if token := CALLER_TOKEN.get() or TOKEN:
+        headers["Authorization"] = f"Bearer {token}"
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
@@ -133,7 +137,7 @@ async def get_profile(name: str) -> dict:
 @mcp.tool()
 async def create_profile(
     name: str,
-    os_type: Literal["windows", "macos", "linux"] = "windows",
+    os_type: Literal["windows", "macos", "linux", "android"] = "windows",
     proxy: str | None = None,
     timezone: str | None = None,
     locale: str | None = None,
@@ -162,7 +166,7 @@ async def update_profile(
     name: str,
     new_name: str | None = None,
     proxy: str | None = None,
-    os_type: Literal["windows", "macos", "linux"] | None = None,
+    os_type: Literal["windows", "macos", "linux", "android"] | None = None,
     timezone: str | None = None,
     locale: str | None = None,
 ) -> dict:
@@ -358,6 +362,19 @@ async def browser_tab_select(profile: str, index: int) -> dict:
 async def browser_tab_close(profile: str, index: int) -> dict:
     """Close the tab at `index`. The last tab cannot be closed; use stop_profile."""
     return await _arequest("DELETE", _page(profile, f"tabs/{index}"))
+
+
+@mcp.tool(annotations=_PAGE_ACT)
+async def run_steps(profiles: list[str], script: str, stop_on_error: bool = True) -> dict:
+    """Run the same steps on several running profiles at once, in parallel.
+
+    `script` has one step per line; two-part arguments split on " | ":
+    navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value>
+    · press <key> [| <selector>] · wait <selector> · sleep <ms> · back · keyboard <text>
+    · click_at <x> <y> · evaluate <js> · tab_new [url] · tab_select <i> · tab_close <i>.
+    Lines starting with // are comments. Returns {ok, done, error} per profile."""
+    body = {"profiles": profiles, "script": script, "stop_on_error": stop_on_error}
+    return await _arequest("POST", "/automation/run", body)
 
 
 def main() -> None:

@@ -67,6 +67,7 @@ def test_mcp_server_registers_expected_tools():
         "browser_snapshot",
         "browser_click",
         "browser_screenshot",
+        "run_steps",
     } <= names
     assert "delete_profile" not in names  # deliberately not exposed to agents
 

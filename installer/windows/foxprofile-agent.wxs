@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FoxProfile Agent for Windows; built by build-msi.sh with msitools (wixl). -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="FoxProfile Agent" Manufacturer="FoxProfile" Language="1033"
+           Version="$(var.Version)" UpgradeCode="C41F8B92-A278-45FC-9939-E6F4F26F4C41">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine"
+             Description="FoxProfile Agent: opens the hub's profiles on this PC" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer FoxProfile Agent is already installed." />
+    <Media Id="1" Cabinet="agent.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="FoxProfile Agent" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder" />
+    </Directory>
+
+    <Icon Id="FoxIcon" SourceFile="$(var.Stage)/app/src/assets/icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="FoxIcon" />
+
+    <!-- Not a Windows service: services run in session 0 and cannot show the
+         browsers to the operator, so the agent starts with each user's logon.
+         pythonw: no console window; the agent lives in the tray and works from
+         %LOCALAPPDATA%\FoxProfile (its home option, see src/agent.py). -->
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="Autostart" Guid="CFA8D8C2-F1C1-428B-9B53-1163048E946E" Win64="yes">
+        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                       Name="FoxProfile Agent" Type="string"
+                       Value="&quot;[INSTALLDIR]python\pythonw.exe&quot; -m src.agent --home" KeyPath="yes" />
+        <Shortcut Id="StartMenu" Directory="ProgramMenuFolder" Name="FoxProfile Agent"
+                  Target="[INSTALLDIR]python\pythonw.exe" Arguments="-m src.agent --home"
+                  WorkingDirectory="INSTALLDIR" Icon="FoxIcon" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Start the agent as soon as an interactive install ends, so it downloads
+         Camoufox and opens the sign-in page right away; also after /passive, which
+         the agent itself uses to install a new version (src/agent.py install_update).
+         Silent installs (/qn), often run as SYSTEM by deployment tools, leave it to
+         the next logon. -->
+    <!-- wixl runs only installed files (FileKey): build-msi.sh passes pythonw.exe's id. -->
+    <CustomAction Id="StartAgent" FileKey="$(var.PythonW)" ExeCommand="-m src.agent --home"
+                  Return="asyncNoWait" />
+    <!-- Close the running agent (and its browsers, /T) between CostFinalize (INSTALLDIR is set) and InstallValidate: its
+         pythonw.exe, DLLs and the bundled Chromium are locked while it runs, and an
+         upgrade or uninstall would otherwise need a reboot. Only processes started
+         from this folder; the open profiles' data is uploaded when the new agent
+         starts (recover()). [\{] [\}] are literal braces in MSI formatted text, $$ a literal $ for wixl. -->
+    <CustomAction Id="SetPowerShell" Property="POWERSHELL"
+                  Value="[System64Folder]WindowsPowerShell\v1.0\powershell.exe" />
+    <CustomAction Id="StopAgent" Property="POWERSHELL" Return="ignore"
+                  ExeCommand="-NoProfile -NonInteractive -WindowStyle Hidden -Command &quot;Get-Process | Where-Object Path -like '[INSTALLDIR]*' | ForEach-Object [\{] taskkill /F /T /PID $$_.Id [\}] *&gt; $$null; Start-Sleep 1&quot;" />
+    <InstallExecuteSequence>
+      <Custom Action="SetPowerShell" After="CostFinalize" />
+      <Custom Action="StopAgent" After="SetPowerShell">INSTALLDIR</Custom>
+      <Custom Action="StartAgent" After="InstallFinalize">NOT REMOVE AND UILevel &gt;= 3</Custom>
+    </InstallExecuteSequence>
+
+    <Feature Id="Main" Level="1">
+      <ComponentGroupRef Id="Payload" />
+      <ComponentRef Id="Autostart" />
+    </Feature>
+  </Product>
+</Wix>

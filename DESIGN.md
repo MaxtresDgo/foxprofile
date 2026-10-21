@@ -320,7 +320,9 @@ Buttons are solid and quiet. The fill colour says what kind of action it is.
 - **Desktop difference:** Flet dropdowns cannot go below 48px, so desktop text fields keep Material's 48px height to stay aligned with them. Desktop labels sit above the fields as separate text rather than floating.
 
 ### Navigation (the cover rail)
-- From top to bottom: brand (fox mark, `FoxProfile` at 18px/700, subtitle in cover-muted), a full-width orange Create button, the filter list (`Tất cả`, `Đang chạy`, `Có proxy`, `Không proxy`, `Engine Chrome`), MCP and API links, and the language segment (`Tiếng Việt` / `English`).
+- From top to bottom: brand (fox mark, `FoxProfile` at 18px/700, subtitle in cover-muted), a full-width orange Create button, the filter list (`Tất cả`, `Đang chạy`, `Có proxy`, `Không proxy`, `Engine Chrome`), and a footer with Settings and Log out. On the desktop app the footer also holds the language segment (`Español` / `English` / `Tiếng Việt`).
+- Hub mode adds a group picker between Create and the filters: one 38px cover-deep button showing the current group and its count. It opens a paper popover with a group search field and a scrolling list (All groups, No group, then each group with its count; groups the user leads carry a Lead tag). The group scopes the list, and the status filters and their counts apply inside it. The rail scrolls itself when it is taller than the window, so the footer is always reachable.
+- Web panel: every user gets a **Settings** link in the rail footer, next to Log out (and the hub agent status). It swaps the Create button, group picker and filters for a Settings view: a back link titled Settings, a **General** link, and an **Administration** section with Users (admins), Groups (admins and group leads), Connect AI (MCP) and API docs. General opens a page in the main area (in place of the profile list) titled General: a raised sheet of setting rows, each with a 600 label, a 13px ink-2 hint and chips on the right. Today it holds Theme (Light / Dark / System) and Language (Español / English / Tiếng Việt); new settings are added as rows. The selected chip uses `--picked`. Both settings are saved per browser.
 - Filter items are 36px tall with 7px corners, in cover-ink at 500. Hover fills them with cover-deep. The active item is a cover-ink pill with cover-coloured 600 text. Counts are right-aligned in mono.
 - On desktop, the rail also holds a collapsible activity log (`Nhật ký hoạt động`) on cover-deep.
 
@@ -350,6 +352,7 @@ The entry stamp is the profile's state, marked like a rubber stamp on a passport
 - **Do** keep industry terms in English inside Vietnamese copy (profile, proxy, cookie, engine, fingerprint).
 
 ### Don't:
+- **Dark theme (web panel only).** "Night paper" redefines the paper, ink, action and stamp tokens on `:root[data-theme="dark"]`, and under `prefers-color-scheme: dark` when the user picked System. The cover rail keeps its colours. Values that used to be literal hex now live in tokens with a light and a dark value: `--row-hover`, `--row-live-hover`, `--row-selected`, `--chrome-ink/-line/-tint`, `--warn-ink`, `--solid`/`--solid-hover`/`--on-solid` (Stop button and toast), `--toast-icon`, `--focus`/`--focus-ring`, `--picked`, `--danger`/`--danger-hover` and `--chevron`. Never add a colour without its dark value.
 - **Don't** build the dark card dashboard this world refuses: no dark-mode card grid, no coloured OS tiles, no orange-on-black.
 - **Don't** use gradient fills, glass or blur, or glow anywhere.
 - **Don't** use violet, green, red or amber as decoration or accent. They are stamp inks for state.

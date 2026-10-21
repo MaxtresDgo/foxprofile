@@ -190,3 +190,12 @@ e2e-output/
 .impeccable/decision/
 .impeccable/questions/
 .impeccable/mocks/
+
+# Hub data (docker compose volume)
+/data/
+hub.json
+# Agent sign-in (holds its key) and its single-instance lock
+agent.json
+agent.lock
+# Chrome engine build bundled by the agent installers
+chrome_engine/builds/

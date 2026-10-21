@@ -1,0 +1,10 @@
+#!/bin/bash
+# Start the agent now for whoever is logged in (preinstall stopped the old one);
+# launchd starts it at every later login.
+plist=/Library/LaunchAgents/io.github.chienbm98.foxprofile-agent.plist
+user=$(stat -f %Su /dev/console)
+if [ -z "$user" ] || [ "$user" = root ] || [ "$user" = loginwindow ]; then
+    exit 0
+fi
+launchctl bootstrap "gui/$(id -u "$user")" "$plist" || true
+exit 0

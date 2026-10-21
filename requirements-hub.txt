@@ -1,0 +1,4 @@
+# Hub only (Dockerfile): installers kept in an S3 bucket such as RustFS
+# (FOXPROFILE_S3_*, docs/HUB.md). Not in requirements.txt: the agent installers
+# ship that file, and a change there asks every agent for a new installer.
+boto3>=1.34

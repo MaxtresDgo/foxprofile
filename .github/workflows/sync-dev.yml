@@ -1,0 +1,40 @@
+name: Sync dev with main
+
+# Brings production (main) into the dev branch: on every push to main, or by
+# hand from Actions → "Sync dev with main" → Run workflow. Repos without a dev
+# branch skip it. A conflict fails the run; merge main into dev by hand then.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-dev
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Merge main into dev
+        run: |
+          if ! git ls-remote --exit-code --heads origin dev > /dev/null; then
+            echo "::notice::No dev branch, nothing to sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout dev
+          if ! git merge --no-edit origin/main; then
+            git merge --abort
+            echo "::error::main and dev conflict: merge main into dev by hand"
+            exit 1
+          fi
+          git push origin dev

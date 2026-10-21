@@ -15,7 +15,7 @@ from chrome_engine import engine as engine_mod
 from chrome_engine import probe
 from chrome_engine.engine import ChromeEngine
 from chrome_engine.geo import ExitGeo
-from chrome_engine.persona import Persona
+from chrome_engine.persona import Persona, generate
 from chrome_engine.release import host_os
 
 from .servers import HttpProxy, Origin, Socks5Proxy
@@ -71,6 +71,66 @@ def test_brands(chrome_exe, tmp_path, brand):
         pytest.skip("Edge personas are not offered on Linux")
     eng, fp = run(_probe(chrome_exe, tmp_path, persona=p, headless=True))
     assert probe.check(eng.persona, fp) == []
+
+
+PHONE_UA = (
+    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/141.0.7390.122 Mobile Safari/537.36"
+)
+# The documented gap of android personas (persona.compatibility): workers keep
+# the PC's navigator.platform.
+WORKER_PLATFORM_GAP = {"worker_platform", "serviceWorker_platform", "sharedWorker_platform"}
+
+
+def phone(**kw):
+    return generate(
+        "android",
+        seed=4242,
+        user_agent=PHONE_UA,
+        timezone="Asia/Ho_Chi_Minh",
+        locale="vi-VN",
+        **kw,
+    )
+
+
+@pytest.mark.parametrize("headless", [True, False, "offscreen"])
+def test_android_persona_is_a_phone(chrome_exe, tmp_path, headless):
+    eng, fp = run(_probe(chrome_exe, tmp_path, persona=phone(), headless=headless))
+    issues = probe.check(eng.persona, fp)
+    assert {i.code for i in issues} <= WORKER_PLATFORM_GAP, "\n".join(map(str, issues))
+    assert fp["serviceWorker"]["userAgent"] == PHONE_UA  # the --user-agent switch
+    assert eng.warnings and eng.crashes == []
+
+
+def test_android_override_survives_navigation_and_new_tabs(chrome_exe, tmp_path):
+    read = "() => [navigator.platform, navigator.userAgentData.platform, navigator.userAgent]"
+    expected = ["Linux armv81", "Android", PHONE_UA]
+
+    async def scenario():
+        a, b = await Origin("127.0.0.1").start(), await Origin("localhost").start()
+        eng = ChromeEngine(tmp_path, executable=chrome_exe, persona=phone(), headless=True)
+        context = await eng.start()
+        try:
+            page = context.pages[0]
+            seen = []
+            for url in (a.url, b.url):  # cross-site: a new renderer process
+                await page.goto(url + "/")
+                seen.append(await page.evaluate(read))
+            tab = await context.new_page()
+            await tab.goto(a.url + "/")
+            seen.append(await tab.evaluate(read))
+            async with page.expect_popup() as popup_info:
+                await page.evaluate("url => window.open(url)", a.url + "/")
+            popup = await popup_info.value
+            await popup.wait_for_load_state()
+            seen.append(await popup.evaluate(read))
+            return seen
+        finally:
+            await eng.stop()
+            await a.stop()
+            await b.stop()
+
+    assert run(scenario()) == [expected] * 4
 
 
 @pytest.mark.skipif(HOST != "windows", reason="cross-OS persona measured on Windows")

@@ -1,0 +1,21 @@
+# FoxProfile hub on Dokploy: a "Docker Compose" app with Compose Path
+# ./compose.dokploy.yaml (docs/HUB.md, "Dokploy"). compose.yaml stays for a plain
+# `docker compose up` on a LAN server.
+#
+# Dokploy clones the repo again on every deploy, so ./data would be emptied: the
+# data lives in a named volume, which Dokploy's Volume Backups can also copy to S3.
+# The hub listens on 8000 in the container; FOXPROFILE_HUB_PORT is the port published
+# on the server. A domain from Dokploy's Domains tab points at service `hub`, port 8000.
+services:
+  hub:
+    build: .
+    ports:
+      - "${FOXPROFILE_HUB_PORT:-8000}:8000"
+    volumes:
+      - foxprofile-data:/data
+    # Dokploy writes the Environment tab to .env next to this file.
+    env_file: .env
+    restart: unless-stopped
+
+volumes:
+  foxprofile-data:

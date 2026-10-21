@@ -63,6 +63,7 @@ def build_sidebar(
     on_new_profile: Callable,
     on_import: Callable,
     on_export: Callable,
+    on_adspower: Callable,
     on_toggle_log: Callable,
     on_mcp: Callable,
     on_fullscreen_log: Callable,
@@ -139,6 +140,15 @@ def build_sidebar(
                         ),
                     ],
                 ),
+                ft.Container(height=8),
+                ft.OutlinedButton(
+                    get_string("adspower_button"),
+                    icon=ft.Icons.MOVE_DOWN,
+                    width=208,
+                    height=36,
+                    style=RAIL_STYLE,
+                    on_click=on_adspower,
+                ),
                 ft.Container(height=22),
                 ft.Container(
                     padding=ft.Padding.only(left=10, bottom=6),
@@ -182,7 +192,7 @@ def build_sidebar(
 
 
 def _language_switch(active: str, on_language: Callable[[str], None] | None) -> ft.Container:
-    """Segmented Tiếng Việt / English switch, as in the web panel."""
+    """Segmented Español / English / Tiếng Việt switch."""
 
     def seg(code: str, label: str) -> ft.Container:
         on = code == active
@@ -206,5 +216,8 @@ def _language_switch(active: str, on_language: Callable[[str], None] | None) -> 
         padding=3,
         border_radius=8,
         bgcolor=COLORS["cover_deep"],
-        content=ft.Row(spacing=0, controls=[seg("vi", "Tiếng Việt"), seg("en", "English")]),
+        content=ft.Row(
+            spacing=0,
+            controls=[seg("es", "Español"), seg("en", "English"), seg("vi", "Tiếng Việt")],
+        ),
     )

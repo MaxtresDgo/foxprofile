@@ -17,6 +17,7 @@ from ..schemas.page import (
     KeyboardTypeRequest,
     NavigateRequest,
     PressRequest,
+    SelectRequest,
     TabNewRequest,
     TypeRequest,
     WaitRequest,
@@ -83,6 +84,12 @@ def click(name: str, body: ClickRequest, pm=_PM, bl=_BL) -> dict:
 @router.post("/type")
 def type_text(name: str, body: TypeRequest, pm=_PM, bl=_BL) -> dict:
     return _run(name, pm, bl, "type", body.model_dump())
+
+
+@router.post("/select")
+def select(name: str, body: SelectRequest, pm=_PM, bl=_BL) -> dict:
+    """Pick an option of a <select> by value or label."""
+    return _run(name, pm, bl, "select", body.model_dump())
 
 
 @router.post("/press")
