@@ -389,3 +389,20 @@ def test_agent_reports_the_most_useful_activity(tmp_path, monkeypatch):
         assert a.activity() == {"state": "updating"}
     a.updating, a.browser_download = False, None
     assert a.activity() == {"state": "ready"}
+
+
+@pytest.mark.parametrize(
+    ("built", "dev", "follows", "installs"),
+    [(True, False, True, True), (True, True, True, False), (False, True, False, False)],
+)
+def test_installed_agents_follow_the_hub_dev_ones_never_run_its_installer(
+    tmp_path, monkeypatch, built, dev, follows, installs
+):
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent_code, "INSTALLED", tmp_path)
+    if built:
+        (tmp_path / "BUILD").write_text("b1")
+    app = agent.App("https://hub.example.com", {}, dev)
+    assert (app.agent.follow_updates, app.agent.auto_install) == (follows, installs)
