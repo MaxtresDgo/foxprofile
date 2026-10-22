@@ -406,3 +406,67 @@ def test_installed_agents_follow_the_hub_dev_ones_never_run_its_installer(
         (tmp_path / "BUILD").write_text("b1")
     app = agent.App("https://hub.example.com", {}, dev)
     assert (app.agent.follow_updates, app.agent.auto_install) == (follows, installs)
+
+
+def test_agent_uploads_the_profile_in_pieces_then_its_sha256(tmp_path, monkeypatch):
+    import hashlib
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent, "PART_BYTES", 100)
+    calls = []
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(hub_client, "call", lambda *a, **kw: calls.append((a, kw)))
+    local = tmp_path / "shop-01"
+    local.mkdir()
+    (local / "cookies.sqlite").write_bytes(bytes(range(256)) * 4)
+    agent.Agent(hub_client)._upload("shop-01", local)
+
+    parts = [a for a, _ in calls if "/part?" in a[1]]
+    assert len(parts) > 1 and all(len(a[2]) <= 100 for a in parts)
+    assert [a[1] for a in parts][:2] == [
+        "/hub/bundle/shop-01/part?offset=0",
+        "/hub/bundle/shop-01/part?offset=100",
+    ]
+    (_, path, body), kw = calls[-1]
+    assert path == "/hub/bundle/shop-01?release=1&chunked=1" and body == b""
+    sent = b"".join(a[2] for a in parts)
+    assert kw["headers"]["X-Content-SHA256"] == hashlib.sha256(sent).hexdigest()
+
+
+def test_agent_downloads_the_profile_in_pieces_built_in_the_background(hub, tmp_path, monkeypatch):
+    from src import agent
+
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    data = pathlib.Path("camoufox_data/shop-01")
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "cookies.sqlite").write_bytes(bytes(range(256)) * 400)
+    container.browser_launcher.touch("ana", set())
+    client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
+    monkeypatch.setattr(hub_routes, "PART_BYTES", 1000)
+
+    def call(method, path, data=None, raw=False, **kw):
+        r = client.request(method, "/api/v1" + path, content=data, headers=ana)
+        r.raise_for_status()
+        return io.BytesIO(r.content) if raw else r.json()
+
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(hub_client, "call", call)
+    zip_path = tmp_path / "bundle.zip"
+    agent.Agent(hub_client)._fetch_bundle("shop-01", str(zip_path))
+    with zipfile.ZipFile(zip_path) as z:
+        assert z.read("data/cookies.sqlite") == bytes(range(256)) * 400
+    assert hub_routes._downloads == {}  # ended: the hub dropped its copy
+
+    # A piece damaged on the way fails the SHA-256 check, and the job still ends.
+    def damaging(method, path, data=None, raw=False, **kw):
+        got = call(method, path, data, raw)
+        return io.BytesIO(b"x" + got.read()[1:]) if "part?offset=0" in path else got
+
+    monkeypatch.setattr(hub_client, "call", damaging)
+    with pytest.raises(agent.IntegrityError):
+        agent.Agent(hub_client)._fetch_bundle("shop-01", str(zip_path))
+    assert hub_routes._downloads == {}

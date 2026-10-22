@@ -76,6 +76,8 @@ from src.services.proxy.geo_check import check_geo  # noqa: E402
 
 logger = get_logger("agent")
 RETRY_SECONDS = 10
+# Profiles go up in pieces: Cloudflare caps a request at 100 MB and 100 s.
+PART_BYTES = 8 * 1024 * 1024
 CREDENTIALS = pathlib.Path("agent.json")
 ICON = pathlib.Path(__file__).parent / "assets" / "icon.png"
 
@@ -136,7 +138,7 @@ class HubClient:
             **(headers or {}),
         }
         if isinstance(data, bytes):
-            headers["Content-Type"] = "application/json"
+            headers.setdefault("Content-Type", "application/json")
         if hasattr(data, "seek"):
             headers["Content-Type"] = "application/zip"
             headers["Content-Length"] = str(os.fstat(data.fileno()).st_size)
@@ -360,17 +362,7 @@ class Agent:
         local = self.data_root / name
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = os.path.join(tmp, "bundle.zip")
-            digest = hashlib.sha256()
-            with (
-                self.hub.call("GET", f"/hub/bundle/{self.q(name)}", raw=True, timeout=600) as r,
-                open(zip_path, "wb") as f,
-            ):
-                while chunk := r.read(1 << 20):
-                    f.write(chunk)
-                    digest.update(chunk)
-                expected = r.headers.get("X-Content-SHA256")  # hubs older than it send none
-            if expected and expected.lower() != digest.hexdigest():
-                raise IntegrityError(get_string("err_bundle_corrupt"))
+            self._fetch_bundle(name, zip_path)
             shutil.rmtree(local, ignore_errors=True)
             ok, result = import_from_zip(zip_path, str(self.data_root))
         if not ok:
@@ -383,6 +375,29 @@ class Agent:
             shutil.rmtree(local, ignore_errors=True)
             raise
         return result
+
+    def _fetch_bundle(self, name: str, zip_path: str) -> None:
+        """The profile's ZIP in pieces, checked against its SHA-256: the hub builds
+        it while this polls, so no request comes near Cloudflare's 100 MB / 100 s."""
+        base = f"/hub/bundle/{self.q(name)}/download"
+        job = self.hub.call("POST", base, b"{}")["id"]
+        try:
+            while not (info := self.hub.call("GET", f"{base}/{job}"))["ready"]:
+                time.sleep(1)
+            digest = hashlib.sha256()
+            with open(zip_path, "wb") as f:
+                while (offset := f.tell()) < info["size"]:
+                    path = f"{base}/{job}/part?offset={offset}"
+                    with self.hub.call("GET", path, raw=True, timeout=120) as r:
+                        part = r.read()
+                    if not part:
+                        raise IntegrityError(get_string("err_bundle_corrupt"))
+                    f.write(part)
+                    digest.update(part)
+            if digest.hexdigest() != info["sha256"]:
+                raise IntegrityError(get_string("err_bundle_corrupt"))
+        finally:
+            self._call_quietly("DELETE", f"{base}/{job}")
 
     def _restore_cookies(self, profile: Profile, local: pathlib.Path) -> None:
         """Load the cookies packed on the last close into this PC's browser store."""
@@ -445,10 +460,16 @@ class Agent:
             ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, include_data=True)
             if not ok:
                 raise OSError(zip_path)
-            sha = {"X-Content-SHA256": file_sha256(zip_path)}
+            bundle = f"/hub/bundle/{self.q(name)}"
+            raw = {"Content-Type": "application/octet-stream"}
             with open(zip_path, "rb") as f:
-                path = f"/hub/bundle/{self.q(name)}?release=1"
-                self.hub.call("PUT", path, f, timeout=600, headers=sha)
+                offset = 0
+                while part := f.read(PART_BYTES):
+                    path = f"{bundle}/part?offset={offset}"
+                    self.hub.call("PUT", path, part, timeout=120, headers=raw)
+                    offset += len(part)
+            sha = {"X-Content-SHA256": file_sha256(zip_path)}
+            self.hub.call("PUT", f"{bundle}?release=1&chunked=1", b"", timeout=600, headers=sha)
 
     def _status(self, name: str, ok: bool, error: str | None) -> None:
         body = json.dumps({"ok": ok, "error": error}).encode()

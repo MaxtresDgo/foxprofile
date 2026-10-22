@@ -217,6 +217,26 @@ def test_bundles_carry_a_sha256_and_damaged_cookies_are_refused(hub, tmp_path):
     assert bundle.headers["X-Content-SHA256"] == hashlib.sha256(bundle.content).hexdigest()
 
 
+def test_bundle_uploads_in_pieces_survive_a_retried_piece(hub):
+    client, _, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    bundle = _zip("shop-01", {"data/cookies.sqlite": b"session" * 1000})
+    part = "/api/v1/hub/bundle/shop-01/part?offset="
+    half = len(bundle) // 2
+    assert client.put(part + "0", content=bundle[:half], headers=ana).json() == {"size": half}
+    assert client.put(part + "0", content=bundle[:half], headers=ana).status_code == 200  # retry
+    assert client.put(part + str(half + 1), content=b"x", headers=ana).status_code == 416
+    client.put(part + str(half), content=bundle[half:], headers=ana)
+
+    finish = "/api/v1/hub/bundle/shop-01?chunked=1"
+    sha = {**ana, "X-Content-SHA256": hashlib.sha256(bundle).hexdigest()}
+    assert client.put(finish, headers=sha).status_code == 200
+    data = pathlib.Path("camoufox_data/shop-01/cookies.sqlite")
+    assert data.read_bytes() == b"session" * 1000
+    assert client.put(finish, headers=sha).status_code == 416  # the pieces are used up
+
+
 def test_stop_with_agent_offline_frees_the_profile(hub, monkeypatch):
     client, container, _ = hub
     bl = container.browser_launcher
