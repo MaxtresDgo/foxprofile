@@ -133,14 +133,25 @@ class HubStore:
             self._save()
         return key
 
-    def _verify_key(self, key: str) -> dict | None:
+    def _match_key(self, key: str) -> tuple[str, str] | None:
+        """(user, kind) of a personal key, kind being one of KEY_FIELDS. Lock held."""
         digest = hashlib.sha256(key.encode()).hexdigest()
-        with self._lock:
-            for name, user in self.users.items():
-                for field in KEY_FIELDS:
-                    if user.get(field) and hmac.compare_digest(user[field], digest):
-                        return self._who(name)
+        for name, user in self.users.items():
+            for field in KEY_FIELDS:
+                if user.get(field) and hmac.compare_digest(user[field], digest):
+                    return name, field
         return None
+
+    def _verify_key(self, key: str) -> dict | None:
+        with self._lock:
+            match = self._match_key(key)
+            return self._who(match[0]) if match else None
+
+    def key_kind(self, key: str) -> str | None:
+        """Which kind of personal key this is ("key", "agent_key", "army_key"), or None."""
+        with self._lock:
+            match = self._match_key(key)
+        return match[1] if match else None
 
     def verify(self, token: str) -> dict | None:
         """{"name", "role", "display"} for a valid personal key or unexpired session token."""

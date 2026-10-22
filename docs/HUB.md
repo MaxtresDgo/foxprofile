@@ -251,6 +251,8 @@ Army (`/perfiles-users` y `/perfiles-admin`) abre los perfiles en nombre de cada
 2. Inicia sesión (la misma cuenta de Army) y pulsa *Autorizar*. El panel crea una clave `army_key` (`POST /hub/me/army-key`, separada de la de MCP y la del agente) y la envía por POST, con el `state`, **solo** a `FOXPROFILE_ARMY_CALLBACK`. Esa dirección sale de la configuración del hub, no del enlace.
 3. Army comprueba el `state` y que la clave sea de ese mismo correo, y la guarda cifrada.
 
+Con esa clave Army también lee `GET /accounts` (red y usuario de las cuentas de cada perfil que ve, sin contraseña ni 2FA) para mostrarlas en sus tarjetas. Las demás rutas de cuentas siguen cerradas a toda clave personal, la de Army incluida.
+
 Sin `FOXPROFILE_ARMY_CALLBACK` la vinculación está apagada. Para asignar perfiles a quien todavía no entró al hub, un admin crea la cuenta con `PUT /hub/users/{correo}` (si ya existe, conserva su rol).
 
 ## Visor remoto, cookies y MCP

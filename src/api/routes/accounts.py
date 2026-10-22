@@ -3,7 +3,8 @@ site's login form with them in the running profile.
 
 Listings never carry secrets; the password and the current 2FA code each have
 their own route. Personal keys (fpk_, the MCP and agent keys) get 403 here:
-neither MCP clients nor agents read accounts.
+neither MCP clients nor agents read accounts. The one exception is the summary
+(no secrets) for the army_key, so Army's panel shows which accounts each profile has.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from ...core.strings import get_string
 from ...hub.store import KEY_PREFIX
 from ...services.browser.login import login
 from ...services.profile.accounts import PLATFORMS, AccountsLocked, totp, valid_totp_secret
-from ..auth import _presented_token, can_see
+from ..auth import _presented_token, can_see, hub_store
 from ..dependencies import get_browser_launcher, get_profile_manager
 from ..helpers import require_profile
 from ..schemas.common import SuccessResponse
@@ -34,6 +35,13 @@ def _no_personal_key(request: Request) -> None:
         raise HTTPException(status_code=403, detail=get_string("err_personal_key_accounts"))
 
 
+def _no_personal_key_but_army(request: Request) -> None:
+    token = _presented_token(request)
+    store = hub_store(request)
+    if token.startswith(KEY_PREFIX) and not (store and store.key_kind(token) == "army_key"):
+        raise HTTPException(status_code=403, detail=get_string("err_personal_key_accounts"))
+
+
 router = APIRouter(
     prefix="/profiles/{name}/accounts",
     tags=["accounts"],
@@ -43,7 +51,7 @@ router = APIRouter(
 
 # The panel's profile list: every visible profile's accounts in one request.
 summary_router = APIRouter(
-    prefix="/accounts", tags=["accounts"], dependencies=[Depends(_no_personal_key)]
+    prefix="/accounts", tags=["accounts"], dependencies=[Depends(_no_personal_key_but_army)]
 )
 
 
