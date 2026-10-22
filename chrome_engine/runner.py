@@ -23,6 +23,7 @@ from chrome_engine import fetch
 from chrome_engine.engine import ChromeEngine
 from src.core.config import DATA_DIR, HEADLESS, RESTORE_TABS
 from src.services.browser import control, session
+from src.services.browser.process import extension_dirs
 from src.services.browser.runner import restore_tabs, snapshot_tabs
 
 _shutdown = asyncio.Event()
@@ -65,6 +66,15 @@ async def ensure_installed() -> None:
     _say("Chrome engine installed")
 
 
+def _extension_args() -> list[str]:
+    """Chrome's switches for the extensions the launcher passed."""
+    dirs = extension_dirs()
+    if not dirs:
+        return []
+    joined = ",".join(dirs)
+    return [f"--disable-extensions-except={joined}", f"--load-extension={joined}"]
+
+
 def _headless() -> bool:
     # "virtual" means a hidden Xvfb display for Camoufox; Chrome runs headless instead.
     return HEADLESS in (True, "virtual")
@@ -87,6 +97,7 @@ async def run_browser(
         # "" keeps the timezone / locale following the proxy's exit IP.
         timezone=timezone,
         locale=locale,
+        extra_args=_extension_args(),
     )
     _say(f"Starting Chrome engine for {profile_name}...")
     try:

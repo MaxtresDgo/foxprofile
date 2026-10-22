@@ -26,6 +26,7 @@ from .dialogs import (
     open_accounts_dialog,
     open_adspower_dialog,
     open_bulk_edit_dialog,
+    open_extensions_dialog,
     open_log_dialog,
     open_run_steps_dialog,
     open_sync_dialog,
@@ -133,6 +134,11 @@ class AppHandlers:
         page = self._get_page()
         assert page is not None
         open_adspower_dialog(page, self._pm, self._bl, self._log, self._refresh)
+
+    def on_extensions(self) -> None:
+        page, refs = self._get_page(), self._get_refs()
+        assert page is not None and refs is not None
+        open_extensions_dialog(page, refs.file_picker, self._pm, self._log)
 
     def on_export_open(self) -> None:
         page = self._get_page()

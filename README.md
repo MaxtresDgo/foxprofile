@@ -39,6 +39,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - [Chrome engine (experimental)](#chrome-engine-experimental)
 - [Migrating from AdsPower](#migrating-from-adspower)
 - [Cookies and fingerprints](#cookies-and-fingerprints)
+- [Browser extensions](#browser-extensions)
 - [Configuration](#configuration)
 - [REST API](#rest-api)
 - [Development](#development)
@@ -231,6 +232,15 @@ Click the cookie button on a profile row to open **Cookies & fingerprint**. **Th
 - Imported session cookies are given a one-year lifetime; otherwise the browser would discard them when it closes.
 - "New fingerprint" deletes the stored fingerprint so the next launch presents a different device. Changing a profile's OS also regenerates it.
 
+## Browser extensions
+
+**Extensions** (sidebar of the desktop app, **Settings** in the web panel) holds the extensions profiles load:
+
+- Chrome extensions (`.crx` or `.zip`) for Chrome engine profiles, Firefox add-ons (`.xpi`) for Camoufox. Paste a Chrome Web Store link or ID to add one from the store: FoxProfile then downloads the `.crx` from Google's servers, only when you click **Add**.
+- Each extension applies to every profile of its engine, to the profiles of some groups (hub mode), or to some profiles, and any profile can be **excluded**. They add up: a profile loads the global ones, its group's and its own, minus its exclusions. Open profiles load a change the next time they open.
+- An extension keeps its ID on every PC (FoxProfile adds a `key` to a Chrome manifest, a gecko ID to a Firefox one), so what it stores in the profile, such as its logins and settings, follows the profile. Uploading the same extension again updates it and keeps where it applies.
+- Extensions are visible to the sites a profile opens; load only the ones the profile needs. In hub mode only admins manage them, and agents download each version once from the hub.
+
 ## Configuration
 
 Everything is optional. To override defaults, copy `.env.example` to `.env`.
@@ -240,6 +250,8 @@ Everything is optional. To override defaults, copy `.env.example` to `.env`.
 | `FOXPROFILE_LANG` | `en` | UI language: `en`, `vi` or `es`. Hub agents follow the hub's language unless set on the PC |
 | `FOXPROFILE_PROFILES_FILE` | `profiles.json` | Profile list file |
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Data directory, one subdirectory per profile |
+| `FOXPROFILE_EXTENSIONS_FILE` | `extensions.json` | Browser extensions and where each applies |
+| `FOXPROFILE_EXTENSIONS_DIR` | `extensions` | The extensions' files, and their unpacked copies |
 | `FOXPROFILE_LOG_DIR` | `logs` | Log directory |
 | `FOXPROFILE_LOG_LEVEL` | `INFO` | Log level |
 | `FOXPROFILE_PROXY_TIMEOUT` | `10` | Proxy check timeout (seconds) |
@@ -262,6 +274,8 @@ camoufox_data/<profile>/                       browser data: cookies, history, l
 camoufox_data/<profile>/fingerprint.json       device fingerprint (Camoufox engine)
 camoufox_data/<profile>/chrome_persona.json    device fingerprint (Chrome engine)
 camoufox_data/<profile>/tabs.json              tabs to reopen on next launch
+extensions.json                                browser extensions and where each applies
+extensions/<id>.zip                            an extension's files (extensions/unpacked/: what browsers load)
 logs/foxprofile_YYYYMMDD.log                   daily log
 ```
 

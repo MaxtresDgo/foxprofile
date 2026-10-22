@@ -31,9 +31,20 @@ def runner_command(profile: Profile) -> list[str]:
     ]
 
 
-def spawn_browser(profile: Profile) -> subprocess.Popen:
+# The unpacked extensions a runner loads, os.pathsep-separated (runner.py,
+# chrome_engine/runner.py).
+EXTENSIONS_ENV = "FOXPROFILE_LOAD_EXTENSIONS"
+
+
+def extension_dirs() -> list[str]:
+    """In a runner: the extension folders its launcher passed."""
+    return [d for d in os.environ.get(EXTENSIONS_ENV, "").split(os.pathsep) if d]
+
+
+def spawn_browser(profile: Profile, extensions: list[str] = ()) -> subprocess.Popen:
     """Spawn the browser subprocess for the given profile."""
     env = os.environ.copy()
+    env[EXTENSIONS_ENV] = os.pathsep.join(extensions)
     existing_pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = _PROJECT_ROOT + (
         os.pathsep + existing_pythonpath if existing_pythonpath else ""
