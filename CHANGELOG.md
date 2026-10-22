@@ -34,6 +34,7 @@
 - Chế độ hub: "Check proxy" và "Check IP" chạy trên máy của người dùng qua agent (nơi trình duyệt dùng proxy), nên kiểm tra được cả proxy chỉ truy cập được từ máy đó, ví dụ địa chỉ Tailscale.
 
 ### Thay đổi
+- Huy hiệu hệ điều hành trong danh sách profile (web panel và app desktop) giờ là biểu tượng đơn sắc (Windows, Apple, Linux, Android) thay cho chữ WIN/MAC/LIN/AND, vẫn trong khung viền mực như trước; tên hệ điều hành nằm ở tooltip và nhãn cho trình đọc màn hình.
 - Chế độ hub: thêm `compose.dokploy.yaml` để triển khai trên Dokploy (dữ liệu trong volume có tên `foxprofile-data`, tên miền và HTTPS cấu hình trong tab Domains của Dokploy). Xem `docs/HUB.md`.
 - Chế độ hub: đăng nhập bằng email và mật khẩu của nền tảng định danh nội bộ (`FOXPROFILE_AUTH_URL`, `FOXPROFILE_AUTH_ORIGIN`): hub gửi `POST /auth/login` kèm header `Origin` và mở phiên riêng khi nền tảng chấp nhận. Hub không còn lưu mật khẩu; tài khoản cục bộ tự tạo ở lần đăng nhập đầu (theo email) và chỉ giữ vai trò, profile được giao, nhóm và key. Vai trò admin theo quyền `FOXPROFILE_AUTH_ADMIN_PERMISSION` (mặc định `foxprofile:admin`) trên nền tảng. Bỏ `FOXPROFILE_ADMIN_PASSWORD`, `POST /hub/users` và `PATCH /hub/users/{user}`; `POST /hub/login` nhận `{email, password}`.
 - Xuất profile ZIP bỏ qua thư mục cache của trình duyệt.

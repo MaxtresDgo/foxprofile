@@ -10,7 +10,9 @@ from ..theme.colors import COLORS, FONT_DATA, FONT_SEMIBOLD
 from ..theme.styles import DANGER_ICON_STYLE, ICON_STYLE
 from .launch_button import build_launch_button
 
-_OS_LABELS = {"windows": "WIN", "macos": "MAC", "linux": "LIN", "android": "AND"}
+# The OS badge shows a monochrome glyph (assets/os/*.svg, tinted with the ink token);
+# its name is the tooltip and the screen reader label.
+_OS_NAMES = {"windows": "Windows", "macos": "macOS", "linux": "Linux", "android": "Android"}
 
 # One column grid for the header and every row: (expand, fixed width).
 COLUMNS = {
@@ -26,6 +28,25 @@ COLUMNS = {
     "actions": (None, 284),
 }
 ROW_HEIGHT = 58
+
+
+def _os_glyph(os_type: str) -> ft.Control:
+    name = _OS_NAMES.get(os_type)
+    if name is None:
+        return ft.Text(
+            "OS",
+            size=11,
+            font_family=FONT_DATA,
+            weight=ft.FontWeight.W_600,
+            color=COLORS["text_main"],
+        )
+    return ft.Image(
+        src=f"os/{os_type}.svg",
+        width=15,
+        height=15,
+        color=COLORS["text_main"],
+        semantics_label=name,
+    )
 
 
 def _cell(key: str, content: ft.Control | None) -> ft.Container:
@@ -202,14 +223,8 @@ def _device(profile: Profile, device: str) -> ft.Row:
                 border_radius=4,
                 border=ft.Border.all(1, COLORS["text_sub"]),
                 alignment=ft.Alignment(0, 0),
-                tooltip=profile.os_type,
-                content=ft.Text(
-                    _OS_LABELS.get(profile.os_type, "OS"),
-                    size=11,
-                    font_family=FONT_DATA,
-                    weight=ft.FontWeight.W_600,
-                    color=COLORS["text_main"],
-                ),
+                tooltip=_OS_NAMES.get(profile.os_type, profile.os_type),
+                content=_os_glyph(profile.os_type),
             ),
             ft.Container(
                 expand=True,
