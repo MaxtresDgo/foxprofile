@@ -76,6 +76,10 @@ from src.services.proxy.geo_check import check_geo  # noqa: E402
 
 logger = get_logger("agent")
 RETRY_SECONDS = 10
+# Profiles go up in pieces: Cloudflare caps a request at 100 MB and 100 s.
+PART_BYTES = 8 * 1024 * 1024
+# What a hub without a route answers: older than the pieces above.
+OLD_HUB = (404, 405)
 CREDENTIALS = pathlib.Path("agent.json")
 ICON = pathlib.Path(__file__).parent / "assets" / "icon.png"
 
@@ -136,7 +140,7 @@ class HubClient:
             **(headers or {}),
         }
         if isinstance(data, bytes):
-            headers["Content-Type"] = "application/json"
+            headers.setdefault("Content-Type", "application/json")
         if hasattr(data, "seek"):
             headers["Content-Type"] = "application/zip"
             headers["Content-Length"] = str(os.fstat(data.fileno()).st_size)
@@ -357,17 +361,7 @@ class Agent:
         local = self.data_root / name
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = os.path.join(tmp, "bundle.zip")
-            digest = hashlib.sha256()
-            with (
-                self.hub.call("GET", f"/hub/bundle/{self.q(name)}", raw=True, timeout=600) as r,
-                open(zip_path, "wb") as f,
-            ):
-                while chunk := r.read(1 << 20):
-                    f.write(chunk)
-                    digest.update(chunk)
-                expected = r.headers.get("X-Content-SHA256")  # hubs older than it send none
-            if expected and expected.lower() != digest.hexdigest():
-                raise IntegrityError(get_string("err_bundle_corrupt"))
+            self._fetch_bundle(name, zip_path)
             shutil.rmtree(local, ignore_errors=True)
             ok, result = import_from_zip(zip_path, str(self.data_root))
         if not ok:
@@ -380,6 +374,50 @@ class Agent:
             shutil.rmtree(local, ignore_errors=True)
             raise
         return result
+
+    def _fetch_bundle(self, name: str, zip_path: str) -> None:
+        """The profile's ZIP in pieces, checked against its SHA-256: the hub builds
+        it while this polls, so no request comes near Cloudflare's 100 MB / 100 s."""
+        base = f"/hub/bundle/{self.q(name)}/download"
+        try:
+            job = self.hub.call("POST", base, b"{}")["id"]
+        except urllib.error.HTTPError as e:
+            if e.code not in OLD_HUB:
+                raise
+            self._fetch_whole(name, zip_path)
+            return
+        try:
+            while not (info := self.hub.call("GET", f"{base}/{job}"))["ready"]:
+                time.sleep(1)
+            digest = hashlib.sha256()
+            with open(zip_path, "wb") as f:
+                while (offset := f.tell()) < info["size"]:
+                    path = f"{base}/{job}/part?offset={offset}"
+                    with self.hub.call("GET", path, raw=True, timeout=120) as r:
+                        part = r.read()
+                    if not part:
+                        raise IntegrityError(get_string("err_bundle_corrupt"))
+                    f.write(part)
+                    digest.update(part)
+            if digest.hexdigest() != info["sha256"]:
+                raise IntegrityError(get_string("err_bundle_corrupt"))
+        finally:
+            self._call_quietly("DELETE", f"{base}/{job}")
+
+    def _fetch_whole(self, name: str, zip_path: str) -> None:
+        """One request, for a hub older than downloads in pieces (a dev agent can
+        visit any hub). Its SHA-256 header is checked when the hub sends one."""
+        digest = hashlib.sha256()
+        with (
+            self.hub.call("GET", f"/hub/bundle/{self.q(name)}", raw=True, timeout=600) as r,
+            open(zip_path, "wb") as f,
+        ):
+            while chunk := r.read(1 << 20):
+                f.write(chunk)
+                digest.update(chunk)
+            expected = r.headers.get("X-Content-SHA256")
+        if expected and expected.lower() != digest.hexdigest():
+            raise IntegrityError(get_string("err_bundle_corrupt"))
 
     def _restore_cookies(self, profile: Profile, local: pathlib.Path) -> None:
         """Load the cookies packed on the last close into this PC's browser store."""
@@ -442,10 +480,25 @@ class Agent:
             ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, include_data=True)
             if not ok:
                 raise OSError(zip_path)
+            bundle = f"/hub/bundle/{self.q(name)}"
+            raw = {"Content-Type": "application/octet-stream"}
             sha = {"X-Content-SHA256": file_sha256(zip_path)}
             with open(zip_path, "rb") as f:
-                path = f"/hub/bundle/{self.q(name)}?release=1"
-                self.hub.call("PUT", path, f, timeout=600, headers=sha)
+                offset = 0
+                while part := f.read(PART_BYTES):
+                    path = f"{bundle}/part?offset={offset}"
+                    try:
+                        self.hub.call("PUT", path, part, timeout=120, headers=raw)
+                    except urllib.error.HTTPError as e:
+                        if offset or e.code not in OLD_HUB:
+                            raise
+                        # A hub older than uploads in pieces: the whole ZIP at once.
+                        # A profile deleted on the hub answers 404 here too.
+                        f.seek(0)
+                        self.hub.call("PUT", f"{bundle}?release=1", f, timeout=600, headers=sha)
+                        return
+                    offset += len(part)
+            self.hub.call("PUT", f"{bundle}?release=1&chunked=1", b"", timeout=600, headers=sha)
 
     def _status(self, name: str, ok: bool, error: str | None) -> None:
         body = json.dumps({"ok": ok, "error": error}).encode()
