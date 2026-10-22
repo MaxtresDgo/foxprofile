@@ -203,6 +203,13 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent-row .sub, .inst-row .sub { grid-column: 1; font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
 .agent-row .acts, .inst-row .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
 .agent-row .err { color: var(--err); } .agent-row .ok { color: var(--ok); }
+.ext-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.ext-add input[type=text] { flex: 1 1 220px; min-width: 0; }
+.picks { margin-top: 14px; }
+.picks h3 { margin: 0 0 6px; font-size: 13px; }
+.pick-list { max-height: 180px; overflow-y: auto; border: 1px solid var(--rule); border-radius: 7px; padding: 4px 10px; }
+.pick-list label { display: flex; gap: 8px; align-items: center; padding: 4px 0; overflow-wrap: anywhere; }
+.pick-list input[type=search] { width: 100%; margin: 4px 0; }
 .modal-body h3 { margin: 18px 0 2px; font-size: 14px; } .modal-body h3:first-child { margin-top: 0; }
 /* General settings page */
 .settings-sheet { max-width: 760px; padding: 0 22px; }
@@ -252,6 +259,7 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .engine.chrome { color: var(--chrome-ink); font-weight: 600; }
 .device { display: flex; align-items: center; gap: 8px; }
 .os { display: inline-grid; place-items: center; width: 38px; height: 22px; border-radius: 4px; border: 1px solid var(--ink-2); font-family: var(--data); font-size: 11px; font-weight: 600; color: var(--ink); flex: none; }
+.os svg.i { width: 15px; height: 15px; }
 .muted { color: var(--ink-3); }
 .direct { color: var(--ink-3); font-style: normal; }
 .actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
@@ -444,9 +452,15 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5Z"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M9.5 4.5a2 2 0 1 1 4 0V6H18a1 1 0 0 1 1 1v3.5h-1.5a2 2 0 1 0 0 4H19V19a1 1 0 0 1-1 1h-3.5v-1.5a2 2 0 1 0-4 0V20H6a1 1 0 0 1-1-1v-4.5h1.5a2 2 0 1 0 0-4H5V7a1 1 0 0 1 1-1h3.5Z"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
   <symbol id="i-windows" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
   <symbol id="i-apple" viewBox="0 0 24 24"><path d="M16.5 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8C7 7.4 5.5 8.3 4.7 9.8c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.4 2.9 2.4 1.2-.1 1.6-.8 3-.8s1.8.8 3 .8 2-1.2 2.8-2.3c.9-1.3 1.2-2.6 1.3-2.7-.1 0-2.4-.9-2.4-4.2zM14.3 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></symbol>
+  <!-- OS badge glyphs, the same strokes as src/assets/os/*.svg (desktop) -->
+  <symbol id="i-os-windows" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
+  <symbol id="i-os-macos" viewBox="0 0 24 24"><path d="M16.5 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8C7 7.4 5.5 8.3 4.7 9.8c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.4 2.9 2.4 1.2-.1 1.6-.8 3-.8s1.8.8 3 .8 2-1.2 2.8-2.3c.9-1.3 1.2-2.6 1.3-2.7-.1 0-2.4-.9-2.4-4.2zM14.3 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></symbol>
+  <symbol id="i-os-linux" viewBox="0 0 24 24"><path d="M12 3c-2.5 0-3.8 2-3.8 4.6 0 1.6-.6 2.7-1.6 4.2-1 1.5-1.6 3.2-1.6 4.7 0 2.6 3 4.5 7 4.5s7-1.9 7-4.5c0-1.5-.6-3.2-1.6-4.7-1-1.5-1.6-2.6-1.6-4.2C15.8 5 14.5 3 12 3Z"/><path d="M9.5 12.5c0 3 1 5.5 2.5 5.5s2.5-2.5 2.5-5.5"/><path d="m11 9 1 .8 1-.8"/><circle cx="10.6" cy="7.2" r=".4"/><circle cx="13.4" cy="7.2" r=".4"/></symbol>
+  <symbol id="i-os-android" viewBox="0 0 24 24"><path d="M3 19a9 9 0 0 1 18 0Z"/><path d="M7 12.2 4.8 8.6M17 12.2l2.2-3.6"/><circle cx="8.6" cy="15.6" r=".6"/><circle cx="15.4" cy="15.6" r=".6"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
   <symbol id="i-cookie" viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 0 9.5 9.5 4 4 0 0 1-4.8-4.7A4 4 0 0 1 12 2.5Z"/><path d="M8.5 8.5h.01M15.5 15h.01M11.5 12.5h.01M11 17h.01M7.5 14h.01"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16 7l3 3M18.5 4.5l2 2"/></symbol>
@@ -516,6 +530,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
       <button class="rail-link hidden" id="users-btn"><svg class="i"><use href="#i-user"/></svg><span data-t="users"></span></button>
       <button class="rail-link hidden" id="groups-btn"><svg class="i"><use href="#i-users"/></svg><span data-t="groups"></span></button>
       <button class="rail-link hidden" id="agents-btn"><svg class="i"><use href="#i-monitor"/></svg><span data-t="agents_button"></span></button>
+      <button class="rail-link" id="ext-btn"><svg class="i"><use href="#i-puzzle"/></svg><span data-t="ext_button"></span></button>
       <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
       <button class="rail-link" id="ads-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="ads_button"></span></button>
       <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
@@ -675,6 +690,7 @@ const I18N = {
     mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
     mcp_key_note: "Key chỉ hiện một lần và thay thế key cũ. AI dùng key này chỉ thấy profile của bạn và mở chúng trên máy của bạn.",
     army_auth_title: "Liên kết tài khoản với Army", army_auth_hint: "Panel Army sẽ mở các profile của tài khoản này trên máy của bạn, qua agent.", army_cancelled: "Chưa liên kết Army. Bạn có thể đóng tab này.",
+    ext_button: "Extension", ext_title: "Extension của trình duyệt", ext_hint: "Chrome: .crx hoặc .zip cho profile engine Chrome. Firefox: .xpi cho Camoufox.", ext_upload: "Tải file lên", ext_store: "ID hoặc link Chrome Web Store", ext_store_add: "Thêm từ cửa hàng", ext_store_note: "Được tải từ máy chủ của Google khi bạn bấm Thêm.", ext_uploading: "Đang tải lên {name}…", ext_store_fetching: "Đang tải từ Chrome Web Store…", ext_added: "Đã thêm {name} {version}", ext_none: "Chưa có extension nào.", ext_all: "Mọi profile", ext_in_groups: "Nhóm: {list}", ext_in_profiles: "{n} profile", ext_excluded: "loại trừ {n}", ext_nowhere: "Chưa áp dụng cho profile nào", ext_where: "Áp dụng cho", ext_confirm_delete: "Xoá “{name}” khỏi mọi profile?", ext_scope_all: "Mọi profile {engine}", ext_scope_groups: "Profile của các nhóm", ext_scope_profiles: "Các profile này", ext_scope_excluded: "Loại trừ: không bao giờ tải", ext_scope_hint: "Profile đang mở sẽ tải thay đổi ở lần mở sau.", ext_filter: "Lọc", ext_no_profiles: "Không có profile {engine}.", ext_no_groups: "Chưa có nhóm nào.",
   },
   en: {
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
@@ -771,6 +787,7 @@ const I18N = {
     mcp_new_key: "Create my personal key and insert it",
     mcp_key_note: "The key is shown only now and replaces your previous one. An AI using it sees only your profiles and opens them on your PC.",
     army_auth_title: "Link your account with Army", army_auth_hint: "Army's panel will open this account's profiles on your PC, through your agent.", army_cancelled: "Army was not linked. You can close this tab.",
+    ext_button: "Extensions", ext_title: "Browser extensions", ext_hint: "Chrome: .crx or .zip for Chrome engine profiles. Firefox: .xpi for Camoufox.", ext_upload: "Upload file", ext_store: "Chrome Web Store ID or link", ext_store_add: "Add from the store", ext_store_note: "Downloaded from Google's servers when you click Add.", ext_uploading: "Uploading {name}…", ext_store_fetching: "Downloading from the Chrome Web Store…", ext_added: "Added {name} {version}", ext_none: "No extensions yet.", ext_all: "All profiles", ext_in_groups: "Groups: {list}", ext_in_profiles: "{n} profiles", ext_excluded: "{n} excluded", ext_nowhere: "Not applied to any profile", ext_where: "Applies to", ext_confirm_delete: "Remove “{name}” from every profile?", ext_scope_all: "Every {engine} profile", ext_scope_groups: "Profiles of these groups", ext_scope_profiles: "These profiles", ext_scope_excluded: "Excluded: never load it", ext_scope_hint: "Open profiles load the change the next time they open.", ext_filter: "Filter", ext_no_profiles: "No {engine} profiles.", ext_no_groups: "No groups yet.",
   },
   es: {
     tagline: "Gestor de profiles anti-detect", new_profile: "Nuevo profile", filters: "Filtrar",
@@ -867,6 +884,7 @@ const I18N = {
     mcp_new_key: "Crear mi clave personal e insertarla",
     mcp_key_note: "La clave solo se muestra ahora y reemplaza a la anterior. Una IA que la use solo ve tus profiles y los abre en tu PC.",
     army_auth_title: "Vincular tu cuenta con Army", army_auth_hint: "El panel de Army abrirá los profiles de esta cuenta en tu PC, a través de tu agente.", army_cancelled: "No se vinculó Army. Puedes cerrar esta pestaña.",
+    ext_button: "Extensiones", ext_title: "Extensiones de los navegadores", ext_hint: "Chrome: .crx o .zip para los profiles con engine Chrome. Firefox: .xpi para Camoufox.", ext_upload: "Subir archivo", ext_store: "ID o enlace de la Chrome Web Store", ext_store_add: "Añadir de la tienda", ext_store_note: "Se descarga de los servidores de Google al pulsar Añadir.", ext_uploading: "Subiendo {name}…", ext_store_fetching: "Descargando de la Chrome Web Store…", ext_added: "Añadida {name} {version}", ext_none: "Todavía no hay extensiones.", ext_all: "Todos los profiles", ext_in_groups: "Grupos: {list}", ext_in_profiles: "{n} profiles", ext_excluded: "{n} excluidos", ext_nowhere: "No se aplica a ningún profile", ext_where: "Dónde se aplica", ext_confirm_delete: "¿Quitar “{name}” de todos los profiles?", ext_scope_all: "Todos los profiles {engine}", ext_scope_groups: "Profiles de estos grupos", ext_scope_profiles: "Estos profiles", ext_scope_excluded: "Excluidos: nunca la cargan", ext_scope_hint: "Los profiles abiertos cargan el cambio la próxima vez que se abran.", ext_filter: "Filtrar", ext_no_profiles: "No hay profiles {engine}.", ext_no_groups: "Todavía no hay grupos.",
   },
 };
 
@@ -938,8 +956,10 @@ class ApiError extends Error { constructor(status, msg) { super(msg); this.statu
 async function api(method, path, body, { raw = false } = {}) {
   const headers = { "Accept-Language": lang };  // server error messages follow the panel's language
   if (token) headers.Authorization = "Bearer " + token;
-  if (body !== undefined) headers["Content-Type"] = "application/json";
-  const res = await fetch("/api/v1" + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  // A File/Blob goes as it is (uploads); anything else as JSON.
+  const blob = body instanceof Blob;
+  if (body !== undefined && !blob) headers["Content-Type"] = "application/json";
+  const res = await fetch("/api/v1" + path, { method, headers, body: body === undefined || blob ? body : JSON.stringify(body) });
   if (res.status === 401) { showLogin(); throw new ApiError(401, t(hub ? "bad_login" : "bad_token")); }
   if (!res.ok) {
     let msg = res.statusText;
@@ -1109,11 +1129,13 @@ function stamp(p) {
   return h("span", { class: "idle" }, t("idle"));
 }
 
+// The OS badge shows a monochrome glyph; its name is the badge's label and tooltip.
+const OS_NAMES = { windows: "Windows", macos: "macOS", linux: "Linux", android: "Android" };
 function row(p) {
   const on = running.has(p.name);
   const fp = fingerprints[p.name];
   const isBusy = busy.has(p.name);
-  const os = { windows: "WIN", macos: "MAC", linux: "LIN", android: "AND" }[p.os_type] || "OS";
+  const osName = OS_NAMES[p.os_type];
   const engine = p.engine === "chrome" ? "Chrome" : "Camoufox";
   const box = h("input", { type: "checkbox", "aria-label": t("select_row", { name: p.name }),
     onchange: (e) => { e.target.checked ? selected.add(p.name) : selected.delete(p.name); render(); } });
@@ -1135,7 +1157,7 @@ function row(p) {
       h("span", { class: "name", tabindex: 0, onmouseenter: (e) => showAccountsPop(p, e.currentTarget), onmouseleave: hideAccountsPop,
         onfocus: (e) => showAccountsPop(p, e.currentTarget), onblur: hideAccountsPop }, p.name),
       h("span", { class: "minor" }, engine)),
-    h("div", { class: "c-device device", role: "cell" }, h("span", { class: "os", title: p.os_type }, os),
+    h("div", { class: "c-device device", role: "cell" }, h("span", { class: "os", role: "img", title: osName || p.os_type, "aria-label": osName || p.os_type }, osName ? icon("os-" + p.os_type) : "OS"),
       h("div", { class: "stack" }, h("span", { class: p.engine === "chrome" ? "engine chrome" : "engine" }, engine),
         fp && fp.exists ? h("span", { class: "data minor" }, [fp.screen, `${fp.hardware_concurrency || "?"} CPU`].filter(Boolean).join(" · "))
           : h("span", { class: "minor" }, t("no_fp_short")))),
@@ -1755,6 +1777,7 @@ function renderMe(who) {
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
+  $("ext-btn").classList.toggle("hidden", me.role !== "admin");
 }
 function showSettings(on) {
   $("rail").classList.toggle("settings", on);
@@ -2127,6 +2150,102 @@ function openGroups() {
   }, { wide: true });
 }
 
+// --- Browser extensions ---------------------------------------------------------
+// Each applies to every profile of its engine, to some groups' profiles (hub) or to
+// some profiles; "excluded" leaves profiles out of any of those.
+const engineLabel = (e) => (e === "chrome" ? "Chrome" : "Firefox · Camoufox");
+
+function openExtensions() {
+  modal((close) => {
+    const list = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const say = (text, kind = "") => { msg.className = "msg " + kind; msg.textContent = text; };
+    const where = (x) => [x.global ? t("ext_all") : null,
+      x.groups.length ? t("ext_in_groups", { list: x.groups.join(", ") }) : null,
+      x.profiles.length ? t("ext_in_profiles", { n: x.profiles.length }) : null,
+      x.excluded.length ? t("ext_excluded", { n: x.excluded.length }) : null].filter(Boolean).join(" · ") || t("ext_nowhere");
+    const load = async () => {
+      let items;
+      try { items = await api("GET", "/extensions"); } catch (e) { return say(e.message, "err"); }
+      if (!items.length) return list.replaceChildren(h("p", { class: "minor" }, t("ext_none")));
+      list.replaceChildren(...items.map((x) => h("div", { class: "inst-row" },
+        h("b", {}, `${x.name} `, h("span", { class: "minor" }, x.version)),
+        h("div", { class: "sub" }, `${engineLabel(x.engine)} · ${where(x)}`),
+        h("div", { class: "acts" },
+          h("button", { type: "button", class: "btn btn-line", onclick: () => editExtension(x, load) }, icon("users", true), t("ext_where")),
+          h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${x.name}`, onclick: async () => {
+            if (!(await confirmDialog(t("ext_confirm_delete", { name: x.name }), t("delete"), true))) return;
+            try { await api("DELETE", `/extensions/${x.id}`); load(); } catch (e) { say(e.message, "err"); }
+          } }, icon("trash"))))));
+    };
+    const added = (x) => { say(t("ext_added", { name: x.name, version: x.version }), "ok"); load(); };
+    const pick = h("input", { type: "file", accept: ".crx,.zip,.xpi", class: "hidden", "aria-label": t("ext_upload") });
+    pick.onchange = async () => {
+      const file = pick.files[0];
+      pick.value = "";
+      if (!file) return;
+      say(t("ext_uploading", { name: file.name }));
+      try { added(await api("PUT", `/extensions/upload?filename=${enc(file.name)}`, file)); } catch (e) { say(e.message, "err"); }
+    };
+    const ref = h("input", { type: "text", id: "ext-ref", placeholder: t("ext_store"), "aria-label": t("ext_store"), autocomplete: "off" });
+    load();
+    return h("div", {},
+      modalHead(t("ext_title"), t("ext_hint"), close),
+      h("div", { class: "modal-body" },
+        h("div", { class: "ext-add" },
+          h("button", { type: "button", class: "btn btn-act", onclick: () => pick.click() }, icon("upload", true), t("ext_upload")), pick),
+        h("form", { class: "ext-add", onsubmit: async (e) => {
+          e.preventDefault();
+          if (!ref.value.trim()) return;
+          say(t("ext_store_fetching"));
+          try { added(await api("POST", "/extensions/store", { ref: ref.value.trim() })); ref.value = ""; } catch (err) { say(err.message, "err"); }
+        } }, ref, h("button", { class: "btn btn-line" }, icon("plus", true), t("ext_store_add"))),
+        h("p", { class: "minor", style: "margin-top:-8px" }, t("ext_store_note")),
+        list, msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
+// A checkbox list with a filter box; .value() is the names ticked.
+function pickList(title, names, chosen, empty) {
+  const ticked = new Set(chosen);
+  const boxes = names.map((n) => h("label", { "data-name": n.toLowerCase() },
+    h("input", { type: "checkbox", checked: ticked.has(n), onchange: (e) => (e.target.checked ? ticked.add(n) : ticked.delete(n)) }), n));
+  const filter = names.length > 8 ? h("input", { type: "search", placeholder: t("ext_filter"), "aria-label": `${t("ext_filter")}: ${title}`,
+    oninput: (e) => { const q = e.target.value.toLowerCase(); boxes.forEach((b) => b.classList.toggle("hidden", !b.dataset.name.includes(q))); } }) : null;
+  const el = h("section", { class: "picks" }, h("h3", {}, title),
+    h("div", { class: "pick-list" }, names.length ? [filter, ...boxes] : h("p", { class: "minor" }, empty)));
+  return { el, value: () => [...ticked] };
+}
+
+async function editExtension(x, reload) {
+  let groups = [];
+  if (hub) { try { groups = (await api("GET", "/hub/groups")).map((g) => g.name); } catch (e) { return toast(e.message, true); } }
+  // Names already chosen stay listed even if that profile or group is gone.
+  const names = [...new Set([...profiles.filter((p) => (p.engine || "camoufox") === x.engine).map((p) => p.name), ...x.profiles, ...x.excluded])].sort();
+  const engine = engineLabel(x.engine);
+  modal((close) => {
+    const all = h("input", { type: "checkbox", checked: x.global });
+    const inGroups = hub ? pickList(t("ext_scope_groups"), [...new Set([...groups, ...x.groups])].sort(), x.groups, t("ext_no_groups")) : null;
+    const own = pickList(t("ext_scope_profiles"), names, x.profiles, t("ext_no_profiles", { engine }));
+    const excluded = pickList(t("ext_scope_excluded"), names, x.excluded, t("ext_no_profiles", { engine }));
+    const msg = h("div", { class: "msg", role: "status" });
+    return h("form", { onsubmit: async (e) => {
+      e.preventDefault();
+      const body = { global: all.checked, profiles: own.value(), excluded: excluded.value() };
+      if (inGroups) body.groups = inGroups.value();
+      try { await api("PATCH", `/extensions/${x.id}`, body); close(); reload(); } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
+    } },
+      modalHead(`${x.name}: ${t("ext_where").toLowerCase()}`, t("ext_scope_hint"), close),
+      h("div", { class: "modal-body" },
+        h("label", { style: "display:flex;gap:8px;align-items:center;margin-top:10px" }, all, t("ext_scope_all", { engine })),
+        inGroups && inGroups.el, own.el, excluded.el, msg),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("cancel")),
+        h("button", { class: "btn btn-act" }, t("save"))));
+  });
+}
+
 // --- MCP setup guide -----------------------------------------------------------
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
@@ -2405,6 +2524,7 @@ $("ads-btn").onclick = openAdsPower;
 $("users-btn").onclick = openUsers;
 $("groups-btn").onclick = openGroups;
 $("agents-btn").onclick = openAgents;
+$("ext-btn").onclick = openExtensions;
 $("agent-get-btn").onclick = openAgentDownload;
 $("settings-btn").onclick = () => showSettings(true);
 $("general-btn").onclick = () => showGeneral(true);

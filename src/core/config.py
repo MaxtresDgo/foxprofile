@@ -21,6 +21,10 @@ PROFILES_FILE = _env("PROFILES_FILE", "profiles.json")
 ACCOUNTS_FILE = _env("ACCOUNTS_FILE", "accounts.json")
 ACCOUNTS_KEY = _env("ACCOUNTS_KEY", "")
 DATA_DIR = _env("DATA_DIR", "camoufox_data")
+# Browser extensions (services/browser/extensions.py): the catalogue and where each
+# applies, and a folder with their ZIPs (plus, where browsers run, the unpacked copies).
+EXTENSIONS_FILE = _env("EXTENSIONS_FILE", "extensions.json")
+EXTENSIONS_DIR = _env("EXTENSIONS_DIR", "extensions")
 LOG_DIR = _env("LOG_DIR", "logs")
 LOG_LEVEL = _env("LOG_LEVEL", "INFO")
 PROXY_CHECK_TIMEOUT = int(_env("PROXY_TIMEOUT", "10"))

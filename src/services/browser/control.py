@@ -74,8 +74,11 @@ def _truncate(text: str, limit: int) -> tuple[str, bool]:
 class PageController:
     """Executes control actions against a Playwright BrowserContext."""
 
-    def __init__(self, context: Any) -> None:
+    def __init__(self, context: Any, touch: bool = False) -> None:
         self._context = context
+        # A phone persona turns the mouse into a finger (ChromeEngine._phone), and
+        # Playwright's mouse then waits forever for its own events: tap instead.
+        self._touch = touch
         self._current: Any = None
         self._recorder: Recorder | None = None
 
@@ -124,7 +127,8 @@ class PageController:
 
     async def click(self, selector: str, timeout: int = 10_000) -> dict[str, Any]:
         page = await self._page()
-        await page.locator(selector).first.click(timeout=timeout)
+        target = page.locator(selector).first
+        await (target.tap if self._touch else target.click)(timeout=timeout)
         return await self._describe(page)
 
     async def type(
@@ -162,7 +166,7 @@ class PageController:
     async def click_at(self, x: float, y: float) -> dict[str, Any]:
         """Click viewport coordinates, as seen on a screenshot of the active tab."""
         page = await self._page()
-        await page.mouse.click(x, y)
+        await (page.touchscreen.tap if self._touch else page.mouse.click)(x, y)
         return await self._describe(page)
 
     async def keyboard_type(self, text: str) -> dict[str, Any]:
@@ -315,10 +319,10 @@ def build_app(controller: PageController, token: str) -> web.Application:
     return app
 
 
-async def serve(context: Any) -> tuple[web.AppRunner, int, str]:
+async def serve(context: Any, touch: bool = False) -> tuple[web.AppRunner, int, str]:
     """Start the control server for a context. Returns (runner, port, token)."""
     token = secrets.token_urlsafe(24)
-    runner = web.AppRunner(build_app(PageController(context), token), access_log=None)
+    runner = web.AppRunner(build_app(PageController(context, touch), token), access_log=None)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()

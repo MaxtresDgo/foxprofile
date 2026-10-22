@@ -240,7 +240,7 @@ The palette is paper and ink with a deep green cover. One warm action colour sit
 **UI Font:** Be Vietnam Pro (with system-ui, -apple-system, Segoe UI, sans-serif), bundled locally at 400/500/600/700.
 **Data Font:** JetBrains Mono (with ui-monospace, SF Mono, Consolas, monospace), bundled as a variable font.
 
-**Character:** Be Vietnam Pro is a clean geometric sans that renders Vietnamese diacritics properly, and it carries all the human language. JetBrains Mono sets anything a machine produced, the way a passport sets its machine-readable zone: proxy host:port, scheme, timezone, locale, screen and CPU, OS badge, nav counts, stamp text and code.
+**Character:** Be Vietnam Pro is a clean geometric sans that renders Vietnamese diacritics properly, and it carries all the human language. JetBrains Mono sets anything a machine produced, the way a passport sets its machine-readable zone: proxy host:port, scheme, timezone, locale, screen and CPU, nav counts, stamp text and code.
 
 ### Hierarchy
 - **Headline** (700, 26px, 1.2, -0.02em): the page title (`Profile`) and the login heading (24px).
@@ -249,7 +249,7 @@ The palette is paper and ink with a deep green cover. One warm action colour sit
 - **Body Strong** (600, 14.5px web / 14px desktop): the profile name in a row. Button labels use 600 weight at body size.
 - **Label** (600, 12px, ink-3): table column headers and the rail nav title. Field labels use 12.5px/600 in ink-2.
 - **Data** (JetBrains Mono 400, 12.5px, tabular figures, -0.01em): the first line of proxy and timezone cells, and inline code.
-- **Data Minor** (JetBrains Mono, 11.5px, ink-3): the second line of a cell (scheme, locale, screen and CPU). The OS badge uses 11px/600.
+- **Data Minor** (JetBrains Mono, 11.5px, ink-3): the second line of a cell (scheme, locale, screen and CPU). An OS badge with no glyph (an unknown OS) reads OS in 11px/600.
 - **Stamp** (JetBrains Mono 700, 10.5px, 0.08em, uppercase): stamp text. The launch time beneath it uses 10px/500.
 
 ### Named Rules
@@ -310,7 +310,7 @@ Buttons are solid and quiet. The fill colour says what kind of action it is.
 - **Bulk bar:** when rows are selected, a sunk-paper band sits at the top of the sheet. It shows the count (600), then Launch (act), Stop and Delete (line), and a ghost Clear pushed to the far right.
 
 ### OS Badge and Tags
-- **OS badge:** a 38×22 outlined box with a 1px ink-2 border and 4px corners, holding WIN, MAC or LIN in 11px/600 mono. Every OS gets the same monochrome badge, with no coloured OS tiles.
+- **OS badge:** a 38×22 outlined box with a 1px ink-2 border and 4px corners, holding the OS glyph (Windows, Apple, Linux, Android) at 15px in the same line strokes as the other icons, in ink. The OS name is its tooltip and its screen reader label. Every OS gets the same monochrome badge: glyphs, never brand colours, and no coloured OS tiles. The web draws the glyphs as inline symbols (`i-os-*`), the desktop as `src/assets/os/*.svg` tinted with the ink token.
 - **Engine:** Camoufox is set in plain ink. Chrome is set in cover green at 600 weight. On web, its tag uses a soft green-grey fill.
 
 ### Inputs / Fields

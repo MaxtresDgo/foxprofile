@@ -17,6 +17,7 @@ from src.core.config import DATA_DIR, HEADLESS, RESTORE_TABS
 from src.services.browser import control, session
 from src.services.browser import display as xvfb
 from src.services.browser.fingerprint import load_or_create
+from src.services.browser.process import extension_dirs
 from src.services.proxy.geo_check import requests_proxy_url
 from src.utils.proxy_parser import parse_proxy
 
@@ -171,6 +172,9 @@ async def run_browser(
         **geo_overrides(timezone, locale),
     }
 
+    addons = extension_dirs()
+    if addons:
+        launch_config["addons"] = addons
     proxy_config = parse_proxy(proxy_str)
     if proxy_config:
         launch_config["proxy"] = proxy_config
