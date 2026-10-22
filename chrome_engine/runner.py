@@ -125,7 +125,8 @@ async def run_browser(
         context.on("page", watch)
         context.on("close", lambda _: close_event.set())
 
-        control_runner, port, token = await control.serve(context)
+        phone = engine.persona is not None and engine.persona.platform == "android"
+        control_runner, port, token = await control.serve(context, touch=phone)
         # CONTROL must precede BROWSER_STARTED (see the Camoufox runner).
         _say(f"CONTROL:{port}:{token}")
         _say("BROWSER_STARTED")
