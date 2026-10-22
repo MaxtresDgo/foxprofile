@@ -385,7 +385,12 @@ class ChromeEngine:
     async def _phone(self, page: Any) -> None:
         """navigator.platform and the full client hints of the phone. Playwright's
         own override (from user_agent / is_mobile) sets neither; workers keep the
-        host's navigator.platform, which CDP cannot reach from here."""
+        host's navigator.platform, which CDP cannot reach from here.
+
+        The mouse also acts as a finger, as in DevTools' device mode: the page is a
+        touch device, so mobile sites wait for touch gestures (a long press opens
+        Facebook's reactions) that a mouse never sends. Playwright's own mouse
+        then hangs; automation taps instead (control.PageController)."""
         assert self.persona is not None and self.persona.user_agent is not None
         try:
             session = await self.context.new_cdp_session(page)
@@ -396,6 +401,10 @@ class ChromeEngine:
                     "platform": "Linux armv81",
                     "userAgentMetadata": personas.client_hints(self.persona),
                 },
+            )
+            await session.send(
+                "Emulation.setEmitTouchEventsForMouse",
+                {"enabled": True, "configuration": "mobile"},
             )
         except Exception:  # the page closed first
             return

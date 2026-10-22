@@ -8,6 +8,7 @@ local servers, and geo lookups are stubbed.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import pytest
 
@@ -100,6 +101,50 @@ def test_android_persona_is_a_phone(chrome_exe, tmp_path, headless):
     assert {i.code for i in issues} <= WORKER_PLATFORM_GAP, "\n".join(map(str, issues))
     assert fp["serviceWorker"]["userAgent"] == PHONE_UA  # the --user-agent switch
     assert eng.warnings and eng.crashes == []
+
+
+def test_android_mouse_is_a_finger_and_automation_taps(chrome_exe, tmp_path):
+    from src.services.browser.control import PageController
+
+    setup = """() => {
+        document.body.innerHTML = '<div id=b style="width:300px;height:300px"></div>';
+        document.body.style.margin = 0;
+        window.ev = [];
+        for (const t of ['touchstart', 'contextmenu', 'click'])
+            b.addEventListener(t, e => ev.push(t));
+    }"""
+
+    async def scenario():
+        origin = await Origin("127.0.0.1").start()
+        eng = ChromeEngine(tmp_path, executable=chrome_exe, persona=phone(), headless=True)
+        context = await eng.start()
+        try:
+            page = context.pages[0]
+            await page.goto(origin.url + "/")
+            await page.evaluate(setup)
+            # A held mouse press. Injected mouse events never get their answer
+            # once the mouse is a finger (why automation taps), but they arrive;
+            # the operator's real mouse does not go through CDP.
+            cdp = await context.new_cdp_session(page)
+            at = {"x": 150, "y": 150, "button": "left", "clickCount": 1}
+            steps = (("mouseMoved", 0, 0.3), ("mousePressed", 1, 1), ("mouseReleased", 0, 0.3))
+            for kind, buttons, hold in steps:
+                event = {**at, "type": kind, "buttons": buttons}
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(cdp.send("Input.dispatchMouseEvent", event), hold)
+            held = await page.evaluate("ev")
+            await page.evaluate("window.ev = []")
+            controller = PageController(context, touch=True)
+            await controller.click("#b", timeout=5000)
+            await controller.click_at(150, 150)
+            return held, await page.evaluate("ev")
+        finally:
+            await eng.stop()
+            await origin.stop()
+
+    held, tapped = run(scenario())
+    assert held[:2] == ["touchstart", "contextmenu"]  # the long press of a phone
+    assert tapped == ["touchstart", "click", "touchstart", "click"]
 
 
 def test_android_override_survives_navigation_and_new_tabs(chrome_exe, tmp_path):
