@@ -103,6 +103,34 @@ def test_android_persona_is_a_phone(chrome_exe, tmp_path, headless):
     assert eng.warnings and eng.crashes == []
 
 
+def test_extensions_from_the_launcher_run_in_pages(chrome_exe, tmp_path, monkeypatch):
+    from chrome_engine import runner
+
+    ext = tmp_path / "ext"
+    ext.mkdir()
+    (ext / "manifest.json").write_text(
+        '{"manifest_version": 3, "name": "probe", "version": "1", "content_scripts": '
+        '[{"matches": ["<all_urls>"], "js": ["c.js"], "run_at": "document_start"}]}'
+    )
+    (ext / "c.js").write_text('document.documentElement.dataset.probe = "loaded";')
+    monkeypatch.setenv("FOXPROFILE_LOAD_EXTENSIONS", str(ext))
+
+    async def scenario():
+        origin = await Origin("127.0.0.1").start()
+        args = runner._extension_args()
+        eng = ChromeEngine(tmp_path / "p", executable=chrome_exe, headless=True, extra_args=args)
+        context = await eng.start()
+        try:
+            page = context.pages[0]
+            await page.goto(origin.url + "/")
+            return await page.evaluate("document.documentElement.dataset.probe || null")
+        finally:
+            await eng.stop()
+            await origin.stop()
+
+    assert run(scenario()) == "loaded"
+
+
 def test_android_mouse_is_a_finger_and_automation_taps(chrome_exe, tmp_path):
     from src.services.browser.control import PageController
 

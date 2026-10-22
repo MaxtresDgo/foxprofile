@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from ..core.strings import get_string
@@ -43,6 +43,8 @@ class RemoteLauncher:
         # reported on its last poll, and who an admin asked to update right away.
         self.agents: dict[str, dict] = {}
         self.update_now: set[str] = set()
+        # The extensions a profile loads, sent with its launch (Container wires it).
+        self.extensions: Callable[[Profile], list[dict]] = lambda profile: []
 
     # --- hub side --------------------------------------------------------------
 
@@ -62,7 +64,8 @@ class RemoteLauncher:
         with self._lock:
             self._lease(user, profile.name)
             self._results[profile.name] = _LaunchResult()
-            self._queues[user].put({"op": "launch", "profile": profile.to_dict()})
+            command = {"op": "launch", "profile": profile.to_dict()}
+            self._queues[user].put({**command, "extensions": self.extensions(profile)})
 
     def _call(self, user: str, command: dict, timeout: float) -> Any:
         """Send `command` to `user`'s agent and return its answer's result."""

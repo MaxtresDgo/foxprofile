@@ -114,6 +114,16 @@ El botón con la llave de cada perfil abre **Cuentas**: las cuentas que usa ese 
 - **Iniciar sesión:** la comprobación se hace en una pestaña nueva, así que las pestañas del perfil no cambian. Con el perfil abierto, el agente de la PC abre la página de login y rellena usuario, contraseña y, si el sitio lo pide, el código 2FA. Si el perfil ya tiene la sesión iniciada, el sitio lo saca de su página de login: no se escribe nada, esa pestaña se cierra y avisa "La sesión ya estaba iniciada". Si aparece un captcha u otra verificación, o el sitio cambió su página, se detiene y el operador termina a mano. Google a veces rechaza navegadores automatizados.
 - Se guardan cifradas en `accounts.json`, aparte de `profiles.json`, y no viajan en las exportaciones ZIP ni en los datos que el agente descarga. La clave es `FOXPROFILE_ACCOUNTS_KEY` o, si no está definida, `accounts.key` junto al archivo. **En producción defina `FOXPROFILE_ACCOUNTS_KEY`** (genérela con `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) como secreto del despliegue, así la clave no queda en el volumen `/data` junto a las cuentas. Si la clave se pierde o cambia, las cuentas no se pueden leer y el hub no toca el archivo.
 
+### Extensiones
+
+**Configuración › Extensiones** (solo admins) guarda las extensiones que cargan los perfiles: de Chrome (`.crx`, `.zip`, o un enlace o ID de la Chrome Web Store) para los perfiles con engine Chrome, y complementos de Firefox (`.xpi`) para Camoufox.
+
+- **Dónde se aplica:** a todos los perfiles de su engine, a los perfiles de ciertos grupos o a ciertos perfiles. Se suman (las globales + las del grupo del perfil + las suyas), y cualquier perfil se puede **excluir**. Un perfil abierto carga el cambio la próxima vez que se abra.
+- **En el agente:** la orden de abrir un perfil lleva la lista de sus extensiones; el agente baja cada versión una sola vez del hub (`GET /api/v1/extensions/{id}/file`), comprueba su SHA-256 y la guarda desempaquetada en `extensions/unpacked/` de su carpeta de datos.
+- **Mismo ID en todas las PCs:** al guardarla, FoxProfile fija el ID de la extensión (una `key` en el manifest de Chrome, un ID de gecko en el de Firefox), así que lo que la extensión guarda en el perfil, como sus sesiones y ajustes, viaja con el perfil a la otra PC. Volver a subir la misma extensión la actualiza y conserva dónde se aplica.
+- **Chrome Web Store:** al pulsar **Añadir de la tienda**, el hub descarga el `.crx` de los servidores de Google; no hay otras conexiones.
+- Se guardan en `extensions.json` y `extensions/` (`FOXPROFILE_EXTENSIONS_FILE`, `FOXPROFILE_EXTENSIONS_DIR`; en Docker, dentro de `/data`).
+
 ### Idioma
 
 El panel arranca en español; cada usuario puede cambiarlo en **Settings → General** (Español, English, Tiếng Việt), y los mensajes de error del servidor siguen ese idioma. `FOXPROFILE_LANG=es` en el `.env` del hub fija el idioma de los agentes de todas las PCs (salvo que una PC defina su propio `FOXPROFILE_LANG`).
