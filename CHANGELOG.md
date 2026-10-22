@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thêm
+- Liên kết với panel Army: `FOXPROFILE_ARMY_CALLBACK` bật trang "Liên kết tài khoản với Army" (`#army=<state>`), tạo key `army_key` riêng (`POST /hub/me/army-key`) và chỉ gửi nó tới địa chỉ cấu hình đó. Admin tạo trước tài khoản để giao profile: `PUT /hub/users/{user}`.
 - Sửa hàng loạt: nút "Sửa" trên thanh thao tác hàng loạt (app desktop và web panel) đổi hệ điều hành, proxy, timezone hoặc locale của mọi profile đã chọn; chỉ các trường được đánh dấu mới đổi, để trống thì bỏ proxy hoặc về tự động. Trong web panel ở chế độ hub còn đổi được người dùng (admin) và nhóm (trưởng nhóm). Dùng lại `PATCH /profiles/{name}` cho từng profile.
 - Bộ cài agent gắn sẵn địa chỉ hub (build dev hay prod): `installer/windows/build-msi.sh` / `build-pkg.sh` bắt buộc `HUB_URL=http(s)://...` (workflow Agent installers: input `hub_url` hoặc biến repo `AGENT_HUB_URL`) và ghi file `HUB_URL` vào app; agent dùng nó khi không có `--hub` hay `FOXPROFILE_HUB_URL`.
 - Web panel (chế độ hub): nút "Tải agent về" ngay dưới trạng thái agent khi máy chưa kết nối, mở hộp thoại chỉ để chọn hệ điều hành (Windows / macOS) và tải bộ cài lần đầu.

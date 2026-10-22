@@ -214,6 +214,16 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 - `agent.json` contiene la clave del agente: quien la copie puede actuar como ese operador. Para revocarla, autorice de nuevo el agente.
 - `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`), también si la plataforma de identidad está caída. Cambiarlo cierra todas las sesiones.
 
+## Panel de Army
+
+Army (`/perfiles-users` y `/perfiles-admin`) abre los perfiles en nombre de cada usuario con una clave propia de ese usuario, nunca con `FOXPROFILE_API_TOKEN`:
+
+1. En Army, el usuario pulsa *Vincular con Fox*. Army abre el panel del hub en `#army=<state>`.
+2. Inicia sesión (la misma cuenta de Army) y pulsa *Autorizar*. El panel crea una clave `army_key` (`POST /hub/me/army-key`, separada de la de MCP y la del agente) y la envía por POST, con el `state`, **solo** a `FOXPROFILE_ARMY_CALLBACK`. Esa dirección sale de la configuración del hub, no del enlace.
+3. Army comprueba el `state` y que la clave sea de ese mismo correo, y la guarda cifrada.
+
+Sin `FOXPROFILE_ARMY_CALLBACK` la vinculación está apagada. Para asignar perfiles a quien todavía no entró al hub, un admin crea la cuenta con `PUT /hub/users/{correo}` (si ya existe, conserva su rol).
+
 ## Visor remoto, cookies y MCP
 
 Todo se ejecuta en la PC del operador; el hub solo reenvía las órdenes a su agente.

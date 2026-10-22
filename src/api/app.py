@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from ..core import config
 from ..core.config import API_PORT, API_TOKEN, HEADLESS
 from ..core.logging import get_logger
 from ..core.strings import current_language, request_language
@@ -131,6 +132,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
             "mcp_path": mcp_http.MCP_PATH,
             "mode": "hub" if container.hub else "local",
             "language": current_language(),
+            "army_callback": config.ARMY_CALLBACK if container.hub else "",
         }
 
     @app.get("/", include_in_schema=False)

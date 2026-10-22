@@ -116,6 +116,18 @@ def new_agent_key(request: Request) -> dict:
     return {"key": store.new_key(user["name"], "agent_key"), **user}
 
 
+@router.post("/me/army-key")
+def new_army_key(request: Request) -> dict:
+    """A key for Army's panel, handed to it by the panel's "Authorize Army" page
+    (posted to config.ARMY_CALLBACK only); replaces the previous one of its kind."""
+    user, store = _user(request), hub_store(request)
+    if not config.ARMY_CALLBACK:
+        raise HTTPException(status_code=404, detail=get_string("err_no_army"))
+    if user["name"] not in store.users:
+        raise HTTPException(status_code=400, detail=get_string("err_no_personal_key"))
+    return {"key": store.new_key(user["name"], "army_key"), **user}
+
+
 # --- user admin ----------------------------------------------------------------
 
 
@@ -133,6 +145,26 @@ def _admin_or_lead(request: Request) -> None:
 @router.get("/users", dependencies=[Depends(_admin_or_lead)])
 def list_users(request: Request) -> list[dict]:
     return hub_store(request).list_users()
+
+
+class UserBody(BaseModel):
+    role: str = "operator"
+    display: str = ""
+
+
+@router.put("/users/{user}", dependencies=[Depends(_admin)])
+def ensure_user(user: str, body: UserBody, request: Request) -> dict:
+    """Create the account of someone who has not signed in yet, so a profile can be
+    assigned to them (Army's panel lists its own users); an existing one keeps its role."""
+    store = hub_store(request)
+    name = user.strip().lower()
+    existing = store.users.get(name) or {}
+    try:
+        return store.ensure_user(
+            name, existing.get("role", body.role), body.display or existing.get("display", "")
+        )
+    except HubError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/users/{user}", dependencies=[Depends(_admin)])

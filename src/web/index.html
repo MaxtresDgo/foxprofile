@@ -633,6 +633,7 @@ const I18N = {
     confirm_delete_group: "Xoá nhóm “{name}”? Profile của nhóm vẫn còn, thuộc về người dùng của chúng.",
     mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
     mcp_key_note: "Key chỉ hiện một lần và thay thế key cũ. AI dùng key này chỉ thấy profile của bạn và mở chúng trên máy của bạn.",
+    army_auth_title: "Liên kết tài khoản với Army", army_auth_hint: "Panel Army sẽ mở các profile của tài khoản này trên máy của bạn, qua agent.", army_cancelled: "Chưa liên kết Army. Bạn có thể đóng tab này.",
   },
   en: {
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
@@ -728,6 +729,7 @@ const I18N = {
     confirm_delete_group: "Delete group “{name}”? Its profiles stay with their operators.",
     mcp_new_key: "Create my personal key and insert it",
     mcp_key_note: "The key is shown only now and replaces your previous one. An AI using it sees only your profiles and opens them on your PC.",
+    army_auth_title: "Link your account with Army", army_auth_hint: "Army's panel will open this account's profiles on your PC, through your agent.", army_cancelled: "Army was not linked. You can close this tab.",
   },
   es: {
     tagline: "Gestor de profiles anti-detect", new_profile: "Nuevo profile", filters: "Filtrar",
@@ -823,6 +825,7 @@ const I18N = {
     confirm_delete_group: "¿Eliminar el grupo “{name}”? Sus profiles se quedan con sus operadores.",
     mcp_new_key: "Crear mi clave personal e insertarla",
     mcp_key_note: "La clave solo se muestra ahora y reemplaza a la anterior. Una IA que la use solo ve tus profiles y los abre en tu PC.",
+    army_auth_title: "Vincular tu cuenta con Army", army_auth_hint: "El panel de Army abrirá los profiles de esta cuenta en tu PC, a través de tu agente.", army_cancelled: "No se vinculó Army. Puedes cerrar esta pestaña.",
   },
 };
 
@@ -2028,7 +2031,48 @@ function takeAgentHash() {
   return "pending";
 }
 // The agent reusing an open panel tab only changes the hash: boot again for it.
-addEventListener("hashchange", () => { if (location.hash.startsWith("#agent=")) location.reload(); });
+addEventListener("hashchange", () => { if (/^#(agent|army)=/.test(location.hash)) location.reload(); });
+
+// --- Army sign-in (hub/routes.new_army_key) ---------------------------------------
+// Army's panel opens #army=<state>. Authorize creates an Army key and POSTs it as a
+// form, with that state, to the hub's own FOXPROFILE_ARMY_CALLBACK (from /info, never
+// from the link), so a crafted link cannot send the key anywhere else.
+let armyCallback = "";
+let armyAuth = (() => { try { return JSON.parse(sessionStorage.getItem("foxprofile.army")); } catch { return null; } })();
+function saveArmyAuth(v) {
+  armyAuth = v;
+  try { v ? sessionStorage.setItem("foxprofile.army", JSON.stringify(v)) : sessionStorage.removeItem("foxprofile.army"); } catch {}
+}
+function takeArmyHash() {
+  if (!location.hash.startsWith("#army=")) return;
+  const state = new URLSearchParams(location.hash.slice(1)).get("army") || "";
+  history.replaceState(null, "", location.pathname + location.search);
+  if (/^[\w-]{20,}$/.test(state)) saveArmyAuth({ state });
+}
+async function showArmyAuth() {
+  const who = await api("GET", "/hub/me");  // a 401 shows the login, keeping armyAuth
+  const row = (k, v) => [h("dt", {}, t(k)), h("dd", {}, v)];
+  const err = h("div", { class: "msg err", role: "alert" });
+  const authorize = h("button", { class: "btn btn-act", type: "button", onclick: async () => {
+    authorize.disabled = true; err.textContent = "";
+    try {
+      const { key } = await api("POST", "/hub/me/army-key");
+      const form = h("form", { method: "post", action: armyCallback, class: "hidden" },
+        h("input", { type: "hidden", name: "state", value: armyAuth.state }), h("input", { type: "hidden", name: "key", value: key }));
+      saveArmyAuth(null);
+      document.body.append(form);
+      form.submit();
+    } catch (e) { err.textContent = e.message; authorize.disabled = false; }
+  } }, t("agent_authorize"));
+  showAgentCard(
+    h("h1", { tabindex: "-1" }, t("army_auth_title")),
+    h("p", { class: "muted" }, t("army_auth_hint")),
+    h("dl", { class: "agent-who" }, row("email", who.name), row("agent_auth_role", t("role_" + who.role)), row("agent_auth_hub", location.host)),
+    err, authorize,
+    h("div", { class: "agent-actions" },
+      h("button", { class: "btn btn-line", type: "button", onclick: () => { token = ""; store.set("foxprofile.token", null); showLogin(); } }, t("agent_switch")),
+      h("button", { class: "btn btn-ghost", type: "button", onclick: () => { saveArmyAuth(null); showAgentEnd(t("agent_cancelled_title"), t("army_cancelled")); } }, t("cancel"))));
+}
 function showAgentCard(...children) {
   clearInterval(listTimer); listTimer = null;
   showSettings(false);
@@ -2089,7 +2133,7 @@ $("login-form").onsubmit = async (e) => {
       }
       token = (await res.json()).token;
       store.set("foxprofile.token", token); $("token").value = ""; $("login-err").textContent = "";
-      agentAuth ? showAgentAuth() : showApp(true);
+      agentAuth ? showAgentAuth() : armyAuth && armyCallback ? showArmyAuth() : showApp(true);
     } catch (err) { $("login-err").textContent = err.message; }
     return;
   }
@@ -2162,6 +2206,9 @@ document.addEventListener("keydown", (e) => {
     }
     if (hub && takeAgentHash() === "done") return showAgentEnd(t("agent_done_title"), t("agent_done", { user: (agentAuth && agentAuth.user) || "" }));
     if (hub && agentAuth) return token ? showAgentAuth().catch(showLogin) : showLogin();
+    armyCallback = info.army_callback || "";
+    if (hub && armyCallback) takeArmyHash();
+    if (hub && armyCallback && armyAuth) return token ? showArmyAuth().catch(showLogin) : showLogin();
     if (info.auth_required && !token) return showLogin();
     try { await showApp(info.auth_required); } catch { showLogin(); }
   } catch (e) {
