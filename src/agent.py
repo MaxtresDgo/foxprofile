@@ -167,8 +167,11 @@ class Agent:
             "pc": pc_name(),
         }
         self.restart = False  # set when an update is unpacked: run() returns
-        # Dev agents run the code they were built with, whatever hub they visit.
+        # Installed agents follow their hub's code; a dev hub deploys the dev branch.
         self.follow_updates = True
+        # Only production agents run the hub's installer on their own: a dev agent
+        # would turn into whatever channel the hub offers.
+        self.auto_install = True
         self._skipped_update = ""
         # What the panel shows about this PC (hub POST /agent/status): the browser
         # download, an update, or the profiles being opened or saved right now.
@@ -555,7 +558,7 @@ class Agent:
                     self._skipped_update = resp["code"]
                     say(get_string("agent_update_skipped_dev", code=resp["code"]))
             elif resp["op"] == "installer_needed":
-                if self.follow_updates:
+                if self.follow_updates and self.auto_install:
                     threading.Thread(target=self.install_update, daemon=True).start()
                 else:
                     self.notify(get_string("agent_installer_needed"))
@@ -747,7 +750,10 @@ class App:
         )
         self.client.on_unauthorized = self._unauthorized
         self.agent = Agent(self.client, self.set_status, self.notify)
-        self.agent.follow_updates = not dev
+        # Run from source: no update hook would load the hub's code, so an
+        # update would only restart into the same code, again and again.
+        self.agent.follow_updates = (agent_code.INSTALLED / "BUILD").exists()
+        self.agent.auto_install = not dev
         self.ready = threading.Event()
         if self.client.key:
             self.ready.set()

@@ -26,7 +26,7 @@ GROUP_ROLES = ("member", "lead")
 SESSION_TTL = 12 * 3600
 _NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 KEY_PREFIX = "fpk_"
-KEY_FIELDS = ("key", "agent_key")
+KEY_FIELDS = ("key", "agent_key", "army_key")
 
 
 def group_name_for(text: str) -> str:
@@ -102,6 +102,11 @@ class HubStore:
     def sign_in(self, name: str, role: str, display: str = "") -> str:
         """A session token for a user the identity platform just let in, creating
         their local account on first sign-in; role and display name follow the platform's."""
+        self.ensure_user(name, role, display)
+        return self._sign(name, int(time.time()) + SESSION_TTL)
+
+    def ensure_user(self, name: str, role: str, display: str = "") -> dict:
+        """Create the local account if missing; role and display name follow the caller's."""
         if role not in ROLES:
             raise HubError(get_string("err_role", values=", ".join(ROLES)))
         with self._lock:
@@ -109,7 +114,7 @@ class HubStore:
             if (user.get("role"), user.get("display", "")) != (role, display):
                 user.update(role=role, display=display)
                 self._save()
-        return self._sign(name, int(time.time()) + SESSION_TTL)
+            return self._who(name)
 
     def _sig(self, name: str, exp: int) -> str:
         return hmac.new(self._secret, f"{name}.{exp}".encode(), hashlib.sha256).hexdigest()
@@ -119,7 +124,8 @@ class HubStore:
 
     def new_key(self, name: str, field: str = "key") -> str:
         """A long-lived API key that replaces the previous one of its kind: `key` for
-        MCP clients and scripts, `agent_key` for the user's PC agent."""
+        MCP clients and scripts, `agent_key` for the user's PC agent, `army_key` for
+        Army's panel, which opens this user's profiles in their name."""
         assert field in KEY_FIELDS
         key = KEY_PREFIX + secrets.token_urlsafe(32)
         with self._lock:
@@ -127,14 +133,25 @@ class HubStore:
             self._save()
         return key
 
-    def _verify_key(self, key: str) -> dict | None:
+    def _match_key(self, key: str) -> tuple[str, str] | None:
+        """(user, kind) of a personal key, kind being one of KEY_FIELDS. Lock held."""
         digest = hashlib.sha256(key.encode()).hexdigest()
-        with self._lock:
-            for name, user in self.users.items():
-                for field in KEY_FIELDS:
-                    if user.get(field) and hmac.compare_digest(user[field], digest):
-                        return self._who(name)
+        for name, user in self.users.items():
+            for field in KEY_FIELDS:
+                if user.get(field) and hmac.compare_digest(user[field], digest):
+                    return name, field
         return None
+
+    def _verify_key(self, key: str) -> dict | None:
+        with self._lock:
+            match = self._match_key(key)
+            return self._who(match[0]) if match else None
+
+    def key_kind(self, key: str) -> str | None:
+        """Which kind of personal key this is ("key", "agent_key", "army_key"), or None."""
+        with self._lock:
+            match = self._match_key(key)
+        return match[1] if match else None
 
     def verify(self, token: str) -> dict | None:
         """{"name", "role", "display"} for a valid personal key or unexpired session token."""

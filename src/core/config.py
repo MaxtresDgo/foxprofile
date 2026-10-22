@@ -63,6 +63,10 @@ HUB_FILE = _env("HUB_FILE", "hub.json")
 AUTH_URL = _env("AUTH_URL", "").rstrip("/")
 AUTH_ORIGIN = _env("AUTH_ORIGIN", "").rstrip("/")
 AUTH_ADMIN_PERMISSION = _env("AUTH_ADMIN_PERMISSION", "foxprofile:admin")
+# Army's panel links each user's account (hub/routes.new_army_key): after they
+# authorize it, the hub panel POSTs their key here, and only here. It is fixed in
+# this config, never taken from the link, so a crafted link cannot send a key elsewhere.
+ARMY_CALLBACK = _env("ARMY_CALLBACK", "").rstrip("/")
 # Agent side: where the hub is and which operator this PC belongs to.
 HUB_URL = _env("HUB_URL", "").rstrip("/")
 # Agent installers in a private S3 bucket (RustFS, MinIO, AWS) instead of next to
