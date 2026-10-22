@@ -1,3 +1,5 @@
+from .accounts import router as accounts_router
+from .accounts import summary_router as accounts_summary_router
 from .adspower import router as adspower_router
 from .automation import router as automation_router
 from .browser import router as browser_router
@@ -7,6 +9,8 @@ from .profiles import router as profiles_router
 from .proxy import router as proxy_router
 
 __all__ = [
+    "accounts_router",
+    "accounts_summary_router",
     "adspower_router",
     "automation_router",
     "browser_router",

@@ -16,6 +16,10 @@ def _env(key: str, default: str) -> str:
 
 
 PROFILES_FILE = _env("PROFILES_FILE", "profiles.json")
+# Each profile's site accounts, encrypted (services/profile/accounts.py). The key is
+# ACCOUNTS_KEY (a Fernet key) or, when unset, a .key file made next to ACCOUNTS_FILE.
+ACCOUNTS_FILE = _env("ACCOUNTS_FILE", "accounts.json")
+ACCOUNTS_KEY = _env("ACCOUNTS_KEY", "")
 DATA_DIR = _env("DATA_DIR", "camoufox_data")
 LOG_DIR = _env("LOG_DIR", "logs")
 LOG_LEVEL = _env("LOG_LEVEL", "INFO")

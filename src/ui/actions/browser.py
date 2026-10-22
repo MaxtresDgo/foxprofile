@@ -13,7 +13,10 @@ def launch_or_stop(
     bl: IBrowserLauncher,
     state: AppState,
     log: Callable[[str], None],
+    then: Callable[[], None] | None = None,
 ) -> None:
+    """Launch a stopped profile or stop a running one; `then` runs (in its own
+    thread) once a launch is ready."""
     profile = pm.profiles.get(name)
     if not profile:
         return
@@ -43,6 +46,8 @@ def launch_or_stop(
         ready.set()
         state.set_loading(name, False)
         state.schedule_refresh()
+        if then is not None:
+            threading.Thread(target=then, daemon=True).start()
 
     def _on_stop() -> None:
         if not ready.is_set():

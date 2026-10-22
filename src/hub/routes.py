@@ -6,6 +6,7 @@ Agent protocol (all as the operator the agent belongs to):
   GET  /hub/bundle/{name}      the profile as a ZIP (export_to_zip format)
   POST /hub/status/{name}      {"ok": bool, "error": str|null} once the launch settles
   PUT  /hub/bundle/{name}?release=1   upload the browser data back, ending the lease
+  Both carry the ZIP's SHA-256 in X-Content-SHA256; a mismatch is a 422.
   POST /hub/release/{name}     end the lease without data
   GET  /hub/agent/code         this hub's code, for installed agents to update to
 
@@ -17,18 +18,19 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import os
 import pathlib
 import shutil
 import tempfile
 import time
 import urllib.parse
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 
 from ..api.auth import hub_store
@@ -37,7 +39,13 @@ from ..core import config
 from ..core.config import DATA_DIR
 from ..core.logging import get_logger
 from ..core.strings import get_string
-from ..services.profile.transfer import export_to_zip, import_from_zip
+from ..services.profile.transfer import (
+    IntegrityError,
+    export_to_zip,
+    file_sha256,
+    import_from_zip,
+    read_cookies,
+)
 from . import agent_code, installers, platform_auth
 from .remote import POLL_WAIT
 from .store import HubError
@@ -90,6 +98,8 @@ def me(request: Request) -> dict:
     return {
         **user,
         "agent_online": bl.online(user["name"]),
+        "agent_activity": _activity(bl, user["name"]),
+        "agent_running": bl.agents.get(user["name"], {}).get("running", 0),
         "leases": {n: u for n, u in bl.leases().items() if store.can(user, n)},
         "owners": {n: u for n, u in store.owners.items() if store.can(user, n)},
         "groups": {n: g for n, g in store.profile_groups.items() if store.can(user, n)},
@@ -193,6 +203,25 @@ def set_owner(name: str, body: OwnerBody, request: Request) -> dict:
 # --- groups --------------------------------------------------------------------
 
 
+# What the agent is busy with, as it last said (POST /hub/agent/status). It says
+# so again every few seconds while busy, so an older report means it stopped.
+ACTIVITY_TTL = 30
+
+
+class AgentStatus(BaseModel):
+    state: Literal["ready", "downloading", "updating", "opening", "syncing"]
+    pct: int | None = Field(None, ge=0, le=100)
+    profile: str | None = Field(None, max_length=200)
+
+
+def _activity(bl, user: str) -> dict | None:
+    """The user's agent's current activity for the panel, or None when idle or silent."""
+    seen = bl.agents.get(user, {}).get("activity")
+    if not seen or seen["state"] == "ready" or time.monotonic() - seen["at"] > ACTIVITY_TTL:
+        return None
+    return {k: seen[k] for k in ("state", "pct", "profile")}
+
+
 class GroupCreate(BaseModel):
     name: str
 
@@ -277,6 +306,18 @@ def set_profile_group(name: str, body: ProfileGroupBody, request: Request) -> di
 # --- agent protocol ------------------------------------------------------------
 
 
+@router.post("/agent/status")
+def agent_status(body: AgentStatus, request: Request) -> dict:
+    """The caller's agent says what it is doing: downloading the browser (even
+    before it polls), updating, opening or saving a profile, or ready."""
+    user, bl = _user(request)["name"], _launcher(request)
+    bl.agents[user] = {
+        **bl.agents.get(user, {}),
+        "activity": {**body.model_dump(), "at": time.monotonic()},
+    }
+    return {"ok": True}
+
+
 @router.get("/poll")
 async def poll(
     request: Request, running: str = "", code: str = "", req: str = "", pc: str = ""
@@ -320,12 +361,14 @@ def _agent_update(bl, user: str, hub_code: str, busy: bool) -> dict | None:
     if info["code"] == hub_code:
         bl.update_now.discard(user)
         return None
+    forced = user in bl.update_now
     if info["req"] != agent_code.hub_requirements():
-        if info.get("told") == hub_code:
+        # The agent runs the new installer itself: once, and with its browsers closed.
+        if info.get("told") == hub_code or (busy and not forced):
             return None
+        bl.update_now.discard(user)
         info["told"] = hub_code
         return {"op": "installer_needed"}
-    forced = user in bl.update_now
     if not forced and (
         busy or time.monotonic() - info.get("offered", -UPDATE_RETRY) < UPDATE_RETRY
     ):
@@ -484,6 +527,9 @@ async def upload_installer(platform: str, request: Request, name: str = Query(..
     return {"platform": platform, "name": name, "size": (folder / name).stat().st_size}
 
 
+SHA_HEADER = "X-Content-SHA256"
+
+
 def _require_lease(request: Request, name: str, allow_free: bool = False) -> None:
     holder = _launcher(request).holder(name)
     if holder == _user(request)["name"] or (allow_free and holder is None):
@@ -503,6 +549,7 @@ def download_bundle(name: str, request: Request) -> FileResponse:
     return FileResponse(
         result,
         media_type="application/zip",
+        headers={SHA_HEADER: file_sha256(result)},
         background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True),
     )
 
@@ -520,10 +567,15 @@ async def upload_bundle(name: str, request: Request, release: bool = Query(False
     tmp = tempfile.mkdtemp(prefix=".upload-", dir=data_root.parent)
     try:
         zip_path = os.path.join(tmp, "bundle.zip")
+        digest = hashlib.sha256()
         # ponytail: no size cap; operators are trusted LAN users. Cap here if that changes.
         with open(zip_path, "wb") as f:
             async for chunk in request.stream():
                 f.write(chunk)
+                digest.update(chunk)
+        expected = request.headers.get(SHA_HEADER)  # agents older than the header send none
+        if expected and expected.lower() != digest.hexdigest():
+            raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt"))
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -542,6 +594,11 @@ def _swap_in(zip_path: str, tmp: str, name: str, data_root: pathlib.Path) -> Non
         raise HTTPException(status_code=400, detail=get_string("err_archive_other"))
     new = pathlib.Path(extract, name)
     new.mkdir(parents=True, exist_ok=True)
+    try:
+        read_cookies(str(new))  # never replace good data with damaged cookies
+    except IntegrityError as e:
+        logger.warning("Upload of %s refused: %s", name, e)
+        raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt")) from e
     target = data_root / name
     old = pathlib.Path(tmp, "old")
     if target.exists():

@@ -5,7 +5,9 @@ AdsPower must be running on this PC with its local API on (127.0.0.1:<port>,
 API allows one request per second, so every call here is spaced out.
 
 What comes over: name, proxy, User-Agent (so the OS and, for phones, an android
-persona with that exact User-Agent), cookies. Profiles are created on the Chrome
+persona with that exact User-Agent), cookies, and the profile's site account
+(platform, username, password, 2FA key) when it is one of the sites FoxProfile
+keeps accounts for. Profiles are created on the Chrome
 engine: AdsPower's SunBrowser is Chromium, so sites keep seeing the same kind of
 browser. Fingerprint noise (canvas, audio, client rects), local storage,
 extensions and notes stay behind.
@@ -27,6 +29,7 @@ from ...core.logging import get_logger
 from ...core.strings import get_string
 from ...utils.proxy_parser import mask_proxy
 from ...utils.validation import _INVALID_CHARS, validate_profile_name, validate_proxy_format
+from .accounts import AccountsLocked, valid_totp_secret
 
 logger = get_logger("profile.adspower")
 
@@ -40,6 +43,21 @@ _LIST = "/api/v2/browser-profile/list"
 _UA = "/api/v2/browser-profile/ua"
 _COOKIES = "/api/v2/browser-profile/cookies"
 _PROXIES = "/api/v2/proxy-list/list"
+
+# AdsPower's "platform" is a site's domain; these are the ones FoxProfile keeps
+# accounts for (a subdomain counts too: m.facebook.com, business.facebook.com).
+_PLATFORM_DOMAINS = {
+    "facebook.com": "facebook",
+    "instagram.com": "instagram",
+    "tiktok.com": "tiktok",
+    "x.com": "x",
+    "twitter.com": "x",
+    "google.com": "gmail",
+    "gmail.com": "gmail",
+    "outlook.com": "hotmail",
+    "hotmail.com": "hotmail",
+    "live.com": "hotmail",
+}
 
 _lock = threading.Lock()
 _last_call = 0.0
@@ -142,6 +160,7 @@ class AdsPower:
             "user_agent": user_agent,
             "os_type": os_type,
             "cookies": cookies,
+            "account": account_from(item, warnings),
             "warnings": warnings,
         }
 
@@ -190,6 +209,39 @@ def proxy_from_config(config: dict[str, Any], warnings: list[str]) -> str | None
     user, password = config.get("proxy_user") or "", config.get("proxy_password") or ""
     auth = f"{quote(str(user), safe='')}:{quote(str(password), safe='')}@" if user else ""
     return f"{scheme}://{auth}{host}:{port}"
+
+
+def platform_from(value: Any) -> str | None:
+    """FoxProfile's platform for AdsPower's platform domain, or None."""
+    text = str(value or "").strip().lower()
+    host = urllib.parse.urlsplit(text if "//" in text else "//" + text).hostname or ""
+    for domain, platform in _PLATFORM_DOMAINS.items():
+        if host == domain or host.endswith("." + domain):
+            return platform
+    return None
+
+
+def account_from(item: dict[str, Any], warnings: list[str]) -> dict[str, str] | None:
+    """The profile's site account as FoxProfile keeps it, or None when there is
+    none or its site is not one FoxProfile supports (with a warning)."""
+    username = str(item.get("username") or "").strip()
+    password = str(item.get("password") or "")
+    if not username and not password:
+        return None
+    platform = platform_from(item.get("platform"))
+    if platform is None:
+        warnings.append(
+            get_string("adspower_account_skipped", platform=item.get("platform") or "?")
+        )
+        return None
+    if not username:
+        warnings.append(get_string("adspower_account_no_user", platform=platform))
+        return None
+    secret = "".join(str(item.get("fakey") or "").split()).upper()
+    if secret and not valid_totp_secret(secret):
+        warnings.append(get_string("adspower_bad_fakey"))
+        secret = ""
+    return {"platform": platform, "username": username, "password": password, "totp_secret": secret}
 
 
 def find_user_agent(data: Any) -> str | None:
@@ -259,12 +311,29 @@ def create(pm: Any, data: dict[str, Any], name: str, data_dir: str) -> dict[str,
     personas.save(
         os.path.join(data_dir, name), personas.generate(data["os_type"], user_agent=user_agent)
     )
+    # Only on a new profile: importing again never touches one that exists (on a
+    # hub it may belong to another operator).
+    if data.get("account"):
+        try:
+            pm.accounts.add(name, data["account"])
+        except AccountsLocked:
+            warnings.append(get_string("err_accounts_locked"))
     logger.info("Created %s from AdsPower profile %s", name, data.get("id"))
     return {"status": "created", "name": name, "warnings": warnings}
 
 
 def has_cookies(data: dict[str, Any]) -> bool:
     return (data.get("cookies") or "").strip() not in ("", "[]")
+
+
+def _cookies_here(pm: Any, bl: Any, name: str, data: dict[str, Any]) -> int:
+    """Import `data`'s cookies into stopped profile `name` on this machine.
+    Merged: AdsPower's replace those with the same name and domain."""
+    from ..browser import cookies
+
+    profile = pm.profiles[name]
+    with bl.exclusive(name):
+        return cookies.import_cookies(name, profile.os_type, data["cookies"], profile.engine)
 
 
 def import_here(pm: Any, bl: Any, data: dict[str, Any], name: str, data_dir: str) -> dict[str, Any]:
@@ -275,13 +344,29 @@ def import_here(pm: Any, bl: Any, data: dict[str, Any], name: str, data_dir: str
     result = create(pm, data, name, data_dir)
     result["cookies"] = 0
     if result["status"] == "created" and has_cookies(data):
-        profile = pm.profiles[name]
         try:
-            with bl.exclusive(name):
-                result["cookies"] = cookies.import_cookies(
-                    name, profile.os_type, data["cookies"], profile.engine
-                )
+            result["cookies"] = _cookies_here(pm, bl, name, data)
         except (cookies.CookieError, ProfileBusyError) as e:
             # The profile stays; its cookies can be imported again by hand.
             result["warnings"].append(str(e))
+    return result
+
+
+def reimport_here(pm: Any, bl: Any, data: dict[str, Any], name: str) -> dict[str, Any]:
+    """Refresh existing profile `name`'s cookies from AdsPower, on this machine.
+    Only the cookies: its proxy, accounts, persona and browser data stay."""
+    from ..browser import cookies
+    from ..browser.launcher import ProfileBusyError
+
+    result: dict[str, Any] = {"status": "reimported", "name": name, "cookies": 0, "warnings": []}
+    if not has_cookies(data):
+        result["warnings"].append(get_string("adspower_no_cookies"))
+        return result
+    try:
+        result["cookies"] = _cookies_here(pm, bl, name, data)
+    except ProfileBusyError as e:
+        raise AdsPowerError(get_string("err_stop_reimport", name=name)) from e
+    except cookies.CookieError as e:
+        raise AdsPowerError(str(e)) from e
+    logger.info("Reimported the cookies of %s from AdsPower profile %s", name, data.get("id"))
     return result

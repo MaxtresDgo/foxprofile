@@ -4,6 +4,8 @@ POST /adspower/profiles {port, api_key}: AdsPower's profiles, each with the
 FoxProfile name it gets (`target`) and whether that name is taken.
 POST /adspower/import {port, api_key, profile_id, name}: one profile. The panel
 walks the selection one by one, so it can show progress without a job queue.
+With `reimport`, a profile that already exists gets its cookies refreshed from
+AdsPower (merged) and nothing else.
 
 AdsPower runs on the operator's PC. In hub mode the hub cannot reach it: both
 calls run on the caller's agent, and the hub creates the profile from what the
@@ -53,6 +55,8 @@ class AdsPowerImport(AdsPowerAccess):
     # The AdsPower group, from the list: in hub mode the profile joins the hub
     # group of that name (see _join_group).
     group: str = ""
+    # When the profile exists already: refresh its cookies instead of skipping it.
+    reimport: bool = False
 
 
 def _here(call):
@@ -102,6 +106,42 @@ def _join_group(request: Request, hub, name: str, group: str, warnings: list[str
     return target
 
 
+def _reimport(body: AdsPowerImport, request: Request, pm, bl, hub) -> dict[str, Any]:
+    """Refresh an existing profile's cookies from AdsPower; the caller must see it
+    and it must be closed (cookies are written to a stopped profile)."""
+    if hub is not None and not hub.can(request.state.user, body.name):
+        raise HTTPException(status_code=404, detail=get_string("err_not_found", name=body.name))
+    if bl.is_running(body.name):
+        raise HTTPException(status_code=409, detail=get_string("err_stop_reimport", name=body.name))
+    if hub is None:
+        client = adspower.AdsPower(body.port, body.api_key)
+        return _here(
+            lambda: adspower.reimport_here(pm, bl, client.fetch(body.profile_id), body.name)
+        )
+    params = {"port": body.port, "api_key": body.api_key, "profile_id": body.profile_id}
+    data = check_on_agent(request, bl, "adspower_fetch", params, _FETCH_TIMEOUT)
+    result: dict[str, Any] = {
+        "status": "reimported",
+        "name": body.name,
+        "cookies": 0,
+        "warnings": [],
+    }
+    if not adspower.has_cookies(data):
+        result["warnings"].append(get_string("adspower_no_cookies"))
+    else:
+        profile = pm.profiles[body.name]
+        try:
+            imported = _cookies_on_agent(
+                request, bl, profile, "import", {"content": data["cookies"]}
+            )
+        except BrowserControlError as e:
+            raise HTTPException(status_code=e.status, detail=str(e)) from e
+        result["cookies"] = imported["imported"]
+    result["group"] = _join_group(request, hub, body.name, body.group, result["warnings"])
+    logger.info("Reimported the cookies of %s on %s's PC", body.name, request.state.user["name"])
+    return result
+
+
 @router.post("/import")
 def import_profile(
     body: AdsPowerImport,
@@ -114,6 +154,8 @@ def import_profile(
     if not valid:
         raise HTTPException(status_code=400, detail=msg)
     hub = hub_store(request)
+    if body.name in pm.profiles and body.reimport:
+        return _reimport(body, request, pm, bl, hub)
     if body.name in pm.profiles:
         result: dict[str, Any] = {"status": "exists", "name": body.name, "warnings": []}
         # Imported before groups came over (or moved since): sort it now.

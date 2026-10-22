@@ -34,8 +34,10 @@
     </DirectoryRef>
 
     <!-- Start the agent as soon as an interactive install ends, so it downloads
-         Camoufox and opens the sign-in page right away. Silent installs (/qn), often
-         run as SYSTEM by deployment tools, leave it to the next logon. -->
+         Camoufox and opens the sign-in page right away; also after /passive, which
+         the agent itself uses to install a new version (src/agent.py install_update).
+         Silent installs (/qn), often run as SYSTEM by deployment tools, leave it to
+         the next logon. -->
     <!-- wixl runs only installed files (FileKey): build-msi.sh passes pythonw.exe's id. -->
     <CustomAction Id="StartAgent" FileKey="$(var.PythonW)" ExeCommand="-m src.agent --home"
                   Return="asyncNoWait" />
@@ -51,7 +53,7 @@
     <InstallExecuteSequence>
       <Custom Action="SetPowerShell" After="CostFinalize" />
       <Custom Action="StopAgent" After="SetPowerShell">INSTALLDIR</Custom>
-      <Custom Action="StartAgent" After="InstallFinalize">NOT REMOVE AND UILevel &gt;= 4</Custom>
+      <Custom Action="StartAgent" After="InstallFinalize">NOT REMOVE AND UILevel &gt;= 3</Custom>
     </InstallExecuteSequence>
 
     <Feature Id="Main" Level="1">

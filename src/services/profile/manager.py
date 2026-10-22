@@ -15,6 +15,7 @@ from ...utils.validation import (
     validate_profile_name,
     validate_timezone,
 )
+from .accounts import AccountsLocked, AccountStore
 from .transfer import export_to_zip, import_from_zip, read_profile_meta
 
 logger = get_logger("profile.manager")
@@ -41,6 +42,8 @@ class ProfileManager:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self.profiles: dict[str, Profile] = {}
+        # Its file and key are only created on the first account saved.
+        self.accounts = AccountStore()
         self._load_profiles()
         pathlib.Path(DATA_DIR).mkdir(exist_ok=True, parents=True)
 
@@ -192,6 +195,7 @@ class ProfileManager:
             if new_name != original_name:
                 del self.profiles[original_name]
                 self.profiles[new_name] = profile
+                self._accounts_follow(self.accounts.rename_profile, original_name, new_name)
 
             self.save_profiles()
             logger.info("Updated profile: %s -> %s", original_name, new_name)
@@ -203,12 +207,21 @@ class ProfileManager:
                 return False
             del self.profiles[name]
             self.save_profiles()
+            self._accounts_follow(self.accounts.forget_profile, name)
             # Inside the lock: a profile re-created under the same (or, on a
             # case-insensitive file system, a case-variant) name must not have
             # its fresh data dir removed by this delete.
             shutil.rmtree(self._data_path(name), ignore_errors=True)
         logger.info("Deleted profile: %s", name)
         return True
+
+    @staticmethod
+    def _accounts_follow(change, *names: str) -> None:
+        """Keep the accounts with their profile; a locked store must not block it."""
+        try:
+            change(*names)
+        except AccountsLocked:
+            logger.warning("Accounts are locked; they did not follow profile %s", names[0])
 
     def list_profiles(self) -> list[Profile]:
         with self._lock:

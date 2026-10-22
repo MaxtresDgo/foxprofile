@@ -149,6 +149,55 @@ def test_other_libraries_ask_for_the_installer_once(hub, hub_code):
     assert state == "installer"
 
 
+def test_the_installer_waits_for_closed_browsers(hub, hub_code):
+    client, container, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    # The agent runs the installer itself: not while a browser is open.
+    assert _poll(client, ana, code="old", req="req0", running="shop-01").status_code == 204
+    assert _poll(client, ana, code="old", req="req0").json() == {"op": "installer_needed"}
+
+
+def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
+    import io
+    import subprocess
+    import urllib.request
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent.sys, "platform", "darwin")
+    monkeypatch.setattr(agent_code, "installed_requirements", lambda: "req0")
+    listing = [
+        {"platform": "macos", "name": "FoxProfileAgent-2.4.0-macos.pkg", "size": 3, "time": 1.0}
+    ]
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(
+        hub_client,
+        "call",
+        lambda m, path, data=None, **kw: listing if path == "/hub/installers" else None,
+    )
+    fetched, started, notes = [], [], []
+
+    def urlopen(request, timeout=None):
+        fetched.append((request.full_url, request.get_header("Authorization")))
+        return io.BytesIO(b"pkg")
+
+    a = agent.Agent(hub_client, notify=notes.append)  # before Popen is faked: it names the PC
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    a.install_update()
+    # Downloaded without the agent's key (a presigned bucket URL must not get it), then opened.
+    assert fetched == [("https://hub.example.com/api/v1/hub/installers/macos", None)]
+    pkg = tmp_path / "installer" / "FoxProfileAgent-2.4.0-macos.pkg"
+    assert pkg.read_bytes() == b"pkg" and started == [["open", str(pkg.resolve())]]
+    assert not a.updating
+    # The same installer again (the hub still offers it): not run twice, only a notice.
+    a.install_update()
+    assert len(started) == 1 and len(fetched) == 1
+    assert notes[-1] == agent.get_string("agent_installer_needed")
+
+
 def test_installers_upload_by_admins_and_public_download(hub, monkeypatch):
     from src.core import config
 
@@ -287,3 +336,56 @@ def test_agent_falls_back_to_the_hub_the_installer_was_built_for(tmp_path, monke
     assert agent._built_hub() == ""
     (tmp_path / "HUB_URL").write_text("https://hub.example.com\n")
     assert agent._built_hub() == "https://hub.example.com"
+
+
+def test_start_hub_production_stays_on_its_hub_dev_remembers_the_last():
+    from src.agent import start_hub
+
+    built, other = "https://hub.example.com", "https://dev-hub.example.com"
+    creds = {"hub": other, "key": "fpk_x"}
+    # Production: the built hub wins over a key for another one.
+    assert start_hub("", creds, built, dev=False) == (built, {})
+    # Dev: the last hub signed in to stays; the built one is only a start.
+    assert start_hub("", creds, built, dev=True) == ("", creds)
+    assert start_hub("", {}, built, dev=True) == (built, {})
+    assert start_hub("", {}, "", dev=True) == ("", {})  # asks on the setup page
+    # --hub / FOXPROFILE_HUB_URL win in both.
+    assert start_hub(built + "/", creds, "", dev=True) == (built, {})
+
+
+def test_agent_activity_reaches_the_panel_and_expires(hub):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    me = lambda: client.get("/api/v1/hub/me", headers=ana).json()  # noqa: E731
+    assert me()["agent_activity"] is None
+    r = client.post(
+        "/api/v1/hub/agent/status", json={"state": "downloading", "pct": 40}, headers=ana
+    )
+    assert r.status_code == 200
+    assert me()["agent_activity"] == {"state": "downloading", "pct": 40, "profile": None}
+    # Silent for too long: the panel stops showing it.
+    container.browser_launcher.agents["ana"]["activity"]["at"] -= hub_routes.ACTIVITY_TTL + 1
+    assert me()["agent_activity"] is None
+    client.post("/api/v1/hub/agent/status", json={"state": "ready"}, headers=ana)
+    assert me()["agent_activity"] is None
+    bad = client.post("/api/v1/hub/agent/status", json={"state": "mining"}, headers=ana)
+    assert bad.status_code == 422
+
+
+def test_agent_reports_the_most_useful_activity(tmp_path, monkeypatch):
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    sent = []
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(hub_client, "call", lambda method, path, data=None, **kw: sent.append(path))
+    a = agent.Agent(hub_client)
+    assert a.activity() == {"state": "ready"}
+    with a.busy("opening", "shop-01"):
+        assert a.activity() == {"state": "opening", "profile": "shop-01"}
+        a.browser_download = 35
+        assert a.activity() == {"state": "downloading", "pct": 35}
+        a.updating = True
+        assert a.activity() == {"state": "updating"}
+    a.updating, a.browser_download = False, None
+    assert a.activity() == {"state": "ready"}

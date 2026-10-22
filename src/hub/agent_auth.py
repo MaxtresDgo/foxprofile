@@ -50,15 +50,18 @@ def normalize_hub_url(url: str) -> str | None:
 
 class SignIn:
     """One pending sign-in. `check_hub(url)` returns an error message or None;
-    `who_is(hub, key)` returns {"name", "role"} for a key, or raises."""
+    `who_is(hub, key)` returns {"name", "role"} for a key, or raises. `ask_hub`
+    starts on the hub page even with a hub known (dev agents switching hubs)."""
 
     def __init__(
         self,
         hub_url: str,
         check_hub: Callable[[str], str | None],
         who_is: Callable[[str, str], dict],
+        ask_hub: bool = False,
     ) -> None:
         self.hub = hub_url
+        self.ask_hub = ask_hub
         self.check_hub, self.who_is = check_hub, who_is
         self.state = secrets.token_urlsafe(32)
         self.result: dict | None = None
@@ -76,7 +79,7 @@ class SignIn:
     @property
     def url(self) -> str:
         """Where the operator's browser goes to sign in."""
-        if not self.hub:
+        if not self.hub or self.ask_hub:
             return f"http://{self.local}/setup?state={self.state}"
         fragment = urllib.parse.urlencode(
             {"agent": self.port, "state": self.state, "pc": pc_name()}
@@ -147,7 +150,7 @@ class _Handler(BaseHTTPRequestHandler):
             if error:
                 self._send(400, _setup_page(signin.state, field("hub"), error))
                 return
-            signin.hub = url
+            signin.hub, signin.ask_hub = url, False
             self._redirect(signin.url)
         elif self.path == "/callback" and signin.hub:
             key = field("key")

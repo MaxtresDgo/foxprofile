@@ -17,6 +17,7 @@ ENV FOXPROFILE_HUB=true \
     FOXPROFILE_API_HOST=0.0.0.0 \
     FOXPROFILE_API_PORT=8000 \
     FOXPROFILE_PROFILES_FILE=/data/profiles.json \
+    FOXPROFILE_ACCOUNTS_FILE=/data/accounts.json \
     FOXPROFILE_DATA_DIR=/data/camoufox_data \
     FOXPROFILE_HUB_FILE=/data/hub.json \
     FOXPROFILE_LOG_DIR=/data/logs \

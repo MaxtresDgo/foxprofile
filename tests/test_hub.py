@@ -1,6 +1,7 @@
 """Hub mode: operator sessions, per-user profile visibility and the agent protocol."""
 
 import contextlib
+import hashlib
 import io
 import json
 import pathlib
@@ -18,6 +19,7 @@ from src.core.strings import get_string
 from src.hub import platform_auth
 from src.hub.store import HubStore
 from src.services.browser.launcher import BrowserControlError
+from src.services.profile.transfer import COOKIES_GZ, COOKIES_SHA, pack_cookies, read_cookies
 
 SECRET = "s" * 32
 # The identity platform: email -> (password, permissions). It only lets in users
@@ -189,6 +191,30 @@ def test_upload_rejects_unsafe_or_foreign_archives(hub):
     client.post("/api/v1/browser/shop-01/launch?wait=false", headers=admin)
     ok = _zip("shop-01", {"data/a": b"x"})
     assert client.put("/api/v1/hub/bundle/shop-01", content=ok, headers=ana).status_code == 409
+
+
+def test_bundles_carry_a_sha256_and_damaged_cookies_are_refused(hub, tmp_path):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    pack_cookies(str(tmp_path), '[{"name": "sid"}]')
+    gz, sha = (tmp_path / COOKIES_GZ).read_bytes(), (tmp_path / COOKIES_SHA).read_text()
+    assert read_cookies(str(tmp_path)) == '[{"name": "sid"}]'
+
+    good = _zip("shop-01", {f"data/{COOKIES_GZ}": gz, f"data/{COOKIES_SHA}": sha})
+    put = "/api/v1/hub/bundle/shop-01"
+    wrong = {**ana, "X-Content-SHA256": "0" * 64}
+    assert client.put(put, content=good, headers=wrong).status_code == 422
+    right = {**ana, "X-Content-SHA256": hashlib.sha256(good).hexdigest()}
+    assert client.put(put, content=good, headers=right).status_code == 200
+    damaged = _zip("shop-01", {f"data/{COOKIES_GZ}": gz[:-1] + b"x", f"data/{COOKIES_SHA}": sha})
+    assert client.put(put, content=damaged, headers=ana).status_code == 422
+    assert (pathlib.Path("camoufox_data/shop-01") / COOKIES_GZ).read_bytes() == gz
+
+    container.browser_launcher.touch("ana", set())
+    client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
+    bundle = client.get(put, headers=ana)
+    assert bundle.headers["X-Content-SHA256"] == hashlib.sha256(bundle.content).hexdigest()
 
 
 def test_stop_with_agent_offline_frees_the_profile(hub, monkeypatch):

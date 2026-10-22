@@ -165,6 +165,15 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--cover-muted); }
 .agent.on { color: var(--cover-ink); }
 .agent.on::before { background: var(--ok); border-color: var(--ok); }
+.agent { align-items: flex-start; }
+.agent::before { flex: none; margin-top: 5px; }
+.agent .agent-text { display: flex; flex-direction: column; min-width: 0; }
+.agent .agent-detail { font-size: 11.5px; color: var(--cover-muted); overflow-wrap: anywhere; }
+.agent.busy { color: var(--cover-ink); }
+/* Busy reads by form: a bright ring that pulses (offline: a dim ring; connected: a filled dot). */
+.agent.busy::before { border-color: var(--cover-ink); animation: agent-pulse 1.4s ease-in-out infinite; }
+@keyframes agent-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .agent.busy::before { animation: none; } }
 .user-row { display: grid; grid-template-columns: minmax(70px, 1fr) 110px minmax(200px, 1.6fr) 34px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
 .user-row input, .user-row select { height: 34px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 7px; background: var(--paper-raised); min-width: 0; }
 .ads-form { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: end; }
@@ -302,6 +311,32 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .fp-card { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 16px; padding: 12px 14px; border-radius: 9px; background: var(--paper); border: 1px solid var(--rule); font-size: 13px; }
 .fp-card dt { color: var(--ink-3); }
 .fp-card dd { margin: 0; }
+.acct { margin-top: 12px; padding: 10px 14px; border-radius: 9px; background: var(--paper); border: 1px solid var(--rule); font-size: 13px; }
+.acct-head { display: flex; align-items: center; gap: 8px; min-height: 34px; }
+.acct-head .acct-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.acct-head .btn { height: 30px; padding: 0 12px; font-size: 13px; margin-right: 4px; }
+.acct-line { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.acct-line .acct-k { width: 110px; flex: none; color: var(--ink-3); }
+.acct-line .data { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-line .btn { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.acct-line .icon-btn { width: 30px; height: 30px; }
+.acct-code { font-size: 17px; letter-spacing: .12em; }
+.acct-pop { position: fixed; z-index: 25; width: 300px; padding: 12px 14px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-raised); color: var(--ink); box-shadow: 0 24px 60px -12px rgba(16, 38, 34, .45), 0 2px 8px rgba(16, 38, 34, .12); font-size: 13px; pointer-events: none; }
+.acct-pop .pop-title { font-weight: 600; margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-pop .pop-row { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.acct-pop .pop-row .pop-k { width: 118px; flex: none; }
+.acct-pop .pop-row .data { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split { display: inline-flex; }
+.split > .btn { height: 36px; }
+.split > .btn:first-child { flex: 1; min-width: 0; padding: 0 8px; border-radius: 8px 0 0 8px; }
+.split > .caret { width: 26px; padding: 0; border-radius: 0 8px 8px 0; border-left: 1px solid var(--cover-muted); }
+.menu { position: fixed; z-index: 26; min-width: 220px; max-width: 320px; padding: 6px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-raised); color: var(--ink); box-shadow: 0 24px 60px -12px rgba(16, 38, 34, .45), 0 2px 8px rgba(16, 38, 34, .12); }
+.menu .menu-title { padding: 4px 10px 6px; font-size: 12px; color: var(--ink-3); }
+.menu button { display: flex; width: 100%; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer; text-align: left; font-size: 13px; }
+.menu button:hover, .menu button:focus-visible { background: var(--paper-sunk); }
+.menu button .data { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.c-name .name[tabindex] { cursor: default; border-radius: 4px; }
+.acct-form { margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--rule); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chips button { height: 32px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--rule-strong); background: var(--paper-raised); color: var(--ink); cursor: pointer; font-weight: 500; font-size: 13px; }
 .chips button.active { background: var(--picked); border-color: var(--picked); color: var(--cover-ink); }
@@ -314,6 +349,9 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 .toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; display: flex; align-items: center; gap: 10px; max-width: 440px; padding: 12px 16px; border-radius: 10px; background: var(--solid); color: var(--on-solid); box-shadow: 0 12px 30px -8px rgba(0,0,0,.4); animation: rise .2s var(--ease-out); }
 .toast svg { color: var(--toast-icon); }
 .toast.error { background: var(--danger); color: #fff; }
+.toast.busy svg { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .toast.busy svg { animation: none; } }
 .toast.error svg { color: #fff; }
 
 /* Login */
@@ -411,6 +449,8 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-apple" viewBox="0 0 24 24"><path d="M16.5 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8C7 7.4 5.5 8.3 4.7 9.8c-1.7 2.9-.4 7.2 1.2 9.6.8 1.2 1.7 2.4 2.9 2.4 1.2-.1 1.6-.8 3-.8s1.8.8 3 .8 2-1.2 2.8-2.3c.9-1.3 1.2-2.6 1.3-2.7-.1 0-2.4-.9-2.4-4.2zM14.3 5.6c.6-.8 1.1-1.8 1-2.9-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.8 1 .1 2.1-.5 2.7-1.3z"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
   <symbol id="i-cookie" viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 0 9.5 9.5 4 4 0 0 1-4.8-4.7A4 4 0 0 1 12 2.5Z"/><path d="M8.5 8.5h.01M15.5 15h.01M11.5 12.5h.01M11 17h.01M7.5 14h.01"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16 7l3 3M18.5 4.5l2 2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M16.9 3.6a2.3 2.3 0 0 1 3.3 3.3L8 19.1l-4.5 1.2 1.2-4.5Z"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 6.5h16M18.5 6.5v12.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V6.5M9 6.5V4.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4.5v2M10 11v6M14 11v6"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
@@ -534,6 +574,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 </div>
 
 <div id="modal-root"></div>
+<div id="acct-pop" class="acct-pop hidden" role="tooltip"></div>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script>
@@ -572,7 +613,7 @@ const I18N = {
     export_txt: "Xuất cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Nhập cookie", import_hint: "Từ file JSON hoặc cookies.txt",
     reset_fp: "Tạo fingerprint mới", reset_fp_hint: "Lần mở sau trang web sẽ thấy một thiết bị khác", fp_title: "Fingerprint hiện tại", no_fp: "Chưa có fingerprint. Nó được tạo ở lần mở đầu tiên.",
     fp_platform: "Nền tảng", fp_screen: "Màn hình", fp_cpu: "CPU",
-    confirm_reset: "Tạo fingerprint mới cho “{name}”? Trang web sẽ thấy đây là một máy khác.", close: "Đóng",
+    confirm_reset: "Tạo fingerprint mới cho “{name}”? Trang web sẽ thấy đây là một máy khác.", close: "Đóng", open_with: "Mở với tài khoản", accounts: "Tài khoản", accounts_title: "Tài khoản · {name}", accounts_hint: "Các tài khoản profile này dùng. Được lưu mã hoá; mã 2FA được tạo từ mã bí mật đã lưu.", accounts_empty: "Chưa lưu tài khoản nào", account_add: "Thêm tài khoản", account_platform: "Nền tảng", account_username: "Tên đăng nhập", account_password: "Mật khẩu", account_otp: "Mã 2FA", account_totp_secret: "Mã bí mật 2FA", account_totp_hint: "Khoá base32 hiện ra khi cài ứng dụng xác thực", account_unchanged: "Để trống để giữ giá trị đã lưu", account_copy: "Sao chép", account_copied: "Đã sao chép {what}", account_show: "Hiện", account_hide: "Ẩn", account_login: "Đăng nhập", account_login_started: "Đang điền đăng nhập {platform} trong {name}...", account_need_running: "Hãy mở profile trước", account_confirm_delete: "Xoá tài khoản {platform} {username}?", account_saved: "Đã lưu tài khoản", account_left: "còn {s} giây",
     launching: "Đang mở {name}...", started: "Đã mở {name}", stopped: "Đã dừng {name}", created: "Đã tạo {name}", saved: "Đã lưu",
     deleted: "Đã xoá {name}", deleted_n: "Đã xoá {n} profile", exported: "Đã xuất {n} cookie", imported: "Đã nhập {n} cookie", fp_reset: "Đã tạo fingerprint mới",
     mcp_button: "Kết nối AI (MCP)", mcp_title: "Kết nối AI agent qua MCP",
@@ -604,14 +645,14 @@ const I18N = {
     ads_button: "Nhập từ AdsPower", ads_sub: "Mang theo tên, proxy, User-Agent và cookie. Profile dùng engine Chrome; fingerprint (canvas, audio, WebGL) là mới.",
     ads_hint_local: "AdsPower phải đang mở trên máy này và bật Local API (Settings › API).", ads_hint_hub: "Đọc từ AdsPower trên máy của bạn qua agent: AdsPower đang mở và bật Local API.",
     ads_port: "Cổng API", ads_key: "API key (nếu AdsPower yêu cầu)", ads_find: "Tìm profile", ads_none: "AdsPower không có profile nào.",
-    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_working: "Đang nhập {i}/{n}…",
+    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_busy: "Đang có một lần nhập từ AdsPower", ads_progress: "Đang nhập {i}/{n} từ AdsPower: {name}", ads_progress_failed: "{n} lỗi", ads_reimport: "Nhập lại các profile đã có (làm mới cookie của chúng)", ads_done_re: "Đã tạo {created}, nhập lại {reimported}, bỏ qua {skipped}, lỗi {failed}",
     ads_done: "Đã tạo {created}, bỏ qua {skipped}, lỗi {failed}", ads_no_proxy: "Không proxy", ads_no_group: "Không có nhóm", ads_summary: "{total} profile · đã nhập {done} · còn {pending} · lỗi {failed}", ads_hub_group: "→ nhóm {group}",
     agent_auth_title: "Cấp quyền đăng nhập cho agent", agent_auth_hint: "FoxProfile agent trên {pc} sẽ mở các profile của tài khoản này trên máy đó.",
     agent_auth_this_pc: "máy tính này", agent_auth_role: "Vai trò", agent_auth_hub: "Hub",
     agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
     agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
     agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
-    agent_on: "Máy của bạn: đã kết nối", agent_off: "Máy của bạn: chưa chạy agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
+    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
     agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
     agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Chưa có bộ cài",
@@ -668,7 +709,7 @@ const I18N = {
     export_txt: "Export cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Import cookies", import_hint: "From a JSON or cookies.txt file",
     reset_fp: "New fingerprint", reset_fp_hint: "Sites see a different device on the next launch", fp_title: "Current fingerprint", no_fp: "No fingerprint yet. It is created on the first launch.",
     fp_platform: "Platform", fp_screen: "Screen", fp_cpu: "CPU",
-    confirm_reset: "Create a new fingerprint for “{name}”? Sites will see a different machine.", close: "Close",
+    confirm_reset: "Create a new fingerprint for “{name}”? Sites will see a different machine.", close: "Close", open_with: "Open with an account", accounts: "Accounts", accounts_title: "Accounts · {name}", accounts_hint: "Logins this profile uses. They are stored encrypted; the 2FA code is generated from the saved secret.", accounts_empty: "No accounts saved yet", account_add: "Add account", account_platform: "Platform", account_username: "Username", account_password: "Password", account_otp: "2FA code", account_totp_secret: "2FA secret", account_totp_hint: "The base32 key shown when setting up an authenticator app", account_unchanged: "Leave blank to keep the saved one", account_copy: "Copy", account_copied: "{what} copied", account_show: "Show", account_hide: "Hide", account_login: "Log in", account_login_started: "Filling the {platform} login in {name}...", account_need_running: "Launch the profile first", account_confirm_delete: "Delete the {platform} account {username}?", account_saved: "Account saved", account_left: "{s} s left",
     launching: "Launching {name}...", started: "Started {name}", stopped: "Stopped {name}", created: "Created {name}", saved: "Saved",
     deleted: "Deleted {name}", deleted_n: "Deleted {n} profiles", exported: "Exported {n} cookies", imported: "Imported {n} cookies", fp_reset: "New fingerprint created",
     mcp_button: "Connect AI (MCP)", mcp_title: "Connect an AI agent over MCP",
@@ -700,14 +741,14 @@ const I18N = {
     ads_button: "Import from AdsPower", ads_sub: "Brings name, proxy, User-Agent and cookies. Profiles use the Chrome engine; the fingerprint (canvas, audio, WebGL) is new.",
     ads_hint_local: "AdsPower must be open on this PC with its Local API on (Settings › API).", ads_hint_hub: "Read from AdsPower on your PC through the agent: AdsPower open with its Local API on.",
     ads_port: "API port", ads_key: "API key (if AdsPower asks for one)", ads_find: "Find profiles", ads_none: "AdsPower has no profiles.",
-    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_working: "Importing {i} of {n}…",
+    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_busy: "An AdsPower import is already running", ads_progress: "Importing {i} of {n} from AdsPower: {name}", ads_progress_failed: "{n} failed", ads_reimport: "Reimport the ones already here (refreshes their cookies)", ads_done_re: "{created} created, {reimported} reimported, {skipped} already here, {failed} failed",
     ads_done: "{created} created, {skipped} already here, {failed} failed", ads_no_proxy: "No proxy", ads_no_group: "No group", ads_summary: "{total} profiles · {done} imported · {pending} pending · {failed} failed", ads_hub_group: "→ group {group}",
     agent_auth_title: "Authorize the agent sign-in", agent_auth_hint: "The FoxProfile agent on {pc} will open this account's profiles on that PC.",
     agent_auth_this_pc: "this computer", agent_auth_role: "Role", agent_auth_hub: "Hub",
     agent_authorize: "Authorize", agent_switch: "Switch account",
     agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
     agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
-    agent_on: "Your PC: connected", agent_off: "Your PC: agent not running", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
+    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
     agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
     agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "No installer yet",
@@ -764,7 +805,7 @@ const I18N = {
     export_txt: "Exportar cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Importar cookies", import_hint: "Desde un archivo JSON o cookies.txt",
     reset_fp: "Nuevo fingerprint", reset_fp_hint: "Los sitios verán otro dispositivo en la próxima apertura", fp_title: "Fingerprint actual", no_fp: "Aún no hay fingerprint. Se crea la primera vez que se abre.",
     fp_platform: "Plataforma", fp_screen: "Pantalla", fp_cpu: "CPU",
-    confirm_reset: "¿Crear un fingerprint nuevo para “{name}”? Los sitios verán otra máquina.", close: "Cerrar",
+    confirm_reset: "¿Crear un fingerprint nuevo para “{name}”? Los sitios verán otra máquina.", close: "Cerrar", open_with: "Abrir con una cuenta", accounts: "Cuentas", accounts_title: "Cuentas · {name}", accounts_hint: "Las cuentas que usa este profile. Se guardan cifradas; el código 2FA se genera con el secreto guardado.", accounts_empty: "Todavía no hay cuentas guardadas", account_add: "Agregar cuenta", account_platform: "Plataforma", account_username: "Usuario", account_password: "Contraseña", account_otp: "Código 2FA", account_totp_secret: "Secreto 2FA", account_totp_hint: "La clave base32 que muestra el sitio al configurar una app de autenticación", account_unchanged: "Déjalo vacío para conservar el guardado", account_copy: "Copiar", account_copied: "{what} copiado", account_show: "Mostrar", account_hide: "Ocultar", account_login: "Iniciar sesión", account_login_started: "Rellenando el inicio de sesión de {platform} en {name}...", account_need_running: "Primero abre el profile", account_confirm_delete: "¿Eliminar la cuenta de {platform} {username}?", account_saved: "Cuenta guardada", account_left: "quedan {s} s",
     launching: "Abriendo {name}...", started: "{name} abierto", stopped: "{name} detenido", created: "{name} creado", saved: "Guardado",
     deleted: "{name} eliminado", deleted_n: "{n} profiles eliminados", exported: "{n} cookies exportadas", imported: "{n} cookies importadas", fp_reset: "Nuevo fingerprint creado",
     mcp_button: "Conectar IA (MCP)", mcp_title: "Conectar un agente de IA por MCP",
@@ -796,14 +837,14 @@ const I18N = {
     ads_button: "Importar desde AdsPower", ads_sub: "Trae nombre, proxy, User-Agent y cookies. Se crean con el motor Chrome; el fingerprint (canvas, audio, WebGL) es nuevo.",
     ads_hint_local: "AdsPower debe estar abierto en este PC con la API local activada (Ajustes › API).", ads_hint_hub: "Se lee del AdsPower de tu PC a través del agente: AdsPower abierto y con la API local activada.",
     ads_port: "Puerto de la API", ads_key: "API key (si AdsPower la pide)", ads_find: "Buscar perfiles", ads_none: "AdsPower no tiene perfiles.",
-    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_working: "Importando {i} de {n}…",
+    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_busy: "Ya hay una importación de AdsPower en curso", ads_progress: "Importando {i} de {n} desde AdsPower: {name}", ads_progress_failed: "{n} con error", ads_reimport: "Reimportar los que ya existen (actualiza sus cookies)", ads_done_re: "{created} creados, {reimported} reimportados, {skipped} ya existían, {failed} con error",
     ads_done: "{created} creados, {skipped} ya existían, {failed} con error", ads_no_proxy: "Sin proxy", ads_no_group: "Sin grupo", ads_summary: "{total} perfiles · {done} importados · {pending} pendientes · {failed} con error", ads_hub_group: "→ grupo {group}",
     agent_auth_title: "Autorizar el inicio de sesión en el agente", agent_auth_hint: "El agente de FoxProfile en {pc} abrirá los profiles de esta cuenta en ese PC.",
     agent_auth_this_pc: "esta computadora", agent_auth_role: "Rol", agent_auth_hub: "Hub",
     agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
     agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
     agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
-    agent_on: "Tu PC: conectada", agent_off: "Tu PC: el agente no está en ejecución", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
+    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
     agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
     agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene perfiles abiertos.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Todavía no hay instalador",
@@ -884,12 +925,13 @@ function icon(name, small = false) {
   return svg;
 }
 let toastTimer;
-function toast(msg, isError = false) {
+// `busy`: a long task's progress; it stays until the next toast replaces it.
+function toast(msg, isError = false, busy = false) {
   const el = $("toast");
-  el.replaceChildren(icon(isError ? "alert" : "check", true), h("span", {}, msg));
-  el.className = "toast" + (isError ? " error" : "");
+  el.replaceChildren(icon(isError ? "alert" : busy ? "sync" : "check", true), h("span", {}, msg));
+  el.className = "toast" + (isError ? " error" : "") + (busy ? " busy" : "");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), isError ? 7000 : 3200);
+  if (!busy) toastTimer = setTimeout(() => el.classList.add("hidden"), isError ? 7000 : 3200);
 }
 
 class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
@@ -928,16 +970,18 @@ const hhmm = (d) => d.toTimeString().slice(0, 5);
 
 async function refresh() {
   try {
-    const [list, run, who, sync] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
-      hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync")]);
+    const [list, run, who, sync, accts] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
+      hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync"),
+      // A locked accounts store must not keep the profiles from showing.
+      api("GET", "/accounts").catch(() => ({}))]);
     profiles = list.profiles;
     syncs = sync.sessions;
+    accountsOf = accts;
     if (hub) renderMe(who);
     const now = new Set(run.running);
     for (const name of now) if (!liveSince.has(name)) liveSince.set(name, new Date());
     for (const name of [...liveSince.keys()]) if (!now.has(name)) liveSince.delete(name);
     running = now;
-    for (const name of [...selected]) if (!profiles.some((p) => p.name === name)) selected.delete(name);
     for (const name of [...failed.keys()]) if (now.has(name) || !profiles.some((p) => p.name === name)) failed.delete(name);
     await Promise.all(profiles.filter((p) => !(p.name in fingerprints)).map(loadFingerprint));
     render();
@@ -968,13 +1012,17 @@ function visible() {
 let lastRender = "";
 function render() {
   const q = $("search").value.trim();
+  // The selection only holds profiles of the picked group: one deleted or moved to
+  // another group leaves it, so bulk actions never reach rows the user cannot see.
+  for (const name of [...selected]) if (!profiles.some((p) => p.name === name && inGroup(p, scope))) selected.delete(name);
   const shown = visible();
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
-  const key = JSON.stringify([lang, q, filter, scope, profiles, me, [...running].sort(), [...busy], [...failed], [...selected].sort(),
+  const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, [...running].sort(), [...busy], [...failed], [...selected].sort(),
     [...justLanded], syncs, shown.map((p) => fingerprints[p.name] || null)]);
   if (key === lastRender) return;
   lastRender = key;
+  hideAccountsPop();
 
   if (running.size) {
     const [before, after] = t("counts", { n: profiles.length, r: "\u0000" }).split("\u0000");
@@ -1071,15 +1119,21 @@ function row(p) {
     onchange: (e) => { e.target.checked ? selected.add(p.name) : selected.delete(p.name); render(); } });
   box.checked = selected.has(p.name);
   const proxy = maskProxy(p.proxy);
+  const launch = h("button", { class: "btn btn-act" + (accountsFor(p.name).length ? "" : " main"), disabled: isBusy, onclick: () => toggle(p) }, icon("play", true), t("launch"));
   const main = on
     ? h("button", { class: "btn btn-ink main", disabled: isBusy, onclick: () => toggle(p) }, icon("stop", true), t("stop"))
-    : h("button", { class: "btn btn-act main", disabled: isBusy, onclick: () => toggle(p) }, icon("play", true), t("launch"));
+    : accountsFor(p.name).length
+      ? h("div", { class: "split main" }, launch,
+          h("button", { class: "btn btn-act caret", disabled: isBusy, title: t("open_with"), "aria-label": `${t("open_with")}: ${p.name}`,
+            "aria-haspopup": "menu", onclick: (e) => openWithMenu(p, e.currentTarget) }, icon("down", true)))
+      : launch;
   const iconBtn = (name, label, fn, cls = "", disabled = false) =>
     h("button", { class: "icon-btn " + cls, title: label, "aria-label": `${label}: ${p.name}`, disabled, onclick: fn }, icon(name));
   return h("div", { class: "row body" + (on ? " live" : "") + (selected.has(p.name) ? " selected" : ""), role: "row" },
     h("div", { class: "c-sel", role: "cell" }, box),
     h("div", { class: "c-name stack", role: "cell" },
-      h("span", { class: "name", title: p.name }, p.name),
+      h("span", { class: "name", tabindex: 0, onmouseenter: (e) => showAccountsPop(p, e.currentTarget), onmouseleave: hideAccountsPop,
+        onfocus: (e) => showAccountsPop(p, e.currentTarget), onblur: hideAccountsPop }, p.name),
       h("span", { class: "minor" }, engine)),
     h("div", { class: "c-device device", role: "cell" }, h("span", { class: "os", title: p.os_type }, os),
       h("div", { class: "stack" }, h("span", { class: p.engine === "chrome" ? "engine chrome" : "engine" }, engine),
@@ -1096,6 +1150,7 @@ function row(p) {
     h("div", { class: "actions", role: "cell" }, main,
       iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
       iconBtn("cookie", t("cookies"), () => openCookies(p), "", on),
+      iconBtn("key", t("accounts"), () => openAccounts(p)),
       iconBtn("edit", t("edit"), () => openEditor(p)),
       iconBtn("trash", t("delete"), () => removeProfile(p), "danger", on)));
 }
@@ -1401,6 +1456,183 @@ function openEditor(p) {
   });
 }
 
+// Each profile's accounts (no secrets), from GET /accounts on every refresh: the
+// popup on its name and the "Open with" menu of its Launch button.
+let accountsOf = {};
+const accountsFor = (name) => accountsOf[name] || [];
+let popTimer = null;
+function hideAccountsPop() {
+  clearTimeout(popTimer);
+  $("acct-pop").classList.add("hidden");
+}
+function showAccountsPop(p, anchor) {
+  clearTimeout(popTimer);
+  const accounts = accountsFor(p.name);
+  if (!accounts.length) return;
+  popTimer = setTimeout(() => {
+    if (!anchor.isConnected) return;
+    const pop = $("acct-pop");
+    pop.replaceChildren(
+      h("div", { class: "pop-title" }, t("accounts_title", { name: p.name })),
+      ...accounts.map((a) => h("div", { class: "pop-row" },
+        h("span", { class: "pop-k" }, PLATFORM_LABELS[a.platform] || a.platform),
+        h("span", { class: "data" }, a.username),
+        a.has_totp ? h("span", { class: "tag" }, "2FA") : null)));
+    pop.classList.remove("hidden");
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8)) + "px";
+    const below = r.bottom + 6;
+    pop.style.top = (below + pop.offsetHeight > innerHeight - 8 ? r.top - pop.offsetHeight - 6 : below) + "px";
+  }, 250);
+}
+
+// The caret on a stopped profile's Launch button: launch, then fill one account's login.
+function closeOpenWith() {
+  const menu = $("open-with");
+  if (menu) menu.remove();
+}
+function openWithMenu(p, anchor) {
+  const was = $("open-with");
+  closeOpenWith();
+  if (was && was.dataset.for === p.name) return;  // a second click closes it
+  const pick = (a) => { closeOpenWith(); launchWithAccount(p, a); };
+  const menu = h("div", { id: "open-with", class: "menu", role: "menu", "data-for": p.name },
+    h("div", { class: "menu-title" }, t("open_with")),
+    accountsFor(p.name).map((a) => h("button", { type: "button", role: "menuitem", onclick: () => pick(a) },
+      h("b", {}, PLATFORM_LABELS[a.platform] || a.platform), h("span", { class: "data" }, a.username))));
+  document.body.append(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(r.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8)) + "px";
+  const below = r.bottom + 4;
+  menu.style.top = (below + menu.offsetHeight > innerHeight - 8 ? r.top - menu.offsetHeight - 4 : below) + "px";
+  const first = menu.querySelector("button");
+  if (first) first.focus();
+}
+document.addEventListener("mousedown", (e) => {
+  const menu = $("open-with");
+  if (menu && !menu.contains(e.target) && !e.target.closest(".caret")) closeOpenWith();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeOpenWith(); });
+addEventListener("scroll", closeOpenWith, true);
+async function launchWithAccount(p, a) {
+  await toggle(p, { quiet: true });
+  if (!running.has(p.name)) return;  // the launch failed and said so
+  toast(t("account_login_started", { platform: PLATFORM_LABELS[a.platform] || a.platform, name: p.name }));
+  try { toast((await api("POST", `/profiles/${enc(p.name)}/accounts/${a.id}/login`)).message); }
+  catch (e) { toast(`${p.name}: ${e.message}`, true); }
+}
+
+// Brand names: the same in every language.
+const PLATFORM_LABELS = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", x: "X", gmail: "Gmail", hotmail: "Hotmail / Outlook" };
+
+function openAccounts(p) {
+  const base = `/profiles/${enc(p.name)}/accounts`;
+  modal((close) => {
+    const list = h("div");
+    const formBox = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const say = (cls, text) => { msg.className = "msg " + cls; msg.textContent = text; };
+    const btn = (name, label, fn, cls = "") => h("button", { type: "button", class: "icon-btn " + cls, title: label, "aria-label": label, onclick: fn }, icon(name, true));
+    const copy = async (text, what) => { if (await copyText(text)) toast(t("account_copied", { what })); };
+    const password = async (a) => (await api("GET", `${base}/${a.id}/password`)).password;
+    // 2FA codes: fetched when one runs out, counted down here in between.
+    const codes = [];
+    let timer = null;
+    const tick = async () => {
+      if (!list.isConnected) return clearInterval(timer);
+      for (const c of codes) {
+        if (Date.now() >= c.until && !c.loading) {
+          c.loading = true;
+          try { const r = await api("GET", `${base}/${c.id}/totp`); c.code = r.code; c.until = Date.now() + r.remaining * 1000; }
+          catch (e) { say("err", e.message); c.until = Date.now() + 5000; }
+          c.loading = false;
+        }
+        c.codeEl.textContent = c.code;
+        c.leftEl.textContent = t("account_left", { s: Math.max(0, Math.ceil((c.until - Date.now()) / 1000)) });
+      }
+    };
+    const row = (a) => {
+      const label = PLATFORM_LABELS[a.platform] || a.platform;
+      const pw = h("span", { class: "data" }, a.has_password ? "••••••••" : "—");
+      let shown = false;
+      const show = h("button", { type: "button", class: "btn btn-ghost", onclick: async () => {
+        try {
+          shown = !shown;
+          pw.textContent = shown ? await password(a) : "••••••••";
+          show.textContent = t(shown ? "account_hide" : "account_show");
+        } catch (e) { say("err", e.message); }
+      } }, t("account_show"));
+      let codeLine = null;
+      if (a.has_totp) {
+        const c = { id: a.id, until: 0, code: "······", codeEl: h("b", { class: "data acct-code" }), leftEl: h("span", { class: "minor" }) };
+        codes.push(c);
+        codeLine = h("div", { class: "acct-line" }, h("span", { class: "acct-k" }, t("account_otp")), c.codeEl, c.leftEl,
+          btn("copy", t("account_copy"), () => copy(c.code, t("account_otp"))));
+      }
+      const on = running.has(p.name);
+      const login = h("button", { type: "button", class: "btn btn-act", disabled: !on, title: on ? "" : t("account_need_running"), onclick: async () => {
+        login.disabled = true;
+        say("info", t("account_login_started", { platform: label, name: p.name }));
+        try { say("ok", (await api("POST", `${base}/${a.id}/login`)).message); } catch (e) { say("err", e.message); }
+        login.disabled = false;
+      } }, t("account_login"));
+      return h("div", { class: "acct" },
+        h("div", { class: "acct-head" }, h("b", {}, label),
+          h("span", { class: "acct-actions" }, login, btn("edit", t("edit"), () => openForm(a)), btn("trash", t("delete"), () => remove(a, label), "danger"))),
+        h("div", { class: "acct-line" }, h("span", { class: "acct-k" }, t("account_username")), h("span", { class: "data" }, a.username),
+          btn("copy", t("account_copy"), () => copy(a.username, t("account_username")))),
+        a.has_password ? h("div", { class: "acct-line" }, h("span", { class: "acct-k" }, t("account_password")), pw, show,
+          btn("copy", t("account_copy"), async () => { try { copy(await password(a), t("account_password")); } catch (e) { say("err", e.message); } })) : null,
+        codeLine);
+    };
+    const draw = async () => {
+      codes.length = 0;
+      try {
+        const accounts = await api("GET", base);
+        if (accounts.length) accountsOf[p.name] = accounts; else delete accountsOf[p.name];
+        render();
+        list.replaceChildren(...(accounts.length ? accounts.map(row) : [h("div", { class: "note calm" }, icon("key", true), h("span", {}, t("accounts_empty")))]));
+      } catch (e) { say("err", e.message); }
+      tick();
+    };
+    const remove = async (a, label) => {
+      if (!(await confirmDialog(t("account_confirm_delete", { platform: label, username: a.username }), t("delete"), true))) return;
+      try { await api("DELETE", `${base}/${a.id}`); draw(); } catch (e) { say("err", e.message); }
+    };
+    const addBtn = h("button", { type: "button", class: "btn btn-line", style: "margin-top:14px", onclick: () => openForm(null) }, icon("plus", true), t("account_add"));
+    const openForm = (a) => {
+      const platform = h("select", { id: "a-platform" }, Object.entries(PLATFORM_LABELS).map(([v, l]) => h("option", { value: v, selected: !!a && a.platform === v }, l)));
+      const user = h("input", { id: "a-user", value: a ? a.username : "", required: true, maxlength: 320, autocomplete: "off", class: "data" });
+      const pass = h("input", { id: "a-pass", type: "password", maxlength: 1000, autocomplete: "new-password", placeholder: a && a.has_password ? t("account_unchanged") : "" });
+      const secret = h("input", { id: "a-secret", maxlength: 200, autocomplete: "off", class: "data", placeholder: a && a.has_totp ? t("account_unchanged") : "JBSW Y3DP EHPK 3PXP" });
+      formBox.replaceChildren(h("form", { class: "acct-form", onsubmit: async (e) => {
+        e.preventDefault();
+        const body = { platform: platform.value, username: user.value.trim() };
+        // Editing: a blank password or secret keeps the saved one.
+        if (pass.value || !a) body.password = pass.value;
+        if (secret.value.trim() || !a) body.totp_secret = secret.value.trim();
+        try {
+          await api(a ? "PATCH" : "POST", a ? `${base}/${a.id}` : base, body);
+          toast(t("account_saved")); say("", ""); formBox.replaceChildren(addBtn); draw();
+        } catch (ex) { say("err", ex.message); }
+      } },
+        h("div", { class: "field-row" }, field(t("account_platform"), platform), field(t("account_username"), user)),
+        h("div", { class: "field-row" }, field(t("account_password"), pass), field(t("account_totp_secret"), secret, t("account_totp_hint"))),
+        h("div", { class: "inline-btns" },
+          h("button", { type: "button", class: "btn btn-line", onclick: () => formBox.replaceChildren(addBtn) }, t("cancel")),
+          h("button", { class: "btn btn-act" }, t("save")))));
+      user.focus();
+    };
+    formBox.append(addBtn);
+    draw();
+    timer = setInterval(tick, 1000);
+    return h("div", {},
+      modalHead(t("accounts_title", { name: p.name }), t("accounts_hint"), close),
+      h("div", { class: "modal-body" }, list, formBox, msg),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
 function geoLines(r, useLocale) {
   if (!r.exit_ip) return h("div", { class: "geo" }, h("div", { class: "line warn" }, icon("alert", true), t("geo_failed", { e: r.error || "?" })));
   const mode = (pinned) => (pinned ? t("geo_pinned") : t("geo_auto"));
@@ -1505,10 +1737,21 @@ function renderMe(who) {
   me = who;
   const el = $("agent-status");
   el.classList.remove("hidden");
-  el.classList.toggle("on", me.agent_online);
-  el.textContent = `${firstName(me)} · ${t(me.agent_online ? "agent_on" : "agent_off")}`;
+  // Busy (downloading the browser, updating, opening or saving a profile) says
+  // what with; the agent reports that even before it polls.
+  const act = me.agent_activity;
+  const main = act && !me.agent_online ? "agent_preparing"
+    : me.agent_online ? (me.agent_running ? "agent_on_n" : "agent_on") : "agent_off";
+  const detail = !act ? null
+    : act.state === "downloading" ? t(act.pct == null ? "act_downloading" : "act_downloading_pct", { pct: act.pct })
+    : t("act_" + act.state, { name: act.profile || "" });
+  el.classList.toggle("on", me.agent_online && !act);
+  el.classList.toggle("busy", !!act);
+  el.replaceChildren(h("span", { class: "agent-text" },
+    h("span", {}, `${firstName(me)} · ${t(main, { n: me.agent_running })}`),
+    detail ? h("span", { class: "agent-detail" }, detail) : null));
   el.title = me.name;
-  $("agent-get-btn").classList.toggle("hidden", me.agent_online);
+  $("agent-get-btn").classList.toggle("hidden", me.agent_online || !!act);
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
@@ -1685,11 +1928,34 @@ function openAgentDownload() {
 }
 
 // --- Import from AdsPower (src/api/routes/adspower.py) ----------------------------
+// The import runs after the dialog closes (AdsPower answers once a second, so a
+// big batch takes minutes): a toast when it starts, the profiles appear as they
+// are created, a toast with the result at the end.
+let adsImporting = false;
+async function runAdsImport(todo, access) {
+  adsImporting = true;
+  const done = { created: 0, reimported: 0, skipped: 0, failed: 0 }, errors = [];
+  for (const [i, r] of todo.entries()) {
+    // Stays on screen while it runs: which one, out of how many, and errors so far.
+    toast(t("ads_progress", { i: i + 1, n: todo.length, name: r.target }) + (done.failed ? " · " + t("ads_progress_failed", { n: done.failed }) : ""), false, true);
+    try {
+      // A profile that is here already only gets its cookies refreshed.
+      const res = await api("POST", "/adspower/import", { ...access, profile_id: r.id, name: r.target, group: r.group || "", reimport: r.status === "exists" });
+      if (res.status === "created") { done.created++; refresh(); }
+      else if (res.status === "reimported") done.reimported++;
+      else done.skipped++;
+    } catch (err) { done.failed++; errors.push(`${r.target}: ${err.message}`); }
+  }
+  adsImporting = false;
+  await refresh();
+  toast([t(done.reimported ? "ads_done_re" : "ads_done", done), ...errors.slice(0, 2)].join(" · "), done.failed > 0);
+}
+
 function openAdsPower() {
   modal((close) => {
     // AdsPower's profiles by AdsPower group. With thousands of them, a group's
     // rows are built only when it is opened; each row's state lives in its data.
-    let groups = [], busyImport = false;
+    let groups = [];
     const port = h("input", { id: "ads-port", type: "number", min: 1, max: 65535, value: store.get("foxprofile.adsPort") || "50325", required: true });
     const key = h("input", { id: "ads-key", type: "password", autocomplete: "off" });
     const msg = h("div", { class: "msg", role: "status" });
@@ -1697,18 +1963,21 @@ function openAdsPower() {
     const total = h("div", { class: "ads-total" });
     const all = h("input", { type: "checkbox", id: "ads-all" });
     const allRow = h("label", { class: "ads-all hidden", for: "ads-all" }, all, t("ads_select_all"), total);
+    // Profiles imported before can be picked too: their cookies are read again.
+    const again = h("input", { type: "checkbox", id: "ads-again" });
+    const againRow = h("label", { class: "ads-all hidden", for: "ads-again" }, again, h("span", {}, t("ads_reimport")));
     const go = h("button", { class: "btn btn-act", type: "button", disabled: true }, t("ads_import_n", { n: 0 }));
     const access = () => ({ port: Number(port.value), api_key: key.value });
     const rows = () => groups.flatMap((g) => g.rows);
-    const open = (r) => r.status !== "exists" && r.status !== "created";
+    const open = (r) => r.status !== "created" && (r.status !== "exists" || again.checked);
     const counts = (rs) => {
-      const done = rs.filter((r) => !open(r)).length;
+      const done = rs.filter((r) => r.status === "exists" || r.status === "created").length;
       return { total: rs.length, done, pending: rs.length - done, failed: rs.filter((r) => r.status === "failed").length };
     };
-    const stateText = (r) => ({ exists: t("ads_exists"), created: t("ads_created", { n: r.cookies }), failed: r.error, working: "…" }[r.status] || "");
+    const stateText = (r) => ({ exists: t("ads_exists"), created: t("ads_created", { n: r.cookies }), failed: r.error }[r.status] || "");
     const drawRow = (r) => {
       if (!r.el) return;
-      r.box.checked = r.picked; r.box.disabled = !open(r) || busyImport;
+      r.box.checked = r.picked; r.box.disabled = !open(r) || adsImporting;
       r.state.className = "state" + (r.status === "failed" ? " err" : r.status === "created" ? " ok" : "");
       r.state.textContent = stateText(r);
       r.state.title = (r.warnings || []).join("\n");
@@ -1729,22 +1998,23 @@ function openAdsPower() {
       g.sum.classList.toggle("err", c.failed > 0);
       g.box.checked = openRows.length > 0 && openRows.every((r) => r.picked);
       g.box.indeterminate = !g.box.checked && openRows.some((r) => r.picked);
-      g.box.disabled = !openRows.length || busyImport;
+      g.box.disabled = !openRows.length || adsImporting;
       g.rows.forEach(drawRow);
     };
     const sync = () => {
       groups.forEach(drawGroup);
       const n = rows().filter((r) => r.picked && open(r)).length;
       go.textContent = t("ads_import_n", { n });
-      go.disabled = busyImport || !n;
+      go.disabled = adsImporting || !n;
       const openRows = rows().filter(open);
       all.checked = openRows.length > 0 && openRows.every((r) => r.picked);
       all.indeterminate = !all.checked && openRows.some((r) => r.picked);
-      all.disabled = busyImport;
+      all.disabled = adsImporting;
       total.textContent = t("ads_summary", counts(rows()));
     };
     const pick = (rs, value) => { rs.filter(open).forEach((r) => { r.picked = value; }); sync(); };
     all.onchange = () => pick(rows(), all.checked);
+    again.onchange = () => { if (!again.checked) rows().forEach((r) => { if (r.status === "exists") r.picked = false; }); sync(); };
     const buildGroup = (g) => {
       g.box = h("input", { type: "checkbox", "aria-label": g.label });
       g.box.onchange = () => pick(g.rows, g.box.checked);
@@ -1779,27 +2049,14 @@ function openAdsPower() {
       list.replaceChildren(...groups.map(buildGroup));
       list.classList.toggle("hidden", !groups.length);
       allRow.classList.toggle("hidden", !groups.length);
+      againRow.classList.toggle("hidden", !rows().some((r) => r.status === "exists"));
       sync();
     };
-    go.onclick = async () => {
+    go.onclick = () => {
+      if (adsImporting) { msg.className = "msg err"; msg.textContent = t("ads_busy"); return; }
       const todo = rows().filter((r) => r.picked && open(r));
-      busyImport = true;
-      for (const [i, r] of todo.entries()) {
-        msg.className = "msg info"; msg.textContent = t("ads_working", { i: i + 1, n: todo.length });
-        r.status = "working"; sync();
-        try {
-          const res = await api("POST", "/adspower/import", { ...access(), profile_id: r.id, name: r.target, group: r.group || "" });
-          Object.assign(r, { status: res.status, cookies: res.cookies || 0, warnings: res.warnings || [] });
-        } catch (err) {
-          Object.assign(r, { status: "failed", error: err.message });
-        }
-        r.picked = false;
-      }
-      busyImport = false; sync();
-      const c = counts(todo);
-      msg.className = c.failed ? "msg err" : "msg ok";
-      msg.textContent = t("ads_done", { created: todo.filter((r) => r.status === "created").length, skipped: todo.filter((r) => r.status === "exists").length, failed: c.failed });
-      refresh();
+      close();
+      runAdsImport(todo, access());
     };
     return h("div", {},
       modalHead(t("ads_button"), t("ads_sub"), close),
@@ -1808,7 +2065,7 @@ function openAdsPower() {
         h("form", { class: "ads-form", onsubmit: find },
           field(t("ads_port"), port), field(t("ads_key"), key),
           h("button", { class: "btn btn-line" }, icon("search", true), t("ads_find"))),
-        msg, allRow, list),
+        msg, allRow, againRow, list),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close")), go));
   }, { wide: true });
 }

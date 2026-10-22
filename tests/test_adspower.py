@@ -132,7 +132,14 @@ def fake():
                     "proxy_password": "pass",
                 },
             ),
-            _profile(4, fbcc_proxy_acc_id="77"),
+            _profile(
+                4,
+                fbcc_proxy_acc_id="77",
+                platform="instagram.com",
+                username="fox.shop",
+                password="pw",
+                fakey="gezd gnbv gy3t qojq",
+            ),
         ]
     )
     yield server
@@ -232,6 +239,43 @@ def test_fetch_reads_proxy_ua_and_cookies(fake):
     assert data["proxy"] == "socks5://user:p%40ss@203.0.113.7:1080"  # from the proxy list
     assert (data["user_agent"], data["os_type"]) == (PHONE_UA, "android")
     assert json.loads(data["cookies"])[0]["name"] == "sid"
+    assert data["account"] == {
+        "platform": "instagram",
+        "username": "fox.shop",
+        "password": "pw",
+        "totp_secret": "GEZDGNBVGY3TQOJQ",
+    }
+    # Its credentials stay out of the listing the panel shows.
+    listed = adspower.AdsPower(fake.port).profiles()[3]
+    assert "fox.shop" not in json.dumps(listed) and "pw" not in listed.values()
+
+
+@pytest.mark.parametrize(
+    ("domain", "expected"),
+    [
+        ("facebook.com", "facebook"),
+        ("https://m.facebook.com/", "facebook"),
+        ("twitter.com", "x"),
+        ("X.com", "x"),
+        ("mail.google.com", "gmail"),
+        ("outlook.live.com", "hotmail"),
+        ("amazon.com", None),
+        ("notfacebook.com", None),
+        ("", None),
+    ],
+)
+def test_platform_from(domain, expected):
+    assert adspower.platform_from(domain) == expected
+
+
+def test_account_from_skips_what_foxprofile_cannot_keep():
+    warnings = []
+    assert adspower.account_from({"platform": "facebook.com"}, warnings) is None and not warnings
+    assert adspower.account_from({"platform": "amazon.com", "username": "u"}, warnings) is None
+    assert adspower.account_from({"platform": "x.com", "password": "p"}, warnings) is None
+    account = adspower.account_from({"platform": "x.com", "username": "u", "fakey": "1!"}, warnings)
+    assert account == {"platform": "x", "username": "u", "password": "", "totp_secret": ""}
+    assert len(warnings) == 3
 
 
 def test_api_key_and_errors(fake):
@@ -349,6 +393,7 @@ def test_hub_import_reads_adspower_on_the_callers_pc(hub, tmp_path, monkeypatch)
         "user_agent": PHONE_UA,
         "os_type": "android",
         "cookies": json.dumps(COOKIES),
+        "account": {"platform": "tiktok", "username": "fox", "password": "pw", "totp_secret": ""},
         "warnings": [],
     }
 
@@ -368,6 +413,15 @@ def test_hub_import_reads_adspower_on_the_callers_pc(hub, tmp_path, monkeypatch)
     assert hub_store.owners["Account 1"] == "ana"
     saved = personas.load(tmp_path / "camoufox_data" / "Account 1")
     assert saved.user_agent == PHONE_UA  # on the hub, so it travels in the profile ZIP
+    accounts = client.get("/api/v1/profiles/Account 1/accounts", headers=ana).json()
+    assert [(a["platform"], a["username"], a["has_password"]) for a in accounts] == [
+        ("tiktok", "fox", True)
+    ]
+    # Importing again leaves the existing profile, and its accounts, as they are.
+    assert (
+        client.post("/api/v1/adspower/import", json=body, headers=ana).json()["status"] == "exists"
+    )
+    assert len(client.get("/api/v1/profiles/Account 1/accounts", headers=ana).json()) == 1
 
 
 def test_hub_import_needs_the_agent(hub):  # noqa: F811
@@ -422,3 +476,65 @@ def test_hub_import_files_profiles_under_their_adspower_group(hub, monkeypatch):
     r = client.post("/api/v1/adspower/import", json=body, headers=ana).json()
     assert (r["status"], r["group"]) == ("exists", "Soporte")
     assert store.profile_groups["Cuenta 2"] == "Soporte"
+
+
+def test_hub_reimport_refreshes_only_the_cookies(hub, tmp_path, monkeypatch):  # noqa: F811
+    client, container, _ = hub
+    ana, bob = _login(client, "ana", "anaanaanaana"), _login(client, "bob", "bobbobbobbob")
+    container.browser_launcher.touch("ana", set())
+    client.post(
+        "/api/v1/profiles",
+        json={"name": "Account 1", "engine": "chrome", "proxy": "192.0.2.9:80"},
+        headers=ana,
+    )
+    data = {
+        "id": "id1",
+        "proxy": "http://198.51.100.1:8080",
+        "user_agent": PHONE_UA,
+        "os_type": "android",
+        "cookies": json.dumps(COOKIES),
+        "account": {"platform": "x", "username": "new", "password": "p", "totp_secret": ""},
+        "warnings": [],
+    }
+    imported = []
+
+    def import_cookies(cmd):
+        imported.append(json.loads(cmd["params"]["content"])[0]["name"])
+        return {"ok": True, "result": {"imported": 1}}
+
+    _agent(
+        client,
+        ana,
+        {"adspower_fetch": lambda cmd: {"ok": True, "result": data}, "cookies": import_cookies},
+    )
+    body = {"profile_id": "id1", "name": "Account 1", "reimport": True}
+    r = client.post("/api/v1/adspower/import", json=body, headers=ana)
+    assert r.json()["status"] == "reimported" and r.json()["cookies"] == 1 and imported == ["sid"]
+    # Nothing else changed: proxy, accounts.
+    assert client.get("/api/v1/profiles/Account 1", headers=ana).json()["proxy"] == "192.0.2.9:80"
+    assert client.get("/api/v1/profiles/Account 1/accounts", headers=ana).json() == []
+    # Someone else's profile, or one that is open: refused.
+    assert client.post("/api/v1/adspower/import", json=body, headers=bob).status_code == 404
+    container.browser_launcher._leases["Account 1"] = "ana"
+    assert client.post("/api/v1/adspower/import", json=body, headers=ana).status_code == 409
+
+
+def test_reimport_here_needs_cookies_and_a_closed_profile():
+    import contextlib
+
+    from src.models.profile import Profile
+    from src.services.browser.launcher import ProfileBusyError
+
+    class PM:
+        profiles = {"p1": Profile(name="p1", engine="chrome")}
+
+    class BusyBL:
+        @contextlib.contextmanager
+        def exclusive(self, name):
+            raise ProfileBusyError(name)
+            yield
+
+    result = adspower.reimport_here(PM(), BusyBL(), {"cookies": "[]"}, "p1")
+    assert result["status"] == "reimported" and result["cookies"] == 0 and result["warnings"]
+    with pytest.raises(adspower.AdsPowerError, match="p1"):
+        adspower.reimport_here(PM(), BusyBL(), {"cookies": json.dumps(COOKIES)}, "p1")

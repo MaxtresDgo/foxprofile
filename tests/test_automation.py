@@ -120,9 +120,9 @@ def test_run_steps_can_go_on_after_errors():
 
 def test_sleep_waits_without_calling_the_browser():
     bl = FakeLauncher()
-    start = time.monotonic()
+    start = time.perf_counter()  # monotonic() ticks every ~16 ms on Windows
     run_steps(bl, ["a"], parse_script("sleep 50"))
-    assert time.monotonic() - start >= 0.05 and bl.calls == []
+    assert time.perf_counter() - start >= 0.04 and bl.calls == []
 
 
 # --- sync ----------------------------------------------------------------

@@ -198,11 +198,19 @@ class BrowserLauncher:
         with self._lock:
             if profile_name not in self._active_sessions:
                 return False
-            proc = self._active_sessions.pop(profile_name)
+            proc = self._active_sessions[profile_name]
             notifier = self._stop_notifiers.pop(profile_name, None)
-            self._controls.pop(profile_name, None)
         if notifier:
-            notifier.set()
+            notifier.set()  # a stop is not a close: no on_stop
+        # Ask the browser to close first: terminate() is a hard kill on Windows,
+        # and a killed browser loses the cookies it has not written yet.
+        with contextlib.suppress(BrowserControlError, subprocess.TimeoutExpired):
+            self.control(profile_name, "quit", timeout=timeout)
+            proc.wait(timeout)
+        with self._lock:
+            if self._active_sessions.get(profile_name) is proc:
+                self._active_sessions.pop(profile_name)
+                self._controls.pop(profile_name, None)
         terminate(proc, profile_name, timeout)
         logger.info("Stopped browser for profile: %s", profile_name)
         return True
