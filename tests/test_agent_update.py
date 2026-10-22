@@ -453,3 +453,43 @@ def test_agent_downloads_the_profile_in_pieces_built_in_the_background(hub, tmp_
     with pytest.raises(agent.IntegrityError):
         agent.Agent(hub_client)._fetch_bundle("shop-01", str(zip_path))
     assert hub_routes._downloads == {}
+
+
+def test_agent_falls_back_to_one_request_on_a_hub_without_pieces(hub, tmp_path, monkeypatch):
+    import urllib.error
+
+    from src import agent
+
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    data = pathlib.Path("camoufox_data/shop-01")
+    data.mkdir(parents=True, exist_ok=True)
+    (data / "cookies.sqlite").write_bytes(b"old")
+    container.browser_launcher.touch("ana", set())
+    client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
+
+    def old_hub(method, path, data=None, raw=False, **kw):
+        if "/download" in path or "/part" in path or "chunked" in path:
+            raise urllib.error.HTTPError(path, 404, "Not Found", {}, None)
+        body = data.read() if hasattr(data, "read") else data
+        r = client.request(method, "/api/v1" + path, content=body, headers=ana)
+        r.raise_for_status()
+        if not raw:
+            return r.json()
+        response = io.BytesIO(r.content)
+        response.headers = r.headers
+        return response
+
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(hub_client, "call", old_hub)
+    a = agent.Agent(hub_client)
+    zip_path = tmp_path / "bundle.zip"
+    a._fetch_bundle("shop-01", str(zip_path))
+    assert zipfile.ZipFile(zip_path).read("data/cookies.sqlite") == b"old"
+
+    local = tmp_path / "shop-01"
+    local.mkdir()
+    (local / "cookies.sqlite").write_bytes(b"new")
+    a._upload("shop-01", local)
+    assert (data / "cookies.sqlite").read_bytes() == b"new"
