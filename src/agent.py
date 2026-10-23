@@ -97,12 +97,17 @@ def say(msg: str) -> None:
         print(time.strftime("%H:%M:%S"), msg, flush=True)
 
 
-def _request(url: str, key: str = "", timeout: float = 10):
+def _request(url: str, key: str = "", timeout: float = 10, body: dict | None = None):
     # Cloudflare's Browser Integrity Check answers 403 (error 1010) to Python-urllib.
     headers = {"User-Agent": "FoxProfile-Agent"}
     if key:
         headers["Authorization"] = f"Bearer {key}"
-    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=timeout) as r:
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode()
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers)
+    with urllib.request.urlopen(request, timeout=timeout) as r:
         return json.loads(r.read())
 
 
@@ -119,6 +124,11 @@ def check_hub(url: str) -> str | None:
 
 def who_is(hub: str, key: str) -> dict:
     return _request(hub + "/api/v1/hub/me", key)
+
+
+def redeem(hub: str, code: str) -> str:
+    """The agent key behind the panel's one-time code."""
+    return _request(hub + "/api/v1/hub/agent-code", body={"code": code})["key"]
 
 
 class HubClient:
@@ -172,13 +182,14 @@ class Agent:
             "code": agent_code.code_id(),
             "req": agent_code.installed_requirements() or "",
             "pc": pc_name(),
+            "ver": agent_code.installed_version(),
         }
         self.restart = False  # set when an update is unpacked: run() returns
         # Installed agents follow their hub's code; a dev hub deploys the dev branch.
         self.follow_updates = True
-        # Only production agents run the hub's installer on their own: a dev agent
-        # would turn into whatever channel the hub offers.
-        self.auto_install = True
+        # Which installers this agent runs on its own: dev agents take the hub's dev
+        # builds (<system>-dev), so they never turn into a production agent.
+        self.dev = False
         self._skipped_update = ""
         # What the panel shows about this PC (hub POST /agent/status): the browser
         # download, an update, or the profiles being opened or saved right now.
@@ -211,8 +222,11 @@ class Agent:
         if self.browser_download is not None:
             pct = self.browser_download if self.browser_download >= 0 else None
             return {"state": "downloading", "pct": pct}
-        for name, state in list(self._ops.items()):
-            return {"state": state, "profile": name}
+        ops = list(self._ops.items())
+        if ops:
+            # Every profile being saved, for its row in the panel.
+            syncing = sorted(n for n, s in ops if s == "syncing")
+            return {"state": ops[0][1], "profile": ops[0][0], "syncing": syncing}
         return {"state": "ready"}
 
     def report(self, force: bool = False) -> None:
@@ -594,7 +608,7 @@ class Agent:
                     self._skipped_update = resp["code"]
                     say(get_string("agent_update_skipped_dev", code=resp["code"]))
             elif resp["op"] == "installer_needed":
-                if self.follow_updates and self.auto_install:
+                if self.follow_updates:
                     threading.Thread(target=self.install_update, daemon=True).start()
                 else:
                     self.notify(get_string("agent_installer_needed"))
@@ -605,6 +619,8 @@ class Agent:
         macOS the operator clicks through Installer). An installer already run once
         is not run again: the hub may still offer an old one."""
         system = {"win32": "windows", "darwin": "macos"}.get(sys.platform)
+        if system is not None and self.dev:
+            system += "-dev"
         if system is None or not agent_code.installed_requirements():
             self.notify(get_string("agent_installer_needed"))
             return
@@ -789,7 +805,7 @@ class App:
         # Run from source: no update hook would load the hub's code, so an
         # update would only restart into the same code, again and again.
         self.agent.follow_updates = (agent_code.INSTALLED / "BUILD").exists()
-        self.agent.auto_install = not dev
+        self.agent.dev = dev
         self.ready = threading.Event()
         if self.client.key:
             self.ready.set()
@@ -813,24 +829,24 @@ class App:
         """Start a browser sign-in, or bring the pending one back to the browser."""
         with self.lock:
             if self.signin is None or self.signin.finished:
-                self.signin = SignIn(self.client.url, check_hub, who_is)
+                self.signin = SignIn(self.client.url, check_hub, who_is, redeem=redeem)
                 threading.Thread(target=self._finish, args=(self.signin,), daemon=True).start()
                 reopen = True
             url = self.signin.url
         if reopen:
             say(get_string("agent_authorize", url=url))
-            webbrowser.open(url)
+            webbrowser.open_new_tab(url)
 
     def change_hub(self) -> None:
         """Dev builds: sign in to another hub, starting on the hub page."""
         with self.lock:
             if self.signin is not None:
                 self.signin.close()
-            self.signin = SignIn(self.client.url, check_hub, who_is, ask_hub=True)
+            self.signin = SignIn(self.client.url, check_hub, who_is, ask_hub=True, redeem=redeem)
             threading.Thread(target=self._finish, args=(self.signin,), daemon=True).start()
             url = self.signin.url
         say(get_string("agent_authorize", url=url))
-        webbrowser.open(url)
+        webbrowser.open_new_tab(url)
 
     def _finish(self, signin: SignIn) -> None:
         result = signin.wait()

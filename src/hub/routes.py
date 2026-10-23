@@ -107,7 +107,9 @@ def me(request: Request) -> dict:
         "agent_online": bl.online(user["name"]),
         "agent_activity": _activity(bl, user["name"]),
         "agent_running": bl.agents.get(user["name"], {}).get("running", 0),
+        "agent_connecting": _connecting(bl, user["name"]),
         "leases": {n: u for n, u in bl.leases().items() if store.can(user, n)},
+        "syncing": sorted(n for n in _syncing(bl) if store.can(user, n)),
         "owners": {n: u for n, u in store.owners.items() if store.can(user, n)},
         "groups": {n: g for n, g in store.profile_groups.items() if store.can(user, n)},
         "my_groups": {g["name"]: g["my_role"] for g in store.list_groups(user)},
@@ -130,7 +132,41 @@ def new_agent_key(request: Request) -> dict:
     user, store = _user(request), hub_store(request)
     if user["name"] not in store.users:
         raise HTTPException(status_code=400, detail=get_string("err_no_personal_key"))
+    _launcher(request).authorized[user["name"]] = time.monotonic()
     return {"key": store.new_key(user["name"], "agent_key"), **user}
+
+
+# How long the code of the panel's "Authorize agent" page stays good.
+AGENT_CODE_TTL = 120
+
+
+@router.post("/me/agent-code")
+def new_agent_code(request: Request) -> dict:
+    """A one-time code the panel sends to the caller's agent (a navigation to its
+    loopback page that replaces the panel's, so that tab can close itself); the
+    agent trades it for its key at /hub/agent-code. The key never sits in a URL."""
+    user, store, bl = _user(request), hub_store(request), _launcher(request)
+    if user["name"] not in store.users:
+        raise HTTPException(status_code=400, detail=get_string("err_no_personal_key"))
+    now = time.monotonic()
+    code = secrets.token_urlsafe(32)
+    bl.agent_codes = {c: v for c, v in bl.agent_codes.items() if v[1] > now}
+    bl.agent_codes[code] = (user["name"], now + AGENT_CODE_TTL)
+    bl.authorized[user["name"]] = now
+    return {"code": code}
+
+
+class AgentCode(BaseModel):
+    code: str = Field(max_length=100)
+
+
+@public_router.post("/agent-code")
+def redeem_agent_code(body: AgentCode, request: Request) -> dict:
+    """The agent's key for a code from /hub/me/agent-code: once, and only in time."""
+    user, expires = _launcher(request).agent_codes.pop(body.code, ("", 0.0))
+    if not user or expires < time.monotonic():
+        raise HTTPException(status_code=400, detail=get_string("err_agent_code"))
+    return {"key": hub_store(request).new_key(user, "agent_key")}
 
 
 @router.post("/me/army-key")
@@ -219,6 +255,7 @@ class AgentStatus(BaseModel):
     state: Literal["ready", "downloading", "updating", "opening", "syncing"]
     pct: int | None = Field(None, ge=0, le=100)
     profile: str | None = Field(None, max_length=200)
+    syncing: list[str] = Field(default_factory=list, max_length=1000)
 
 
 def _activity(bl, user: str) -> dict | None:
@@ -227,6 +264,31 @@ def _activity(bl, user: str) -> dict | None:
     if not seen or seen["state"] == "ready" or time.monotonic() - seen["at"] > ACTIVITY_TTL:
         return None
     return {k: seen[k] for k in ("state", "pct", "profile")}
+
+
+# How long the panel says "connecting" after an agent is authorized; past that
+# without a poll, it did not connect.
+AGENT_CONNECT_WAIT = 60
+
+
+def _connecting(bl, user: str) -> bool:
+    authorized = bl.authorized.get(user, float("-inf"))
+    return not bl.online(user) and time.monotonic() - authorized < AGENT_CONNECT_WAIT
+
+
+def _syncing(bl) -> set[str]:
+    """Profiles an agent is still uploading: closed, but still leased to it."""
+    names: set[str] = set()
+    for user, info in list(bl.agents.items()):
+        seen = info.get("activity")
+        if not seen or time.monotonic() - seen["at"] > ACTIVITY_TTL:
+            continue
+        # Agents from before the list name only the profile they report.
+        mine = set(seen.get("syncing") or ())
+        if seen["state"] == "syncing" and seen.get("profile"):
+            mine.add(seen["profile"])
+        names |= {n for n in mine if bl.holder(n) == user}
+    return names
 
 
 class GroupCreate(BaseModel):
@@ -327,13 +389,24 @@ def agent_status(body: AgentStatus, request: Request) -> dict:
 
 @router.get("/poll")
 async def poll(
-    request: Request, running: str = "", code: str = "", req: str = "", pc: str = ""
+    request: Request,
+    running: str = "",
+    code: str = "",
+    req: str = "",
+    pc: str = "",
+    ver: str = "",
 ) -> Response:
     user, bl = _user(request)["name"], _launcher(request)
     store = hub_store(request)
     names = {n for n in running.split(",") if n and store.can(_user(request), n)}
     bl.touch(user, names)
-    bl.agents[user] = {**bl.agents.get(user, {}), "code": code, "req": req, "pc": pc[:64]}
+    bl.agents[user] = {
+        **bl.agents.get(user, {}),
+        "code": code,
+        "req": req,
+        "pc": pc[:64],
+        "version": ver[:32],
+    }
     bl.agents[user]["running"] = len(names)
     if code and req:
         hub = await run_in_threadpool(agent_code.hub_code)
@@ -371,7 +444,8 @@ def _agent_update(bl, user: str, hub_code: str, busy: bool) -> dict | None:
     forced = user in bl.update_now
     if info["req"] != agent_code.hub_requirements():
         # The agent runs the new installer itself: once, and with its browsers closed.
-        if info.get("told") == hub_code or (busy and not forced):
+        # An admin can ask again: a newer installer may have been uploaded since.
+        if not forced and (info.get("told") == hub_code or busy):
             return None
         bl.update_now.discard(user)
         info["told"] = hub_code
@@ -413,6 +487,7 @@ async def list_agents(request: Request) -> dict:
             {
                 "user": user,
                 "pc": info.get("pc", ""),
+                "version": info.get("version", ""),
                 "code": info.get("code", ""),
                 "online": bl.online(user),
                 "running": info.get("running", 0),

@@ -51,7 +51,8 @@ def normalize_hub_url(url: str) -> str | None:
 class SignIn:
     """One pending sign-in. `check_hub(url)` returns an error message or None;
     `who_is(hub, key)` returns {"name", "role"} for a key, or raises. `ask_hub`
-    starts on the hub page even with a hub known (dev agents switching hubs)."""
+    starts on the hub page even with a hub known (dev agents switching hubs).
+    `redeem(hub, code)` trades the panel's one-time code for the agent's key."""
 
     def __init__(
         self,
@@ -59,10 +60,11 @@ class SignIn:
         check_hub: Callable[[str], str | None],
         who_is: Callable[[str, str], dict],
         ask_hub: bool = False,
+        redeem: Callable[[str, str], str] | None = None,
     ) -> None:
         self.hub = hub_url
         self.ask_hub = ask_hub
-        self.check_hub, self.who_is = check_hub, who_is
+        self.check_hub, self.who_is, self.redeem = check_hub, who_is, redeem
         self.state = secrets.token_urlsafe(32)
         self.result: dict | None = None
         self._done = threading.Event()
@@ -81,9 +83,12 @@ class SignIn:
         """Where the operator's browser goes to sign in."""
         if not self.hub or self.ask_hub:
             return f"http://{self.local}/setup?state={self.state}"
-        fragment = urllib.parse.urlencode(
-            {"agent": self.port, "state": self.state, "pc": pc_name()}
-        )
+        params = {"agent": self.port, "state": self.state, "pc": pc_name()}
+        if self.redeem:
+            # The panel then sends a code with a navigation that replaces its page,
+            # so the tab can close itself afterwards (a form POST adds a history entry).
+            params["flow"] = "code"
+        fragment = urllib.parse.urlencode(params)
         return f"{self.hub}/#{fragment}"
 
     @property
@@ -128,8 +133,18 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path, _, query = self.path.partition("?")
-        state = urllib.parse.parse_qs(query).get("state", [""])[0]
-        if path != "/setup":
+        params = urllib.parse.parse_qs(query)
+        state = params.get("state", [""])[0]
+        if path == "/callback" and self.signin.hub and self.signin.redeem:
+            if self._allowed(state):
+                code = params.get("code", [""])[0]
+                try:
+                    key = self.signin.redeem(self.signin.hub, code)
+                except Exception as e:
+                    self._send(400, _message(get_string("agent_web_key_refused", error=e)))
+                    return
+                self._accept(key)
+        elif path != "/setup":
             self._send(404, "")
         elif self._allowed(state):
             self._send(200, _setup_page(self.signin.state, self.signin.hub))
@@ -153,23 +168,26 @@ class _Handler(BaseHTTPRequestHandler):
             signin.hub, signin.ask_hub = url, False
             self._redirect(signin.url)
         elif self.path == "/callback" and signin.hub:
-            key = field("key")
-            try:
-                user = signin.who_is(signin.hub, key)
-            except Exception as e:
-                self._send(400, _message(get_string("agent_web_key_refused", error=e)))
-                return
-            self._redirect(f"{signin.hub}/#agent-done")
-            signin._authorized(
-                {
-                    "hub": signin.hub,
-                    "user": user["name"],
-                    "display": user.get("display", ""),
-                    "key": key,
-                }
-            )
+            self._accept(field("key"))
         else:
             self._send(404, "")
+
+    def _accept(self, key: str) -> None:
+        signin = self.signin
+        try:
+            user = signin.who_is(signin.hub, key)
+        except Exception as e:
+            self._send(400, _message(get_string("agent_web_key_refused", error=e)))
+            return
+        self._redirect(f"{signin.hub}/#agent-done")
+        signin._authorized(
+            {
+                "hub": signin.hub,
+                "user": user["name"],
+                "display": user.get("display", ""),
+                "key": key,
+            }
+        )
 
     def _redirect(self, url: str) -> None:
         self.send_response(303)

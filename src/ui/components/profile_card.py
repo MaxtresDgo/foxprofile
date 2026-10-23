@@ -306,33 +306,25 @@ def _stamp(is_loading: bool, is_running: bool, since: str, failed: bool = False)
     if not is_running:
         return ft.Text(get_string("stamp_idle"), size=13, color=COLORS["text_dim"])
     ink = COLORS["live"]
-    lines: list[ft.Control] = [
-        ft.Text(
-            get_string("stamp_live").upper(),
-            size=10.5,
-            font_family=FONT_DATA,
-            weight=ft.FontWeight.W_700,
-            color=ink,
-        )
-    ]
-    if since:
-        lines.append(ft.Text(since, size=10, font_family=FONT_DATA, color=ink))
-    # Double rule: an outer ring around the inked frame.
+    # Double rule: an outer ring around the inked frame. The start time is in the
+    # tooltip: a second line overflowed the column.
     return ft.Container(
         rotate=ft.Rotate(-0.07),
         padding=2,
         border_radius=8,
         border=ft.Border.all(1, ink),
+        tooltip=get_string("stamp_since", time=since) if since else None,
         content=ft.Container(
             padding=ft.Padding.symmetric(horizontal=9, vertical=2),
             border_radius=6,
             border=ft.Border.all(1.5, ink),
             bgcolor=ft.Colors.with_opacity(0.35, "#FFFFFF"),
-            content=ft.Column(
-                spacing=0,
-                tight=True,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                controls=lines,
+            content=ft.Text(
+                get_string("stamp_live").upper(),
+                size=10.5,
+                font_family=FONT_DATA,
+                weight=ft.FontWeight.W_700,
+                color=ink,
             ),
         ),
     )
