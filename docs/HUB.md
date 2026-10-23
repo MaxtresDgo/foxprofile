@@ -40,7 +40,9 @@ Actualizar: `git pull && docker compose up -d --build`.
 
 ### Dokploy
 
-1. **Create Service → Compose**, tipo *Docker Compose*, con el repositorio y la rama. En *Compose Path* poner `./compose.dokploy.yaml`.
+**Hub dev.** Un segundo servicio igual al de producción, pero con la rama `dev` y otro dominio, es el hub contra el que prueban los agentes dev: cada despliegue de `dev` actualiza a los agentes dev conectados a él, sin tocar a los de producción. Los cambios entran en `dev` por PR; el workflow *Sync dev with main* (`.github/workflows/sync-dev.yml`) fusiona `main` en `dev` en cada push a `main`. Conviene que el hub dev use sus propios datos y, con S3, `FOXPROFILE_S3_ENV=dev`.
+
+1. **Create Service → Compose**, tipo *Docker Compose*, con el repositorio y la rama (`main` para producción, `dev` para el hub dev). En *Compose Path* poner `./compose.dokploy.yaml`.
 2. **Environment** (Dokploy lo escribe en el `.env` que lee el contenedor):
 
    ```env
@@ -112,6 +114,16 @@ El botón con la llave de cada perfil abre **Cuentas**: las cuentas que usa ese 
 - **Iniciar sesión:** la comprobación se hace en una pestaña nueva, así que las pestañas del perfil no cambian. Con el perfil abierto, el agente de la PC abre la página de login y rellena usuario, contraseña y, si el sitio lo pide, el código 2FA. Si el perfil ya tiene la sesión iniciada, el sitio lo saca de su página de login: no se escribe nada, esa pestaña se cierra y avisa "La sesión ya estaba iniciada". Si aparece un captcha u otra verificación, o el sitio cambió su página, se detiene y el operador termina a mano. Google a veces rechaza navegadores automatizados.
 - Se guardan cifradas en `accounts.json`, aparte de `profiles.json`, y no viajan en las exportaciones ZIP ni en los datos que el agente descarga. La clave es `FOXPROFILE_ACCOUNTS_KEY` o, si no está definida, `accounts.key` junto al archivo. **En producción defina `FOXPROFILE_ACCOUNTS_KEY`** (genérela con `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) como secreto del despliegue, así la clave no queda en el volumen `/data` junto a las cuentas. Si la clave se pierde o cambia, las cuentas no se pueden leer y el hub no toca el archivo.
 
+### Extensiones
+
+**Configuración › Extensiones** (solo admins) guarda las extensiones que cargan los perfiles: de Chrome (`.crx`, `.zip`, o un enlace o ID de la Chrome Web Store) para los perfiles con engine Chrome, y complementos de Firefox (`.xpi`) para Camoufox.
+
+- **Dónde se aplica:** a todos los perfiles de su engine, a los perfiles de ciertos grupos o a ciertos perfiles. Se suman (las globales + las del grupo del perfil + las suyas), y cualquier perfil se puede **excluir**. Un perfil abierto carga el cambio la próxima vez que se abra.
+- **En el agente:** la orden de abrir un perfil lleva la lista de sus extensiones; el agente baja cada versión una sola vez del hub (`GET /api/v1/extensions/{id}/file`), comprueba su SHA-256 y la guarda desempaquetada en `extensions/unpacked/` de su carpeta de datos.
+- **Mismo ID en todas las PCs:** al guardarla, FoxProfile fija el ID de la extensión (una `key` en el manifest de Chrome, un ID de gecko en el de Firefox), así que lo que la extensión guarda en el perfil, como sus sesiones y ajustes, viaja con el perfil a la otra PC. Volver a subir la misma extensión la actualiza y conserva dónde se aplica.
+- **Chrome Web Store:** al pulsar **Añadir de la tienda**, el hub descarga el `.crx` de los servidores de Google; no hay otras conexiones.
+- Se guardan en `extensions.json` y `extensions/` (`FOXPROFILE_EXTENSIONS_FILE`, `FOXPROFILE_EXTENSIONS_DIR`; en Docker, dentro de `/data`).
+
 ### Idioma
 
 El panel arranca en español; cada usuario puede cambiarlo en **Settings → General** (Español, English, Tiếng Việt), y los mensajes de error del servidor siguen ese idioma. `FOXPROFILE_LANG=es` en el `.env` del hub fija el idioma de los agentes de todas las PCs (salvo que una PC defina su propio `FOXPROFILE_LANG`).
@@ -123,7 +135,7 @@ El panel arranca en español; cada usuario puede cambiarlo en **Settings → Gen
 `FoxProfileAgent-<versión>.msi` trae todo lo necesario (Python y el navegador del motor Chrome incluidos), así que la PC no necesita nada instalado. Se descarga de los artefactos del workflow *Agent installers* en GitHub Actions, o se arma con `installer/windows/build-msi.sh` (Linux/macOS con `uv` y `msitools`).
 
 - **Hub fijo por build (dev / prod), obligatorio:** `HUB_URL=https://hub.example.com installer/windows/build-msi.sh` (igual con `build-pkg.sh`) deja esa URL dentro del instalador, y el agente se conecta ahí sin preguntar; sin una URL `http(s)://` el build se detiene. En el workflow sale del campo *hub_url* al lanzarlo a mano o, si no, de la variable del repositorio `AGENT_HUB_URL`. `FOXPROFILE_HUB_URL` en el `.env` del usuario o `--hub` siguen teniendo prioridad.
-- **Agente dev (para probar varios ambientes):** `AGENT_CHANNEL=dev installer/windows/build-msi.sh` (igual con `build-pkg.sh`, o *channel = dev* en el workflow) genera `FoxProfileAgent-<versión>-dev.msi` / `-dev-macos.pkg`. `HUB_URL` es opcional y solo marca el hub inicial (sin ella, el primer arranque pide la URL). Su menú de la bandeja tiene **Cambiar hub…**: abre la página de la URL con el hub actual, se escribe otro (dev, staging, prod) y se autoriza ahí; los navegadores abiertos se cierran y sincronizan con el hub anterior antes de cambiar. Recuerda el último hub en el que inició sesión. Se instala en el mismo lugar que el agente normal y lo reemplaza. A diferencia del agente normal, **no se actualiza al código del hub**: corre siempre el código con el que se construyó (para probar código nuevo, se instala un build dev nuevo), así funciona igual contra hubs con versiones distintas.
+- **Agente dev (para probar varios ambientes):** `AGENT_CHANNEL=dev installer/windows/build-msi.sh` (igual con `build-pkg.sh`, o *channel = dev* en el workflow) genera `FoxProfileAgent-<versión>-dev.msi` / `-dev-macos.pkg`. `HUB_URL` es opcional y solo marca el hub inicial (sin ella, el primer arranque pide la URL). Su menú de la bandeja tiene **Cambiar hub…**: abre la página de la URL con el hub actual, se escribe otro (dev, staging, prod) y se autoriza ahí; los navegadores abiertos se cierran y sincronizan con el hub anterior antes de cambiar. Recuerda el último hub en el que inició sesión. Se instala en el mismo lugar que el agente normal y lo reemplaza. Como el agente normal, **sigue el código del hub al que está conectado**: conectado al hub dev, que se despliega desde la rama `dev`, recibe cada cambio que entra en `dev` (ver *Hub dev*). Lo que no hace es instalarse solo un instalador nuevo: si cambian las librerías, solo avisa. El agente ejecutado desde el código fuente (`python -m src.agent`) nunca se actualiza.
 
 - Instalar con doble clic (pide permisos de administrador), o sin preguntas: `msiexec /i FoxProfileAgent-<versión>.msi /qn`.
 - Al terminar una instalación con doble clic el agente arranca enseguida (una instalación silenciosa `/qn` lo deja para el siguiente inicio de sesión). Después arranca solo **cada vez que un usuario inicia sesión en Windows**, sin ventana de consola: queda como icono del zorro en la bandeja del sistema. También está en el menú Inicio como *FoxProfile Agent*.
@@ -196,7 +208,7 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 - Solo viaja el código (`src/` y `chrome_engine/`). Python y las librerías vienen con el instalador. Si la versión nueva necesita otras librerías (cambió `requirements.txt`), **el agente se instala el instalador nuevo él mismo**, también cuando no tiene perfiles abiertos:
   - Descarga el instalador que ofrece el panel (**Ajustes › Agentes**: hay que subir el nuevo antes) y lo ejecuta. En Windows corre el MSI con una barra de progreso (`msiexec /passive`); Windows pide permiso de administrador y, al terminar, el agente nuevo arranca solo. En macOS abre el `.pkg` en el Instalador: hay que pulsar *Instalar* y poner la contraseña de administrador; el paquete reinicia el agente.
   - Cada instalador lo ejecuta una sola vez (recuerda su nombre, tamaño y fecha en `installer-tried.txt`). Si el panel todavía ofrece el anterior, solo avisa con una notificación de que hace falta el instalador nuevo.
-  - Si no puede descargarlo, avisa y se puede instalar a mano desde el panel. El agente dev no hace nada de esto.
+  - Si no puede descargarlo, avisa y se puede instalar a mano desde el panel. El agente dev no instala nada: solo avisa.
 - **Ajustes › Agentes** en el panel:
   - Cualquier usuario descarga ahí el instalador de Windows o de macOS para un PC nuevo. La descarga no necesita sesión, así que el enlace se puede compartir.
   - Los administradores suben los instaladores (uno por sistema; el nuevo reemplaza al anterior). Sin bucket quedan en `installers/`, junto a `hub.json` (`./data/installers` con Docker); detrás de nginx, esa subida necesita el bloque `location /api/v1/hub/installers/` de [deploy/nginx-foxprofile.conf](../deploy/nginx-foxprofile.conf), porque supera el límite general de 20 MB. Con bucket, ver abajo.
@@ -240,6 +252,18 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 - Los agentes instalados ejecutan el código que reciben del hub (ver [Actualizaciones del agente](#actualizaciones-del-agente-desde-el-panel)): un hub comprometido llega a todas las PCs. Sirva el hub por HTTPS.
 - `agent.json` contiene la clave del agente: quien la copie puede actuar como ese operador. Para revocarla, autorice de nuevo el agente.
 - `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`), también si la plataforma de identidad está caída. Cambiarlo cierra todas las sesiones.
+
+## Panel de Army
+
+Army (`/perfiles-users` y `/perfiles-admin`) abre los perfiles en nombre de cada usuario con una clave propia de ese usuario, nunca con `FOXPROFILE_API_TOKEN`:
+
+1. En Army, el usuario pulsa *Vincular con Fox*. Army abre el panel del hub en `#army=<state>`.
+2. Inicia sesión (la misma cuenta de Army) y pulsa *Autorizar*. El panel crea una clave `army_key` (`POST /hub/me/army-key`, separada de la de MCP y la del agente) y la envía por POST, con el `state`, **solo** a `FOXPROFILE_ARMY_CALLBACK`. Esa dirección sale de la configuración del hub, no del enlace.
+3. Army comprueba el `state` y que la clave sea de ese mismo correo, y la guarda cifrada.
+
+Con esa clave Army también lee `GET /accounts` (red y usuario de las cuentas de cada perfil que ve, sin contraseña ni 2FA) para mostrarlas en sus tarjetas. Las demás rutas de cuentas siguen cerradas a toda clave personal, la de Army incluida.
+
+Sin `FOXPROFILE_ARMY_CALLBACK` la vinculación está apagada. Para asignar perfiles a quien todavía no entró al hub, un admin crea la cuenta con `PUT /hub/users/{correo}` (si ya existe, conserva su rol).
 
 ## Visor remoto, cookies y MCP
 

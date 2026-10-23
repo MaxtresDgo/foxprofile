@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from src.api import app as app_module
 from src.api import auth
 from src.api.app import create_app
+from src.core import config
 from src.core.container import Container
 from src.services.browser import login as login_module
 from src.services.profile.accounts import AccountsLocked, AccountStore, totp, valid_totp_secret
@@ -119,7 +120,7 @@ def test_login_route_needs_a_running_profile(client):
     assert r.status_code == 409
 
 
-def test_hub_accounts_are_private_and_closed_to_personal_keys(hub):
+def test_hub_accounts_are_private_and_closed_to_personal_keys(hub, monkeypatch):
     client, _, admin = hub
     ana, bob = _login(client, "ana", "anaanaanaana"), _login(client, "bob", "bobbobbobbob")
     client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
@@ -148,6 +149,21 @@ def test_hub_accounts_are_private_and_closed_to_personal_keys(hub):
     assert sorted(client.get("/api/v1/accounts", headers=ana).json()) == ["ana-only", "shop-01"]
     assert (
         client.get("/api/v1/accounts", headers={"Authorization": "Bearer " + key}).status_code
+        == 403
+    )
+    # Army's key reads the summary (no secrets) for its panel, and nothing else.
+    monkeypatch.setattr(config, "ARMY_CALLBACK", "https://army.example.com/fox/callback")
+    army = {
+        "Authorization": "Bearer "
+        + client.post("/api/v1/hub/me/army-key", headers=bob).json()["key"]
+    }
+    assert list(client.get("/api/v1/accounts", headers=army).json()) == ["shop-01"]
+    assert client.get(base, headers=army).status_code == 403
+    acc = summary["shop-01"][0]["id"]
+    assert client.get(f"{base}/{acc}/password", headers=army).status_code == 403
+    agent = client.post("/api/v1/hub/me/agent-key", headers=bob).json()["key"]
+    assert (
+        client.get("/api/v1/accounts", headers={"Authorization": "Bearer " + agent}).status_code
         == 403
     )
 

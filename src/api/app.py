@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from ..core import config
 from ..core.config import API_PORT, API_TOKEN, HEADLESS
 from ..core.logging import get_logger
 from ..core.strings import current_language, request_language
@@ -22,6 +23,7 @@ from .routes import (
     adspower_router,
     automation_router,
     browser_router,
+    extensions_router,
     mcp_setup_router,
     page_router,
     profiles_router,
@@ -111,6 +113,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     app.include_router(automation_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(adspower_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(extensions_router, prefix=API_PREFIX, dependencies=protected)
     app.router.routes.append(mcp_route)
     if container.hub:
         # Browsers live on the operators' PCs; page actions relay through their agents.
@@ -135,6 +138,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
             "mcp_path": mcp_http.MCP_PATH,
             "mode": "hub" if container.hub else "local",
             "language": current_language(),
+            "army_callback": config.ARMY_CALLBACK if container.hub else "",
         }
 
     @app.get("/", include_in_schema=False)

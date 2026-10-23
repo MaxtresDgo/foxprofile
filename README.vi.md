@@ -39,6 +39,7 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 - [Engine Chrome (thử nghiệm)](#engine-chrome-thử-nghiệm)
 - [Chuyển từ AdsPower](#chuyển-từ-adspower)
 - [Cookie và fingerprint](#cookie-và-fingerprint)
+- [Extension của trình duyệt](#extension-của-trình-duyệt)
 - [Cấu hình](#cấu-hình)
 - [REST API](#rest-api)
 - [Phát triển](#phát-triển)
@@ -231,6 +232,15 @@ Bấm nút cookie trên dòng profile để mở hộp thoại **Cookie & finger
 - Cookie phiên (session) khi nhập vào sẽ được đặt hạn 1 năm. Nếu không, trình duyệt sẽ xóa chúng ngay khi đóng.
 - "Tạo fingerprint mới" xóa fingerprint đã lưu; lần mở sau profile sẽ là một thiết bị khác. Đổi hệ điều hành của profile cũng tự sinh fingerprint mới.
 
+## Extension của trình duyệt
+
+**Extension** (thanh bên của app desktop, **Settings** trong web panel) chứa các extension mà profile tải:
+
+- Extension Chrome (`.crx` hoặc `.zip`) cho profile engine Chrome, add-on Firefox (`.xpi`) cho Camoufox. Dán link hoặc ID Chrome Web Store để thêm từ cửa hàng: khi đó FoxProfile tải file `.crx` từ máy chủ của Google, chỉ khi bạn bấm **Thêm**.
+- Mỗi extension áp dụng cho mọi profile cùng engine, cho profile của một số nhóm (chế độ hub) hoặc cho một số profile, và có thể **loại trừ** bất kỳ profile nào. Các phạm vi cộng lại: profile tải extension chung, của nhóm và của riêng nó, trừ những extension bị loại trừ. Profile đang mở sẽ tải thay đổi ở lần mở sau.
+- Extension giữ nguyên ID trên mọi máy (FoxProfile thêm `key` vào manifest Chrome, gecko ID vào manifest Firefox), nên những gì nó lưu trong profile, như đăng nhập và cài đặt, đi theo profile. Tải lên lại cùng một extension là cập nhật nó và giữ nguyên phạm vi.
+- Trang web mà profile mở có thể thấy extension; chỉ cài những extension profile cần. Ở chế độ hub chỉ admin quản lý extension, và agent tải mỗi phiên bản một lần từ hub.
+
 ## Cấu hình
 
 Mọi cấu hình đều không bắt buộc. Muốn đổi thì sao chép `.env.example` thành `.env`.
@@ -240,6 +250,8 @@ Mọi cấu hình đều không bắt buộc. Muốn đổi thì sao chép `.env
 | `FOXPROFILE_LANG` | `en` | Ngôn ngữ giao diện: `en`, `vi` hoặc `es`. Agent của hub dùng ngôn ngữ của hub nếu máy không tự đặt |
 | `FOXPROFILE_PROFILES_FILE` | `profiles.json` | File lưu danh sách profile |
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Thư mục dữ liệu, mỗi profile một thư mục con |
+| `FOXPROFILE_EXTENSIONS_FILE` | `extensions.json` | Extension của trình duyệt và phạm vi áp dụng |
+| `FOXPROFILE_EXTENSIONS_DIR` | `extensions` | File của các extension và bản đã giải nén |
 | `FOXPROFILE_LOG_DIR` | `logs` | Thư mục log |
 | `FOXPROFILE_LOG_LEVEL` | `INFO` | Mức log |
 | `FOXPROFILE_PROXY_TIMEOUT` | `10` | Thời gian chờ khi kiểm tra proxy (giây) |
@@ -262,6 +274,8 @@ camoufox_data/<tên-profile>/                      dữ liệu trình duyệt: c
 camoufox_data/<tên-profile>/fingerprint.json      fingerprint thiết bị (engine Camoufox)
 camoufox_data/<tên-profile>/chrome_persona.json   fingerprint thiết bị (engine Chrome)
 camoufox_data/<tên-profile>/tabs.json             các tab sẽ được mở lại
+extensions.json                                   extension của trình duyệt và phạm vi áp dụng
+extensions/<id>.zip                               file của một extension (extensions/unpacked/: bản trình duyệt tải)
 logs/foxprofile_YYYYMMDD.log                      log theo ngày
 ```
 

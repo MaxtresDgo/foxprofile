@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from src.api import app as app_module
 from src.api import auth
 from src.api.app import create_app
+from src.core import config
 from src.core.container import Container
 from src.core.strings import get_string
 from src.hub import platform_auth
@@ -391,6 +392,48 @@ def test_agent_key_is_separate_from_the_personal_key(hub):
     client.post("/api/v1/hub/me/agent-key", headers=ana)
     assert client.get("/api/v1/hub/me", headers=agent).status_code == 401
     assert client.get("/api/v1/hub/me", headers=personal).status_code == 200
+
+
+def test_army_key_opens_the_users_own_profiles(hub, monkeypatch):
+    client, container, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    # Off until the hub knows where Army takes the key.
+    assert client.post("/api/v1/hub/me/army-key", headers=ana).status_code == 404
+    assert client.get("/api/v1/info").json()["army_callback"] == ""
+    monkeypatch.setattr(config, "ARMY_CALLBACK", "https://army.example.com/fox/callback")
+    assert client.get("/api/v1/info").json()["army_callback"].startswith("https://army.")
+
+    army = {
+        "Authorization": "Bearer "
+        + client.post("/api/v1/hub/me/army-key", headers=ana).json()["key"]
+    }
+    assert client.get("/api/v1/hub/me", headers=army).json()["name"] == "ana"
+    assert [p["name"] for p in client.get("/api/v1/profiles", headers=army).json()["profiles"]] == [
+        "shop-01"
+    ]
+    # Its own kind: a new MCP or agent key leaves it working.
+    client.post("/api/v1/hub/me/key", headers=ana)
+    client.post("/api/v1/hub/me/agent-key", headers=ana)
+    assert client.get("/api/v1/hub/me", headers=army).status_code == 200
+
+
+def test_admin_creates_accounts_to_assign_profiles(hub):
+    client, container, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-02"}, headers=admin)
+    assert client.put("/api/v1/hub/users/dan@example.com", json={}, headers=ana).status_code == 403
+    r = client.put("/api/v1/hub/users/Dan@Example.com", json={"display": "Dan"}, headers=admin)
+    assert r.json() == {"name": "dan@example.com", "role": "operator", "display": "Dan"}
+    assert (
+        client.put(
+            "/api/v1/hub/owners/shop-02", json={"user": "dan@example.com"}, headers=admin
+        ).status_code
+        == 200
+    )
+    # An existing account keeps its role and name.
+    r = client.put("/api/v1/hub/users/admin@example.com", json={"role": "operator"}, headers=admin)
+    assert r.json()["role"] == "admin"
 
 
 def test_personal_key_for_mcp(hub):

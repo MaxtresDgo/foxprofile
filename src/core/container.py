@@ -39,13 +39,29 @@ class Container:
 
     @property
     def browser_launcher(self) -> IBrowserLauncher:
+        return self._get("bl", self._build_launcher)
+
+    def _build_launcher(self):
+        store = self.extensions
         if self.hub:
             from ..hub.remote import RemoteLauncher
 
-            return self._get("bl", RemoteLauncher)
+            remote = RemoteLauncher()
+            # What the agent downloads and loads; groups only exist on the hub.
+            remote.extensions = lambda p: store.for_profile(
+                p.name, p.engine, self.hub_store.profile_groups.get(p.name)
+            )
+            return remote
         from ..services.browser.launcher import BrowserLauncher
 
-        return self._get("bl", BrowserLauncher)
+        launcher = BrowserLauncher()
+        launcher.extensions = lambda p: store.dirs(store.for_profile(p.name, p.engine))
+        return launcher
+
+    @property
+    def extensions(self):
+        """The extension catalogue (services/browser/extensions.py)."""
+        return self.profile_manager.extensions
 
     @property
     def sync(self):

@@ -2,6 +2,14 @@
 # FoxProfile Agent.app: runs the agent with the Python bundled next to it. The code
 # is read-only in /Applications; each user's data, .env and logs live in
 # ~/Library/Application Support/FoxProfile (--home).
+label=io.github.chienbm98.foxprofile-agent
+# Opened from Finder or Launchpad, LaunchServices runs this script, and the agent it
+# started (a bare python3, not the app it launched) got no menu bar icon. Let
+# launchd start it instead, as at login: launchd sets XPC_SERVICE_NAME to the label
+# for its own job. Without the LaunchAgent loaded, run the agent here as before.
+if [ "${XPC_SERVICE_NAME:-}" != "$label" ] && launchctl kickstart "gui/$(id -u)/$label" 2>/dev/null; then
+    exit 0
+fi
 res="$(cd "$(dirname "$0")/../Resources" && pwd)"
 export PYTHONPATH="$res/app" PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
 exec "$res/python/bin/python3" -m src.agent --home

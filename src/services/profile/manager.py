@@ -15,6 +15,7 @@ from ...utils.validation import (
     validate_profile_name,
     validate_timezone,
 )
+from ..browser.extensions import ExtensionStore
 from .accounts import AccountsLocked, AccountStore
 from .transfer import export_to_zip, import_from_zip, read_profile_meta
 
@@ -44,6 +45,8 @@ class ProfileManager:
         self.profiles: dict[str, Profile] = {}
         # Its file and key are only created on the first account saved.
         self.accounts = AccountStore()
+        # Browser extensions; their scopes name profiles, so they follow renames too.
+        self.extensions = ExtensionStore()
         self._load_profiles()
         pathlib.Path(DATA_DIR).mkdir(exist_ok=True, parents=True)
 
@@ -196,6 +199,7 @@ class ProfileManager:
                 del self.profiles[original_name]
                 self.profiles[new_name] = profile
                 self._accounts_follow(self.accounts.rename_profile, original_name, new_name)
+                self.extensions.rename_profile(original_name, new_name)
 
             self.save_profiles()
             logger.info("Updated profile: %s -> %s", original_name, new_name)
@@ -208,6 +212,7 @@ class ProfileManager:
             del self.profiles[name]
             self.save_profiles()
             self._accounts_follow(self.accounts.forget_profile, name)
+            self.extensions.forget_profile(name)
             # Inside the lock: a profile re-created under the same (or, on a
             # case-insensitive file system, a case-variant) name must not have
             # its fresh data dir removed by this delete.

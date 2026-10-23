@@ -52,7 +52,13 @@ import webbrowser  # noqa: E402
 import zipfile  # noqa: E402
 
 from src.api.schemas.proxy import GeoCheckResponse  # noqa: E402
-from src.core.config import DATA_DIR, HUB_URL, LAUNCH_WAIT_TIMEOUT, LOG_DIR  # noqa: E402
+from src.core.config import (  # noqa: E402
+    DATA_DIR,
+    EXTENSIONS_DIR,
+    HUB_URL,
+    LAUNCH_WAIT_TIMEOUT,
+    LOG_DIR,
+)
 from src.core.container import Container  # noqa: E402
 from src.core.logging import get_logger, setup_logging  # noqa: E402
 from src.core.strings import current_language, get_string, set_language  # noqa: E402
@@ -60,6 +66,7 @@ from src.hub import agent_code  # noqa: E402
 from src.hub.agent_auth import SignIn, pc_name  # noqa: E402
 from src.models.profile import Profile  # noqa: E402
 from src.services.browser import cookies  # noqa: E402
+from src.services.browser import extensions as ext_files  # noqa: E402
 from src.services.browser.launcher import BrowserControlError  # noqa: E402
 from src.services.profile import adspower  # noqa: E402
 from src.services.profile.transfer import (  # noqa: E402
@@ -167,8 +174,11 @@ class Agent:
             "pc": pc_name(),
         }
         self.restart = False  # set when an update is unpacked: run() returns
-        # Dev agents run the code they were built with, whatever hub they visit.
+        # Installed agents follow their hub's code; a dev hub deploys the dev branch.
         self.follow_updates = True
+        # Only production agents run the hub's installer on their own: a dev agent
+        # would turn into whatever channel the hub offers.
+        self.auto_install = True
         self._skipped_update = ""
         # What the panel shows about this PC (hub POST /agent/status): the browser
         # download, an update, or the profiles being opened or saved right now.
@@ -178,11 +188,14 @@ class Agent:
         # Profiles downloaded by this run: their os_type and engine open the
         # browser that packs the cookies when they are uploaded.
         self._profiles: dict[str, Profile] = {}
+        # Unpacked extension folders of each launch (what the hub sent with it).
+        self._ext_dirs: dict[str, list[str]] = {}
         self._sent: tuple = ()
         self._activity_lock = threading.Lock()
         threading.Thread(target=self._heartbeat, daemon=True).start()
         container = Container(hub=False)
         self.bl = container.browser_launcher
+        self.bl.extensions = lambda profile: self._ext_dirs.get(profile.name, [])
         self.proxies = container.proxy_service
         self.data_root = pathlib.Path(DATA_DIR)
         self.data_root.mkdir(parents=True, exist_ok=True)
@@ -237,11 +250,12 @@ class Agent:
 
     # --- commands --------------------------------------------------------------
 
-    def launch(self, profile_dict: dict) -> None:
+    def launch(self, profile_dict: dict, extensions: list[dict] = ()) -> None:
         name = profile_dict["name"]
         try:
             with self.busy("opening", name):
                 profile = self._download(name)
+                self._ext_dirs[name] = self._extensions(extensions)
         except Exception as e:
             say(get_string("agent_download_failed", name=name, error=e))
             self._status(name, False, f"Download failed on {self.hub.user}'s PC: {e}")
@@ -374,6 +388,30 @@ class Agent:
             shutil.rmtree(local, ignore_errors=True)
             raise
         return result
+
+    def _extensions(self, wanted: list[dict]) -> list[str]:
+        """The launch's extensions unpacked here, downloaded from the hub once per
+        version and checked against the SHA-256 the hub sent."""
+        cache = pathlib.Path(EXTENSIONS_DIR) / "unpacked"
+        dirs = []
+        for ext in wanted:
+            target = cache / f"{ext['id']}-{ext['sha256'][:12]}"
+            if (target / "manifest.json").exists():
+                dirs.append(str(target.resolve()))
+                continue
+            with tempfile.TemporaryDirectory() as tmp:
+                archive = os.path.join(tmp, "extension.zip")
+                path = f"/extensions/{ext['id']}/file"
+                with (
+                    self.hub.call("GET", path, raw=True, timeout=300) as r,
+                    open(archive, "wb") as f,
+                ):
+                    shutil.copyfileobj(r, f)
+                if ext_files.sha256(archive) != ext["sha256"]:
+                    raise IntegrityError(get_string("err_bundle_corrupt"))
+                dirs.append(ext_files.unpack(archive, ext["id"], ext["sha256"], cache))
+            say(get_string("agent_extension_ready", name=ext["name"]))
+        return dirs
 
     def _fetch_bundle(self, name: str, zip_path: str) -> None:
         """The profile's ZIP in pieces, checked against its SHA-256: the hub builds
@@ -539,7 +577,8 @@ class Agent:
             if not resp:
                 continue
             if resp["op"] == "launch":
-                threading.Thread(target=self.launch, args=(resp["profile"],), daemon=True).start()
+                args = (resp["profile"], resp.get("extensions") or [])
+                threading.Thread(target=self.launch, args=args, daemon=True).start()
             elif resp["op"] == "stop":
                 threading.Thread(target=self.stop, args=(resp["name"],), daemon=True).start()
             elif resp["op"] == "control":
@@ -555,7 +594,7 @@ class Agent:
                     self._skipped_update = resp["code"]
                     say(get_string("agent_update_skipped_dev", code=resp["code"]))
             elif resp["op"] == "installer_needed":
-                if self.follow_updates:
+                if self.follow_updates and self.auto_install:
                     threading.Thread(target=self.install_update, daemon=True).start()
                 else:
                     self.notify(get_string("agent_installer_needed"))
@@ -747,7 +786,10 @@ class App:
         )
         self.client.on_unauthorized = self._unauthorized
         self.agent = Agent(self.client, self.set_status, self.notify)
-        self.agent.follow_updates = not dev
+        # Run from source: no update hook would load the hub's code, so an
+        # update would only restart into the same code, again and again.
+        self.agent.follow_updates = (agent_code.INSTALLED / "BUILD").exists()
+        self.agent.auto_install = not dev
         self.ready = threading.Event()
         if self.client.key:
             self.ready.set()
