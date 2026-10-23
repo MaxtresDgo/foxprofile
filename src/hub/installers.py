@@ -1,5 +1,6 @@
-"""The agent installers the panel serves (Settings > Agents): one per system, the
-newest wins.
+"""The agent installers the panel serves (Settings > Agents): one per system and
+channel, the newest wins. `<system>-dev` holds the dev builds (AGENT_CHANNEL=dev),
+which dev agents install on their own; the others are the production ones.
 
 Kept in an S3 bucket (RustFS, MinIO, AWS; FOXPROFILE_S3_*) when one is set,
 otherwise in installers/<system>/ next to HUB_FILE. The bucket stays private:
@@ -20,7 +21,7 @@ import re
 
 from ..core import config
 
-PLATFORMS = {"windows": ".msi", "macos": ".pkg"}
+PLATFORMS = {"windows": ".msi", "macos": ".pkg", "windows-dev": ".msi", "macos-dev": ".pkg"}
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 # Each part's URL is checked when that part starts: room for ~300 MB on a slow line.
 UPLOAD_EXPIRES = 6 * 3600

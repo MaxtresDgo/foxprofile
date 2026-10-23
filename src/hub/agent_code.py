@@ -81,6 +81,15 @@ def hub_requirements() -> str | None:
         return None
 
 
+def installed_version() -> str:
+    """The installer's own version (installer/agent-version.sh), or "" when this
+    agent was not installed by one."""
+    try:
+        return (INSTALLED / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def installed_requirements() -> str | None:
     """The installer's requirements, or None when this agent was not installed by
     one (a script or a git checkout updates itself some other way)."""

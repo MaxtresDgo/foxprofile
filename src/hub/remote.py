@@ -43,6 +43,10 @@ class RemoteLauncher:
         # reported on its last poll, and who an admin asked to update right away.
         self.agents: dict[str, dict] = {}
         self.update_now: set[str] = set()
+        # When each user last authorized an agent: the panel says "connecting" for a while.
+        self.authorized: dict[str, float] = {}
+        # One-time codes the panel hands an agent for its key: code -> (user, expiry).
+        self.agent_codes: dict[str, tuple[str, float]] = {}
         # The extensions a profile loads, sent with its launch (Container wires it).
         self.extensions: Callable[[Profile], list[dict]] = lambda profile: []
 

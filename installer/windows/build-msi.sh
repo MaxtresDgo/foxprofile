@@ -35,7 +35,8 @@ TCLTK_SHA256=55c96ffad69b1c834aa52e11b9ce41637a178ba6ad6607e83956044834276e2a
 
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
-version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/pyproject.toml")
+# Its own version, apart from the panel's: see installer/agent-version.sh.
+version=$("$root/installer/agent-version.sh")
 build=$root/build/agent-msi
 stage=$build/stage
 rm -rf "$stage" && mkdir -p "$stage/python" "$stage/app" "$root/dist"
@@ -82,6 +83,7 @@ rm -rf "$stage/app/chrome_engine/tests" "$stage/app/chrome_engine/e2e"
 cp "$root/requirements.txt" "$stage/app/"
 [ -z "$HUB_URL" ] || printf '%s\n' "${HUB_URL%/}" >"$stage/app/HUB_URL"
 [ "$AGENT_CHANNEL" = prod ] || echo "$AGENT_CHANNEL" >"$stage/app/CHANNEL"
+echo "$version" >"$stage/app/VERSION"
 PYTHONPATH="$root" uv run -q --no-project -p 3.12 python -c \
     'import sys, pathlib; from src.hub.agent_code import code_id; print(code_id(pathlib.Path(sys.argv[1])))' \
     "$stage/app" >"$stage/app/BUILD"
