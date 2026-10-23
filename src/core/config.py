@@ -61,12 +61,18 @@ API_TOKEN = _env("API_TOKEN", "")
 # `python -m src.agent`. Users and profile owners live in HUB_FILE.
 HUB = _env("HUB", "false").strip().lower() in ("1", "true", "yes")
 HUB_FILE = _env("HUB_FILE", "hub.json")
+# Largest profile data an agent may send back (each upload, in MB): keeps a
+# runaway or hostile agent from filling the hub's disk.
+HUB_MAX_BUNDLE_MB = int(_env("HUB_MAX_BUNDLE_MB", "4096"))
 # Hub logins are checked against an external identity platform (hub/platform_auth.py):
 # POST {AUTH_URL}/auth/login with `Origin: AUTH_ORIGIN`, the origin that platform has
 # registered for this app. Users holding AUTH_ADMIN_PERMISSION there are hub admins.
 AUTH_URL = _env("AUTH_URL", "").rstrip("/")
 AUTH_ORIGIN = _env("AUTH_ORIGIN", "").rstrip("/")
 AUTH_ADMIN_PERMISSION = _env("AUTH_ADMIN_PERMISSION", "foxprofile:admin")
+# Checked here too, not only by the platform: a misconfigured platform must not
+# let all its users in. Admins always get in.
+AUTH_ACCESS_PERMISSION = _env("AUTH_ACCESS_PERMISSION", "foxprofile:access")
 # Army's panel links each user's account (hub/routes.new_army_key): after they
 # authorize it, the hub panel POSTs their key here, and only here. It is fixed in
 # this config, never taken from the link, so a crafted link cannot send a key elsewhere.

@@ -69,6 +69,11 @@
 ### Thay đổi
 - Ngôn ngữ giao diện mặc định của app desktop và web panel là English; đặt `FOXPROFILE_LANG=vi` (hoặc bấm "Tiếng Việt" trong app) để dùng tiếng Việt.
 
+### Bảo mật
+- Agent chỉ cài code cập nhật và bộ cài mới từ hub chạy `https://` (hoặc `127.0.0.1`/`localhost` để thử), và từ chối bộ cài bị chuyển hướng sang `http://`: trước đây ai ở cùng mạng LAN cũng có thể đưa code của mình cho agent của mọi máy. Hub chạy `http://` vẫn hoạt động, nhưng agent chỉ báo và phải cài bản mới bằng tay.
+- Đăng nhập hub tự kiểm tra quyền `foxprofile:access` (`FOXPROFILE_AUTH_ACCESS_PERMISSION`), không chỉ tin vào nền tảng định danh; admin luôn vào được.
+- Dữ liệu profile gửi lên hub khi lease đã hết chỉ được nhận từ người giữ profile gần nhất, và agent không thể nhận lại profile của người khác bằng `running=`. Mỗi lần tải lên tối đa `FOXPROFILE_HUB_MAX_BUNDLE_MB` (mặc định 4096 MB), vượt quá trả về 413.
+
 ## [2.3.1] - 2026-10-09
 
 ### Sửa

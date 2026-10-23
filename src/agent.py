@@ -37,6 +37,7 @@ import argparse  # noqa: E402
 import contextlib  # noqa: E402
 import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
+import ipaddress  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
 import pathlib  # noqa: E402
@@ -624,6 +625,9 @@ class Agent:
         if system is None or not agent_code.installed_requirements():
             self.notify(get_string("agent_installer_needed"))
             return
+        if not _secure(self.hub.url):
+            self.notify(get_string("agent_update_needs_https"))
+            return
         try:
             offered = {i["platform"]: i for i in self.hub.call("GET", "/hub/installers") or []}
         except (OSError, urllib.error.URLError, ValueError) as e:
@@ -645,8 +649,13 @@ class Agent:
             # get this agent's key.
             url = f"{self.hub.url}/api/v1/hub/installers/{system}"
             request = urllib.request.Request(url, headers={"User-Agent": "FoxProfile-Agent"})
-            with urllib.request.urlopen(request, timeout=600) as r, open(target, "wb") as f:
-                shutil.copyfileobj(r, f)
+            with urllib.request.urlopen(request, timeout=600) as r:
+                # The bucket's redirect must not drop to plain http either.
+                if not _secure(r.geturl()):
+                    self.notify(get_string("agent_update_needs_https"))
+                    return
+                with open(target, "wb") as f:
+                    shutil.copyfileobj(r, f)
             tried.write_text(stamp, encoding="utf-8")
             if system == "windows":
                 flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
@@ -667,6 +676,11 @@ class Agent:
 
     def update(self, code: str) -> None:
         """Unpack the hub's code for the installer's hook to load, then restart."""
+        if not _secure(self.hub.url):
+            if self._skipped_update != code:  # once per code, not on every poll
+                self._skipped_update = code
+                self.notify(get_string("agent_update_needs_https"))
+            return
         say(get_string("agent_updating"))
         self.status("agent_status_updating")
         self.updating = True
@@ -681,6 +695,23 @@ class Agent:
             self.report()
             return
         self.restart = True
+
+
+def _secure(url: str) -> bool:
+    """Whether code from `url` may be run: https, or this PC itself (local tests).
+    Over plain http anyone on the network could hand every agent their own code."""
+    # ponytail: transport only; Ed25519-signed updates would also cover a hijacked hub.
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme == "https":
+        return True
+    if parts.scheme != "http" or not parts.hostname:
+        return False
+    if parts.hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(parts.hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def _host(url: str) -> str:

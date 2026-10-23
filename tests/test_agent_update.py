@@ -171,8 +171,18 @@ def test_the_installer_waits_for_closed_browsers(hub, hub_code):
     assert _poll(client, ana, code="old", req="req0").json() == {"op": "installer_needed"}
 
 
+class _Resp(io.BytesIO):
+    """urlopen's answer: the body and the URL it came from after redirects."""
+
+    def __init__(self, data: bytes, url: str):
+        super().__init__(data)
+        self.url = url
+
+    def geturl(self) -> str:
+        return self.url
+
+
 def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
-    import io
     import subprocess
     import urllib.request
 
@@ -194,7 +204,7 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
 
     def urlopen(request, timeout=None):
         fetched.append((request.full_url, request.get_header("Authorization")))
-        return io.BytesIO(b"pkg")
+        return _Resp(b"pkg", request.full_url)
 
     a = agent.Agent(hub_client, notify=notes.append)  # before Popen is faked: it names the PC
     monkeypatch.setattr(urllib.request, "urlopen", urlopen)
@@ -212,7 +222,6 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
 
 
 def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
-    import io
     import subprocess
     import urllib.request
 
@@ -235,7 +244,7 @@ def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
     monkeypatch.setattr(
         urllib.request,
         "urlopen",
-        lambda r, timeout=None: fetched.append(r.full_url) or io.BytesIO(b"x"),
+        lambda r, timeout=None: fetched.append(r.full_url) or _Resp(b"x", r.full_url),
     )
     monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
     # Only a production build on the hub: a dev agent never turns into one.
@@ -631,3 +640,72 @@ def test_agent_falls_back_to_one_request_on_a_hub_without_pieces(hub, tmp_path, 
     (local / "cookies.sqlite").write_bytes(b"new")
     a._upload("shop-01", local)
     assert (data / "cookies.sqlite").read_bytes() == b"new"
+
+
+@pytest.mark.parametrize(
+    "url, ok",
+    [
+        ("https://hub.example.com", True),
+        ("http://127.0.0.1:8000", True),
+        ("http://localhost:8000", True),
+        ("http://[::1]:8000", True),
+        ("http://192.0.2.10:8000", False),
+        ("http://hub.example.com", False),
+        ("ftp://hub.example.com", False),
+    ],
+)
+def test_only_https_or_this_pc_may_hand_out_code(url, ok):
+    from src import agent
+
+    assert agent._secure(url) is ok
+
+
+def _agent_on(tmp_path, monkeypatch, url):
+    """An agent on `url` whose hub offers an installer; records hub calls and runs."""
+    import subprocess
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent.sys, "platform", "darwin")
+    monkeypatch.setattr(agent_code, "installed_requirements", lambda: "req0")
+    listing = [{"platform": "macos", "name": "evil.pkg", "size": 3, "time": 1.0}]
+    hub_client = agent.HubClient(url, "ana", "fpk_x")
+    calls, started, notes = [], [], []
+
+    def call(m, path, data=None, **kw):
+        calls.append(path)
+        return listing if path == "/hub/installers" else None
+
+    monkeypatch.setattr(hub_client, "call", call)
+    a = agent.Agent(hub_client, notify=notes.append)
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    return a, calls, started, notes
+
+
+def test_a_plain_http_hub_cannot_push_code_or_installers(tmp_path, monkeypatch):
+    import urllib.request
+
+    from src import agent
+
+    a, calls, started, notes = _agent_on(tmp_path, monkeypatch, "http://192.0.2.10:8000")
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *_, **__: pytest.fail("downloaded"))
+    a.update("abc")
+    a.update("abc")  # the next poll: no second notice
+    a.install_update()
+    assert calls == [] and started == [] and not a.restart and not a.updating
+    assert notes == [agent.get_string("agent_update_needs_https")] * 2
+
+
+def test_an_installer_redirected_to_plain_http_is_not_run(tmp_path, monkeypatch):
+    import urllib.request
+
+    from src import agent
+
+    a, _, started, notes = _agent_on(tmp_path, monkeypatch, "https://hub.example.com")
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda r, timeout=None: _Resp(b"pkg", "http://198.51.100.7/x")
+    )
+    a.install_update()
+    assert started == [] and not (tmp_path / "installer" / "evil.pkg").exists()
+    assert notes == [agent.get_string("agent_update_needs_https")] and not a.updating

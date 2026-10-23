@@ -75,6 +75,7 @@ Notas:
 El hub no guarda contraseñas. Cada operador entra con el correo y la contraseña de la plataforma de identidad interna: el hub los manda a `POST {FOXPROFILE_AUTH_URL}/auth/login` con la cabecera `Origin: {FOXPROFILE_AUTH_ORIGIN}`, y si la plataforma acepta, abre su propia sesión (12 h). El token de la plataforma no se guarda.
 
 - La cuenta local se crea sola en el primer inicio de sesión, con el correo como nombre. Guarda solo lo de FoxProfile: rol, perfiles asignados, grupos y claves.
+- El hub comprueba él mismo el permiso de acceso `FOXPROFILE_AUTH_ACCESS_PERMISSION` (por defecto `foxprofile:access`), aunque la plataforma ya lo haga: si la plataforma queda mal configurada, sus demás usuarios siguen sin entrar. Los admins entran siempre.
 - El rol se toma de la plataforma en cada inicio de sesión: quien tenga el permiso `FOXPROFILE_AUTH_ADMIN_PERMISSION` (por defecto `foxprofile:admin`; `*:*` también vale) es *Admin*, los demás *Operator*.
 - Los mensajes de la plataforma llegan traducidos: credenciales incorrectas, sin acceso (403), espera por intentos fallidos o plataforma caída (502).
 
@@ -206,6 +207,7 @@ Un agente por usuario: si el mismo usuario abre el agente en dos PCs, cada orden
 Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: **actualizar el hub actualiza los agentes**, sin repartir instaladores.
 
 - En cada consulta el agente le dice al hub qué código tiene. Si el hub corre otro, el agente lo descarga (`/api/v1/hub/agent/code`), lo guarda en su carpeta de datos (`agent-code/`) y se reinicia. Lo hace en cuanto no tiene perfiles abiertos, así que nadie pierde una sesión a mitad de trabajo.
+- **Solo por HTTPS.** El agente no instala código ni instaladores de un hub servido por `http://` (salvo `127.0.0.1`/`localhost`, para pruebas), ni de una descarga redirigida a `http://`: cualquiera en la red podría darle su propio código. Con un hub por `http://` en la LAN todo lo demás funciona, pero cada agente avisa y hay que instalar las versiones nuevas a mano.
 - Solo viaja el código (`src/` y `chrome_engine/`). Python y las librerías vienen con el instalador. Si la versión nueva necesita otras librerías (cambió `requirements.txt`), **el agente se instala el instalador nuevo él mismo**, también cuando no tiene perfiles abiertos:
   - Descarga el instalador que ofrece el panel (**Ajustes › Agentes**: hay que subir el nuevo antes) y lo ejecuta. En Windows corre el MSI con una barra de progreso (`msiexec /passive`); Windows pide permiso de administrador y, al terminar, el agente nuevo arranca solo. En macOS abre el `.pkg` en el Instalador: hay que pulsar *Instalar* y poner la contraseña de administrador; el paquete reinicia el agente.
   - Cada instalador lo ejecuta una sola vez (recuerda su nombre, tamaño y fecha en `installer-tried.txt`). Si el panel todavía ofrece el anterior, solo avisa con una notificación de que hace falta el instalador nuevo.
@@ -250,8 +252,10 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 - El panel va por HTTP dentro de la LAN: las contraseñas de la plataforma viajan sin cifrar hasta el hub. Si la red no es de confianza, ponga el hub detrás de HTTPS (nginx, ver [DEPLOY.md](DEPLOY.md)).
 - Los perfiles contienen sesiones iniciadas (cookies). `./data` y las copias de seguridad deben tratarse como credenciales.
 - `accounts.json` guarda contraseñas y secretos 2FA cifrados; su clave (`FOXPROFILE_ACCOUNTS_KEY`) debe vivir fuera de `./data` y de sus copias.
-- Los agentes instalados ejecutan el código que reciben del hub (ver [Actualizaciones del agente](#actualizaciones-del-agente-desde-el-panel)): un hub comprometido llega a todas las PCs. Sirva el hub por HTTPS.
+- Los agentes instalados ejecutan el código que reciben del hub (ver [Actualizaciones del agente](#actualizaciones-del-agente-desde-el-panel)): un hub comprometido llega a todas las PCs. Por eso solo se actualizan desde un hub en HTTPS; el código todavía no va firmado, así que el servidor del hub debe protegerse como el de un despliegue.
 - `agent.json` contiene la clave del agente: quien la copie puede actuar como ese operador. Para revocarla, autorice de nuevo el agente.
+- **Baja de un operador.** Quitarle el permiso en la plataforma impide que vuelva a iniciar sesión, pero sus claves (MCP `fpk_…`, agente) no caducan y el hub no las vuelve a consultar con la plataforma. Bórrelo también en **Ajustes › Usuarios** del panel: eso revoca sus claves y sus sesiones.
+- Un agente solo puede devolver los datos de un perfil que tiene abierto o que fue el último en abrir, y como máximo `FOXPROFILE_HUB_MAX_BUNDLE_MB` (4096 MB por defecto) por subida.
 - `FOXPROFILE_API_TOKEN` sigue funcionando como clave de administrador para scripts (`Authorization: Bearer <token>`), también si la plataforma de identidad está caída. Cambiarlo cierra todas las sesiones.
 
 ## Panel de Army

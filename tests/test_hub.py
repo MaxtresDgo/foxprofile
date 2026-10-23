@@ -65,6 +65,30 @@ def _login(client, user, password):
     return {"Authorization": "Bearer " + r.json()["token"]}
 
 
+@pytest.mark.parametrize(
+    "permisos, status, role",
+    [
+        ([], 403, None),
+        (["reports:read"], 403, None),
+        (["foxprofile:access"], 200, "operator"),
+        (["foxprofile:*"], 200, "admin"),
+        (["foxprofile:admin"], 200, "admin"),
+    ],
+)
+def test_login_checks_the_access_permission_itself(hub, monkeypatch, permisos, status, role):
+    """A platform that lets everyone through still does not open the hub to them."""
+    client, _, _ = hub
+    monkeypatch.setattr(
+        platform_auth,
+        "authenticate",
+        lambda email, password: {"email": "zed@example.com", "name": "", "permisos": permisos},
+    )
+    r = client.post("/api/v1/hub/login", json={"email": "zed@example.com", "password": "x"})
+    assert r.status_code == status, r.text
+    if role:
+        assert r.json()["role"] == role
+
+
 def _zip(name, files):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
@@ -235,6 +259,54 @@ def test_bundle_uploads_in_pieces_survive_a_retried_piece(hub):
     data = pathlib.Path("camoufox_data/shop-01/cookies.sqlite")
     assert data.read_bytes() == b"session" * 1000
     assert client.put(finish, headers=sha).status_code == 416  # the pieces are used up
+
+
+def test_late_uploads_come_only_from_whoever_held_the_profile_last(hub):
+    client, container, admin = hub
+    bl = container.browser_launcher
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    bl.touch("ana", set())
+    client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
+    client.post("/api/v1/hub/release/shop-01", headers=ana)  # the lease is gone
+    put = "/api/v1/hub/bundle/shop-01"
+    ok = _zip("shop-01", {"data/a": b"x"})
+    # Someone who can see it but never had it open cannot overwrite it...
+    assert client.put(put, content=ok, headers=admin).status_code == 409
+    assert client.put(put + "/part?offset=0", content=ok, headers=admin).status_code == 409
+    # ...nor take it by claiming their agent runs it.
+    bl.touch("admin@example.com", {"shop-01"})
+    assert bl.holder("shop-01") is None
+    assert client.put(put, content=ok, headers=ana).status_code == 200
+    bl.touch("ana", {"shop-01"})
+    assert bl.holder("shop-01") == "ana"
+
+
+def test_uploads_above_the_cap_are_refused(hub, monkeypatch):
+    from src.hub import routes as hub_routes
+
+    client, _, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    put = "/api/v1/hub/bundle/shop-01"
+    small = _zip("shop-01", {"data/a": b"x"})
+    assert client.put(put, content=small, headers=ana).status_code == 200
+    monkeypatch.setattr(hub_routes, "MAX_BUNDLE", len(small) - 1)
+    big = _zip("shop-01", {"data/a": b"y"})
+    assert client.put(put, content=big, headers=ana).status_code == 413
+    assert client.put(put + "/part?offset=0", content=big, headers=ana).status_code == 413
+    assert pathlib.Path("camoufox_data/shop-01/a").read_bytes() == b"x"
+
+
+def test_deleting_a_user_revokes_their_keys_and_sessions(hub):
+    client, container, admin = hub
+    store = container._instances["hub"]
+    ana = _login(client, "ana", "anaanaanaana")
+    key, agent_key = store.new_key("ana"), store.new_key("ana", "agent_key")
+    assert store.verify(key) and store.verify(agent_key)
+    assert client.delete("/api/v1/hub/users/ana", headers=admin).status_code == 200
+    assert store.verify(key) is None and store.verify(agent_key) is None
+    assert client.get("/api/v1/hub/me", headers=ana).status_code == 401
 
 
 def test_stop_with_agent_offline_frees_the_profile(hub, monkeypatch):
