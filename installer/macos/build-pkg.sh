@@ -42,7 +42,8 @@ export MACOSX_DEPLOYMENT_TARGET=15.0
 
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
-version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/pyproject.toml")
+# Its own version, apart from the panel's: see installer/agent-version.sh.
+version=$("$root/installer/agent-version.sh")
 build=$root/build/agent-pkg
 stage=$build/stage
 app="$stage/root/Applications/FoxProfile Agent.app"
@@ -77,6 +78,7 @@ rm -rf "$res/app/chrome_engine/tests" "$res/app/chrome_engine/e2e"
 cp "$root/requirements.txt" "$res/app/"
 [ -z "$HUB_URL" ] || printf '%s\n' "${HUB_URL%/}" >"$res/app/HUB_URL"
 [ "$AGENT_CHANNEL" = prod ] || echo "$AGENT_CHANNEL" >"$res/app/CHANNEL"
+echo "$version" >"$res/app/VERSION"
 PYTHONPATH="$root" uv run -q --no-project -p 3.12 python -c \
     'import sys, pathlib; from src.hub.agent_code import code_id; print(code_id(pathlib.Path(sys.argv[1])))' \
     "$res/app" >"$res/app/BUILD"

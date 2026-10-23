@@ -267,7 +267,6 @@ main { min-width: 0; padding: 26px 32px 40px; }
 
 /* The entry stamp */
 .stamp { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-width: 86px; padding: 3px 9px 2px; border: 1.5px solid currentColor; outline: 1px solid currentColor; outline-offset: 2px; border-radius: 6px; transform: rotate(-4deg); color: var(--live); font: 700 10.5px/1.2 var(--data); letter-spacing: .08em; text-transform: uppercase; background: rgba(255,255,255,.35); }
-.stamp small { font-weight: 500; font-size: 10px; letter-spacing: .02em; }
 .stamp.pending { color: var(--ink-2); border-style: dashed; outline: 0; transform: rotate(-2deg); }
 .stamp.failed { color: var(--err); outline: 0; text-decoration: line-through; text-decoration-thickness: 1.5px; }
 .stamp.land { animation: stamp-land .34s var(--ease-out) both; }
@@ -604,7 +603,7 @@ const I18N = {
     empty_title: "Chưa có profile nào", empty: "Mỗi profile là một danh tính riêng: fingerprint, cookie và proxy của nó. Tạo profile đầu tiên để bắt đầu.",
     no_match_title: "Không tìm thấy profile", no_match: "Không có profile nào khớp “{q}” trong bộ lọc này.", clear_filters: "Xoá bộ lọc",
     launch: "Mở", stop: "Dừng", view: "Xem màn hình", cookies: "Cookie & fingerprint", edit: "Sửa", delete: "Xoá",
-    stamp_live: "Đang chạy", stamp_starting: "Đang mở", stamp_stopping: "Đang dừng", stamp_failed: "Lỗi", idle: "Đã dừng",
+    stamp_live: "Đang dùng", stamp_since: "Từ {time}", stamp_syncing: "Đang đồng bộ", stamp_syncing_hint: "Trình duyệt đã đóng; agent đang tải profile lên server", stamp_by: "Bởi {user}", stamp_starting: "Đang mở", stamp_stopping: "Đang dừng", stamp_failed: "Lỗi", idle: "Đã dừng",
     direct: "Trực tiếp", follow_ip: "Theo IP", no_fp_short: "chưa có fingerprint", no_proxy_short: "không proxy", selected: "Đã chọn {n}", bulk_launch: "Mở", bulk_stop: "Dừng", bulk_delete: "Xoá", clear_sel: "Bỏ chọn",
     run_steps: "Chạy bước", run_steps_title: "Chạy các bước", run_steps_sub: "Trên {n} profile đang chạy", run: "Chạy", running_steps: "Đang chạy...",
     run_steps_hint: "Mỗi dòng một bước: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Dòng bắt đầu bằng // là chú thích.",
@@ -667,10 +666,10 @@ const I18N = {
     agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
     agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
     agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
-    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
+    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_connecting: "Máy của bạn: đang kết nối với agent…", agent_connect_failed: "Không kết nối được với agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
     agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
     agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
-    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Chưa có bộ cài",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · bản dev", agents_macos_dev: "macOS · bản dev", agents_no_file: "Chưa có bộ cài",
     agents_download: "Tải về", agents_upload: "Tải lên bộ cài", agents_uploading: "Đang tải lên… {pct}%", agents_uploaded: "Đã tải lên {name}",
     agents_upload_failed: "Không tải lên được bộ cài", agents_upload_cors: "Trình duyệt không tải lên được bucket. Kiểm tra quy tắc CORS của bucket (cho phép PUT từ địa chỉ panel này) và proxy phía trước bucket.", agents_upload_etag: "Bucket không cho trình duyệt đọc ETag: thêm ExposeHeaders: [\"ETag\"] vào quy tắc CORS.", agents_list: "Agent đã kết nối", agents_none: "Chưa có agent nào kết nối từ khi hub khởi động.",
     agents_hub_code: "Phiên bản code của hub: {code}", agents_running: "{n} profile đang mở", agents_refresh: "Làm mới", agents_online: "đang kết nối", agents_offline: "mất kết nối",
@@ -701,7 +700,7 @@ const I18N = {
     empty_title: "No profiles yet", empty: "Each profile is its own identity: its fingerprint, cookies and proxy. Create the first one to get started.",
     no_match_title: "No profile found", no_match: "Nothing matches “{q}” in this filter.", clear_filters: "Clear filters",
     launch: "Launch", stop: "Stop", view: "View screen", cookies: "Cookies & fingerprint", edit: "Edit", delete: "Delete",
-    stamp_live: "Running", stamp_starting: "Starting", stamp_stopping: "Stopping", stamp_failed: "Failed", idle: "Stopped",
+    stamp_live: "In use", stamp_since: "Since {time}", stamp_syncing: "Syncing", stamp_syncing_hint: "The browser is closed; the agent is uploading the profile to the server", stamp_by: "By {user}", stamp_starting: "Starting", stamp_stopping: "Stopping", stamp_failed: "Failed", idle: "Stopped",
     direct: "Direct", follow_ip: "Follows IP", no_fp_short: "no fingerprint yet", no_proxy_short: "no proxy", selected: "{n} selected", bulk_launch: "Launch", bulk_stop: "Stop", bulk_delete: "Delete", clear_sel: "Clear",
     run_steps: "Run steps", run_steps_title: "Run steps", run_steps_sub: "On {n} running profile(s)", run: "Run", running_steps: "Running...",
     run_steps_hint: "One step per line: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Lines starting with // are comments.",
@@ -764,10 +763,10 @@ const I18N = {
     agent_authorize: "Authorize", agent_switch: "Switch account",
     agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
     agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
-    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
+    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_connecting: "Your PC: connecting to the agent…", agent_connect_failed: "Could not connect to the agent", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
     agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
     agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
-    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "No installer yet",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · dev build", agents_macos_dev: "macOS · dev build", agents_no_file: "No installer yet",
     agents_download: "Download", agents_upload: "Upload installer", agents_uploading: "Uploading… {pct}%", agents_uploaded: "{name} uploaded",
     agents_upload_failed: "The installer could not be uploaded", agents_upload_cors: "The browser could not upload to the bucket. Check the bucket\u2019s CORS rule (PUT from this panel\u2019s address) and the proxy in front of the bucket.", agents_upload_etag: "The bucket hides the ETag from the browser: add ExposeHeaders: [\"ETag\"] to its CORS rule.", agents_list: "Connected agents", agents_none: "No agent has connected since the hub started.",
     agents_hub_code: "Hub code version: {code}", agents_running: "{n} profiles open", agents_refresh: "Refresh", agents_online: "connected", agents_offline: "offline",
@@ -798,7 +797,7 @@ const I18N = {
     empty_title: "Aún no hay profiles", empty: "Cada profile es una identidad propia: su fingerprint, sus cookies y su proxy. Crea el primero para empezar.",
     no_match_title: "No se encontró ningún profile", no_match: "Nada coincide con “{q}” en este filtro.", clear_filters: "Quitar filtros",
     launch: "Abrir", stop: "Detener", view: "Ver pantalla", cookies: "Cookies y fingerprint", edit: "Editar", delete: "Eliminar",
-    stamp_live: "En ejecución", stamp_starting: "Iniciando", stamp_stopping: "Deteniendo", stamp_failed: "Falló", idle: "Detenido",
+    stamp_live: "En uso", stamp_since: "Desde {time}", stamp_syncing: "Sincronizando", stamp_syncing_hint: "El navegador se cerró; el agente está subiendo el perfil al servidor", stamp_by: "Por {user}", stamp_starting: "Iniciando", stamp_stopping: "Deteniendo", stamp_failed: "Falló", idle: "Detenido",
     direct: "Directo", follow_ip: "Según la IP", no_fp_short: "sin fingerprint aún", no_proxy_short: "sin proxy", selected: "{n} seleccionados", bulk_launch: "Abrir", bulk_stop: "Detener", bulk_delete: "Eliminar", clear_sel: "Limpiar",
     run_steps: "Ejecutar pasos", run_steps_title: "Ejecutar pasos", run_steps_sub: "En {n} profile(s) en ejecución", run: "Ejecutar", running_steps: "Ejecutando...",
     run_steps_hint: "Un paso por línea: navigate <url> · click <selector> · type <selector> | <texto> · select <selector> | <valor> · press <tecla> · wait <selector> · sleep <ms>. Las líneas que empiezan con // son comentarios.",
@@ -861,10 +860,10 @@ const I18N = {
     agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
     agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
     agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
-    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
+    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_connecting: "Tu PC: conectando con el agente…", agent_connect_failed: "No se pudo conectar con el agente", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
     agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
     agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene perfiles abiertos.",
-    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_no_file: "Todavía no hay instalador",
+    agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · build dev", agents_macos_dev: "macOS · build dev", agents_no_file: "Todavía no hay instalador",
     agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo… {pct}%", agents_uploaded: "{name} subido",
     agents_upload_failed: "No se pudo subir el instalador", agents_upload_cors: "El navegador no pudo subir al bucket. Revisa la regla CORS del bucket (PUT desde la dirección de este panel) y el proxy que tenga delante.", agents_upload_etag: "El bucket no deja al navegador leer el ETag: añade ExposeHeaders: [\"ETag\"] a su regla CORS.", agents_list: "Agentes conectados", agents_none: "Ningún agente se ha conectado desde que arrancó el hub.",
     agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} perfiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
@@ -1118,12 +1117,14 @@ function headRow(shown) {
 function stamp(p) {
   const state = busy.get(p.name);
   if (state) return h("span", { class: "stamp pending" }, t(state === "stopping" ? "stamp_stopping" : "stamp_starting"));
+  // Closed, its agent still uploading it: the lease (and "in use") lasts until then.
+  if (hub && me.syncing?.includes(p.name)) return h("span", { class: "stamp pending", title: t("stamp_syncing_hint") }, t("stamp_syncing"));
   if (running.has(p.name)) {
     const since = liveSince.get(p.name);
     const holder = hub && me.leases[p.name] !== me.name ? me.leases[p.name] : null;
-    const small = [since && hhmm(since), holder].filter(Boolean).join(" · ");
-    return h("span", { class: "stamp" + (justLanded.has(p.name) ? " land" : "") },
-      t("stamp_live"), small ? h("small", {}, small) : null);
+    // Details on hover: a second line overflowed the column.
+    const details = [since && t("stamp_since", { time: hhmm(since) }), holder && t("stamp_by", { user: holder })].filter(Boolean).join(" · ");
+    return h("span", { class: "stamp" + (justLanded.has(p.name) ? " land" : ""), title: details || null }, t("stamp_live"));
   }
   if (failed.has(p.name)) return h("span", { class: "stamp failed", title: failed.get(p.name) }, t("stamp_failed"));
   return h("span", { class: "idle" }, t("idle"));
@@ -1755,6 +1756,7 @@ function openCookies(p) {
 }
 
 // --- Hub: who is logged in, their agent, user admin ---------------------------
+let agentWasConnecting = false;
 function renderMe(who) {
   me = who;
   const el = $("agent-status");
@@ -1762,18 +1764,22 @@ function renderMe(who) {
   // Busy (downloading the browser, updating, opening or saving a profile) says
   // what with; the agent reports that even before it polls.
   const act = me.agent_activity;
+  // Just authorized: the agent has a minute to poll before it counts as not connected.
+  const connecting = me.agent_connecting && !act;
+  if (agentWasConnecting && !me.agent_connecting && !me.agent_online && !act) toast(t("agent_connect_failed"), true);
+  agentWasConnecting = me.agent_connecting;
   const main = act && !me.agent_online ? "agent_preparing"
-    : me.agent_online ? (me.agent_running ? "agent_on_n" : "agent_on") : "agent_off";
+    : me.agent_online ? (me.agent_running ? "agent_on_n" : "agent_on") : connecting ? "agent_connecting" : "agent_off";
   const detail = !act ? null
     : act.state === "downloading" ? t(act.pct == null ? "act_downloading" : "act_downloading_pct", { pct: act.pct })
     : t("act_" + act.state, { name: act.profile || "" });
   el.classList.toggle("on", me.agent_online && !act);
-  el.classList.toggle("busy", !!act);
+  el.classList.toggle("busy", !!act || connecting);
   el.replaceChildren(h("span", { class: "agent-text" },
     h("span", {}, `${firstName(me)} · ${t(main, { n: me.agent_running })}`),
     detail ? h("span", { class: "agent-detail" }, detail) : null));
   el.title = me.name;
-  $("agent-get-btn").classList.toggle("hidden", me.agent_online || !!act);
+  $("agent-get-btn").classList.toggle("hidden", me.agent_online || !!act || connecting);
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
@@ -1886,12 +1892,14 @@ function openAgents() {
     const loadInstallers = async () => {
       let files;
       try { files = await api("GET", "/hub/installers"); } catch (e) { return say(e.message, "err"); }
-      installs.replaceChildren(...[["windows", ".msi"], ["macos", ".pkg"]].map(([platform, ext]) => {
+      // Dev builds (AGENT_CHANNEL=dev): what dev agents install on their own; admins only.
+      const slots = [["windows", ".msi"], ["macos", ".pkg"], ...(admin ? [["windows-dev", ".msi"], ["macos-dev", ".pkg"]] : [])];
+      installs.replaceChildren(...slots.map(([platform, ext]) => {
         const f = files.find((x) => x.platform === platform);
         const pick = h("input", { type: "file", accept: ext, class: "hidden", "aria-label": t("agents_upload") });
         pick.onchange = () => pick.files[0] && upload(platform, pick.files[0]);
         return h("div", { class: "inst-row" },
-          h("b", {}, t("agents_" + platform)),
+          h("b", {}, t("agents_" + platform.replace("-", "_"))),
           h("div", { class: "sub" }, f ? `${f.name} · ${mb(f.size)}` : t("agents_no_file")),
           h("div", { class: "acts" },
             f ? h("a", { class: "btn btn-act", href: `/api/v1/hub/installers/${platform}`, download: f.name }, icon("download", true), t("agents_download")) : null,
@@ -1906,11 +1914,11 @@ function openAgents() {
       agents.replaceChildren(h("p", { class: "muted" }, t("agents_hub_code", { code: res.code.slice(0, 7) })), ...res.agents.map((a) => {
         const state = a.update_now ? t("agents_update_queued") : t("agent_state_" + a.state);
         const cls = a.state === "current" ? "ok" : a.state === "installer" || a.state === "old" ? "err" : "";
-        const where = [a.pc, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
+        const where = [a.pc, a.version && "v" + a.version, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
         return h("div", { class: "agent-row" },
           h("b", {}, a.user),
           h("div", { class: "sub" }, where, " · ", h("span", { class: cls }, state)),
-          h("div", { class: "acts" }, a.state === "pending" && a.online && !a.update_now
+          h("div", { class: "acts" }, (a.state === "pending" || a.state === "installer") && a.online && !a.update_now
             ? h("button", { type: "button", class: "btn btn-line", title: t("agents_update_hint"), onclick: async () => {
                 try { await api("POST", `/hub/agents/${enc(a.user)}/update`); loadAgents(); } catch (e) { say(e.message, "err"); }
               } }, icon("sync", true), t("agents_update_now"))
@@ -2403,7 +2411,7 @@ function takeAgentHash() {
   if (done) return "done";
   const port = p.get("agent") || "", state = p.get("state") || "";
   if (!/^\d{1,5}$/.test(port) || !/^[\w-]{20,}$/.test(state)) return null;
-  saveAgentAuth({ port, state, pc: (p.get("pc") || "").slice(0, 64) });
+  saveAgentAuth({ port, state, pc: (p.get("pc") || "").slice(0, 64), code: p.get("flow") === "code" });
   return "pending";
 }
 // The agent reusing an open panel tab only changes the hash: boot again for it.
@@ -2458,10 +2466,13 @@ function showAgentCard(...children) {
   card.replaceChildren(...children); card.classList.remove("hidden");
   card.querySelector("h1").focus();
 }
-function showAgentEnd(title, text) {
+function showAgentEnd(title, text, close = false) {
   saveAgentAuth(null);
   showAgentCard(h("h1", { tabindex: "-1" }, title), h("p", { class: "muted" }, text),
     h("button", { class: "btn btn-line", type: "button", onclick: () => (token ? showApp(true) : showLogin()) }, t("agent_to_panel")));
+  // The agent opened this tab: closing it returns to the one the operator was on.
+  // Browsers allow it only with a single history entry; otherwise the card stays.
+  if (close) window.close();
 }
 async function showAgentAuth() {
   const who = await api("GET", "/hub/me");  // a 401 shows the login, keeping agentAuth
@@ -2471,8 +2482,16 @@ async function showAgentAuth() {
   const authorize = h("button", { class: "btn btn-act", type: "button", onclick: async () => {
     authorize.disabled = true; err.textContent = "";
     try {
-      const { key } = await api("POST", "/hub/me/agent-key");
       const { port, state } = agentAuth;
+      if (agentAuth.code) {
+        // Replaces this page, keeping the tab closable; the agent trades the code for its key.
+        const { code } = await api("POST", "/hub/me/agent-code");
+        saveAgentAuth({ ...agentAuth, user: firstName(who) });  // for the #agent-done page
+        location.replace(`http://127.0.0.1:${port}/callback?` + new URLSearchParams({ state, code }));
+        return;
+      }
+      // Agents from before the code flow: the key goes in a form POST.
+      const { key } = await api("POST", "/hub/me/agent-key");
       saveAgentAuth({ ...agentAuth, user: firstName(who) });  // for the #agent-done page
       const form = h("form", { method: "post", action: `http://127.0.0.1:${port}/callback`, class: "hidden" },
         h("input", { type: "hidden", name: "state", value: state }), h("input", { type: "hidden", name: "key", value: key }));
@@ -2581,7 +2600,7 @@ document.addEventListener("keydown", (e) => {
         document.querySelector(sel).dataset.t = key;
       applyI18n();
     }
-    if (hub && takeAgentHash() === "done") return showAgentEnd(t("agent_done_title"), t("agent_done", { user: (agentAuth && agentAuth.user) || "" }));
+    if (hub && takeAgentHash() === "done") return showAgentEnd(t("agent_done_title"), t("agent_done", { user: (agentAuth && agentAuth.user) || "" }), true);
     if (hub && agentAuth) return token ? showAgentAuth().catch(showLogin) : showLogin();
     armyCallback = info.army_callback || "";
     if (hub && armyCallback) takeArmyHash();

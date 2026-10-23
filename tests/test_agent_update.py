@@ -149,6 +149,19 @@ def test_other_libraries_ask_for_the_installer_once(hub, hub_code):
     assert state == "installer"
 
 
+def test_agents_list_shows_each_installers_own_version(hub, hub_code, tmp_path, monkeypatch):
+    client, container, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    _poll(client, ana, code="old", req="req0", ver="3.0.41")
+    assert (
+        client.get("/api/v1/hub/agents", headers=admin).json()["agents"][0]["version"] == "3.0.41"
+    )
+    monkeypatch.setattr(agent_code, "INSTALLED", tmp_path)
+    assert agent_code.installed_version() == ""  # run from source
+    (tmp_path / "VERSION").write_text("3.0.41\n")
+    assert agent_code.installed_version() == "3.0.41"
+
+
 def test_the_installer_waits_for_closed_browsers(hub, hub_code):
     client, container, admin = hub
     ana = _login(client, "ana", "anaanaanaana")
@@ -196,6 +209,52 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
     a.install_update()
     assert len(started) == 1 and len(fetched) == 1
     assert notes[-1] == agent.get_string("agent_installer_needed")
+
+
+def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
+    import io
+    import subprocess
+    import urllib.request
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent.sys, "platform", "darwin")
+    monkeypatch.setattr(agent_code, "installed_requirements", lambda: "req0")
+    prod = {"platform": "macos", "name": "FoxProfileAgent-2.4.0-macos.pkg", "size": 3, "time": 1.0}
+    listing = [prod]
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(
+        hub_client,
+        "call",
+        lambda m, path, data=None, **kw: listing if path == "/hub/installers" else None,
+    )
+    fetched, started, notes = [], [], []
+    a = agent.Agent(hub_client, notify=notes.append)
+    a.dev = True
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda r, timeout=None: fetched.append(r.full_url) or io.BytesIO(b"x"),
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    # Only a production build on the hub: a dev agent never turns into one.
+    a.install_update()
+    assert fetched == [] and notes[-1] == agent.get_string("agent_installer_needed")
+    listing.append({**prod, "platform": "macos-dev", "name": "FoxProfileAgent-2.4.0-dev-macos.pkg"})
+    a.install_update()
+    assert fetched == ["https://hub.example.com/api/v1/hub/installers/macos-dev"]
+    assert started == [["open", str((tmp_path / "installer" / listing[1]["name"]).resolve())]]
+
+
+def test_admin_can_offer_the_installer_again(hub, hub_code):
+    client, container, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    assert _poll(client, ana, code="old", req="req0").json() == {"op": "installer_needed"}
+    assert _poll(client, ana, code="old", req="req0").status_code == 204
+    # A newer installer was uploaded: "Update now" offers it once more.
+    assert client.post("/api/v1/hub/agents/ana/update", headers=admin).status_code == 200
+    assert _poll(client, ana, code="old", req="req0").json() == {"op": "installer_needed"}
 
 
 def test_installers_upload_by_admins_and_public_download(hub, monkeypatch):
@@ -310,8 +369,14 @@ def test_installers_in_a_bucket_go_through_presigned_urls(hub, bucket):
 
     _listed(bucket, "windows", "A-2.msi")
     _listed(bucket, "macos")
+    _listed(bucket, "windows-dev", "A-2-dev.msi")
+    _listed(bucket, "macos-dev")
     listed = client.get("/api/v1/hub/installers", headers=ana).json()
-    assert [(i["platform"], i["name"]) for i in listed] == [("windows", "A-2.msi")]
+    # The dev builds have their own slot, beside the production ones.
+    assert [(i["platform"], i["name"]) for i in listed] == [
+        ("windows", "A-2.msi"),
+        ("windows-dev", "A-2-dev.msi"),
+    ]
 
     _listed(bucket, "windows", "A-2.msi")
     r = client.get(base, follow_redirects=False)  # public, like the folder's
@@ -372,6 +437,61 @@ def test_agent_activity_reaches_the_panel_and_expires(hub):
     assert bad.status_code == 422
 
 
+def test_panel_says_connecting_for_a_minute_after_authorizing_an_agent(hub):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    bl = container.browser_launcher
+    me = lambda: client.get("/api/v1/hub/me", headers=ana).json()  # noqa: E731
+    assert me()["agent_connecting"] is False
+    assert client.post("/api/v1/hub/me/agent-key", headers=ana).status_code == 200
+    assert me()["agent_connecting"] is True
+    bl.touch("ana", set())  # its first poll
+    assert me()["agent_connecting"] is False
+    bl._seen.clear()
+    bl.authorized["ana"] -= hub_routes.AGENT_CONNECT_WAIT + 1  # a minute without a poll
+    assert me()["agent_connecting"] is False
+
+
+def test_agent_trades_the_panels_one_time_code_for_its_key(hub):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    code = client.post("/api/v1/hub/me/agent-code", headers=ana).json()["code"]
+    assert client.get("/api/v1/hub/me", headers=ana).json()["agent_connecting"] is True
+    redeem = lambda c: client.post("/api/v1/hub/agent-code", json={"code": c})  # noqa: E731
+    r = redeem(code)  # public: the agent has no key yet
+    assert r.status_code == 200
+    key = r.json()["key"]
+    me = client.get("/api/v1/hub/me", headers={"Authorization": f"Bearer {key}"})
+    assert me.json()["name"] == "ana"
+    assert redeem(code).status_code == 400  # once only
+    late = client.post("/api/v1/hub/me/agent-code", headers=ana).json()["code"]
+    user, _ = container.browser_launcher.agent_codes[late]
+    container.browser_launcher.agent_codes[late] = (user, 0.0)
+    assert redeem(late).status_code == 400
+
+
+def test_panel_sees_every_profile_an_agent_is_still_uploading(hub):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    for name in ("shop-01", "shop-02"):
+        client.post("/api/v1/profiles", json={"name": name}, headers=ana)
+    bl = container.browser_launcher
+    bl.touch("ana", {"shop-01", "shop-02"})  # leased to ana
+    status = {"state": "syncing", "profile": "shop-01", "syncing": ["shop-01", "shop-02", "x"]}
+    client.post("/api/v1/hub/agent/status", json=status, headers=ana)
+    me = lambda: client.get("/api/v1/hub/me", headers=ana).json()  # noqa: E731
+    # "x" is not leased to ana: an agent names only what it holds.
+    assert me()["syncing"] == ["shop-01", "shop-02"]
+    bl.release("shop-02", "ana")  # uploaded
+    assert me()["syncing"] == ["shop-01"]
+    # An agent from before the list still shows the profile it reports.
+    old = {"state": "syncing", "profile": "shop-01"}
+    client.post("/api/v1/hub/agent/status", json=old, headers=ana)
+    assert me()["syncing"] == ["shop-01"]
+    bl.agents["ana"]["activity"]["at"] -= hub_routes.ACTIVITY_TTL + 1
+    assert me()["syncing"] == []
+
+
 def test_agent_reports_the_most_useful_activity(tmp_path, monkeypatch):
     from src import agent
 
@@ -382,7 +502,9 @@ def test_agent_reports_the_most_useful_activity(tmp_path, monkeypatch):
     a = agent.Agent(hub_client)
     assert a.activity() == {"state": "ready"}
     with a.busy("opening", "shop-01"):
-        assert a.activity() == {"state": "opening", "profile": "shop-01"}
+        assert a.activity() == {"state": "opening", "profile": "shop-01", "syncing": []}
+        with a.busy("syncing", "shop-03"), a.busy("syncing", "shop-02"):
+            assert a.activity()["syncing"] == ["shop-02", "shop-03"]
         a.browser_download = 35
         assert a.activity() == {"state": "downloading", "pct": 35}
         a.updating = True
@@ -392,11 +514,10 @@ def test_agent_reports_the_most_useful_activity(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("built", "dev", "follows", "installs"),
-    [(True, False, True, True), (True, True, True, False), (False, True, False, False)],
+    ("built", "dev", "follows"), [(True, False, True), (True, True, True), (False, True, False)]
 )
-def test_installed_agents_follow_the_hub_dev_ones_never_run_its_installer(
-    tmp_path, monkeypatch, built, dev, follows, installs
+def test_installed_agents_follow_the_hub_run_from_source_they_do_not(
+    tmp_path, monkeypatch, built, dev, follows
 ):
     from src import agent
 
@@ -405,7 +526,7 @@ def test_installed_agents_follow_the_hub_dev_ones_never_run_its_installer(
     if built:
         (tmp_path / "BUILD").write_text("b1")
     app = agent.App("https://hub.example.com", {}, dev)
-    assert (app.agent.follow_updates, app.agent.auto_install) == (follows, installs)
+    assert (app.agent.follow_updates, app.agent.dev) == (follows, dev)
 
 
 def test_agent_uploads_the_profile_in_pieces_then_its_sha256(tmp_path, monkeypatch):

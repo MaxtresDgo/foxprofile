@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # installer/agent-version.sh counts commits
       - uses: astral-sh/setup-uv@v6
       - run: sudo apt-get update && sudo apt-get install -y msitools
       - run: installer/windows/build-msi.sh
@@ -38,6 +40,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # installer/agent-version.sh counts commits
       - uses: astral-sh/setup-uv@v6
       - run: installer/macos/build-pkg.sh
         env:

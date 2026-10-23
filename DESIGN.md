@@ -332,7 +332,7 @@ Buttons are solid and quiet. The fill colour says what kind of action it is.
 
 ### The Entry Stamp (signature)
 The entry stamp is the profile's state, marked like a rubber stamp on a passport page.
-- **Live:** violet ink with a double rule (a 1.5px frame plus a 1px outer ring 2px out), rotated -4°. It reads `ĐANG CHẠY` / `RUNNING` with the launch time (HH:MM) beneath. A 35% white wash sits under the ink.
+- **Live:** violet ink with a double rule (a 1.5px frame plus a 1px outer ring 2px out), rotated -4°. It reads `ĐANG DÙNG` / `IN USE` on one line; the launch time (and, in hub mode, who holds the profile) is its tooltip. A 35% white wash sits under the ink.
 - **Starting / Stopping:** ink-2 on a single thin rule with no outer ring, reading `ĐANG MỞ` / `ĐANG DỪNG`. The web panel uses a dashed 1.5px rule tilted -2°. The desktop uses a solid 1px rule set straight, because Flet borders cannot be dashed.
 - **Failed:** red ink on a single 1.5px rule, rotated -4°, with the text struck through (`LỖI` / `FAILED`). Hovering it on web shows the error.
 - **Idle:** no stamp. It shows plain `Đã dừng` in ink-3 at 13px.
