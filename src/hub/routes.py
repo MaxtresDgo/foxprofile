@@ -93,6 +93,10 @@ def login(body: LoginBody, request: Request) -> dict:
     except platform_auth.LoginError as e:
         raise HTTPException(status_code=e.status, detail=str(e)) from e
     admin = platform_auth.has_permission(user["permisos"], config.AUTH_ADMIN_PERMISSION)
+    if not admin and not platform_auth.has_permission(
+        user["permisos"], config.AUTH_ACCESS_PERMISSION
+    ):
+        raise HTTPException(status_code=403, detail=get_string("err_no_access"))
     store = hub_store(request)
     token = store.sign_in(user["email"], "admin" if admin else "operator", user["name"])
     return {"token": token, **store.verify(token)}
@@ -613,8 +617,12 @@ SHA_HEADER = "X-Content-SHA256"
 
 
 def _require_lease(request: Request, name: str, allow_free: bool = False) -> None:
-    holder = _launcher(request).holder(name)
-    if holder == _user(request)["name"] or (allow_free and holder is None):
+    bl, user = _launcher(request), _user(request)["name"]
+    holder = bl.holder(name)
+    if holder == user:
+        return
+    # A free profile only takes data from whoever held it last.
+    if allow_free and holder is None and bl.last_holder(name) in (None, user):
         return
     raise HTTPException(status_code=409, detail=get_string("err_not_leased"))
 
@@ -724,6 +732,13 @@ def end_download(name: str, job_id: str, request: Request) -> dict:
     return {"id": job_id}
 
 
+MAX_BUNDLE = config.HUB_MAX_BUNDLE_MB * 1024 * 1024
+
+
+def _too_big() -> str:
+    return get_string("err_bundle_too_big", mb=config.HUB_MAX_BUNDLE_MB)
+
+
 @router.put("/bundle/{name}/part")
 async def upload_bundle_part(name: str, request: Request, offset: int = Query(ge=0)) -> dict:
     require_profile(name, request.app.state.container.profile_manager)
@@ -737,6 +752,9 @@ async def upload_bundle_part(name: str, request: Request, offset: int = Query(ge
         f.truncate(offset)  # a retried piece replaces what its failed try left
         f.seek(offset)
         async for chunk in request.stream():
+            if f.tell() + len(chunk) > MAX_BUNDLE:
+                f.truncate(0)
+                raise HTTPException(status_code=413, detail=_too_big())
             f.write(chunk)
         return {"size": f.tell()}
 
@@ -757,7 +775,6 @@ async def upload_bundle(
     tmp = tempfile.mkdtemp(prefix=".upload-", dir=data_root.parent)
     try:
         zip_path = os.path.join(tmp, "bundle.zip")
-        # ponytail: no size cap; operators are trusted LAN users. Cap here if that changes.
         if chunked:
             part = _part_file(name)
             if not part.exists():
@@ -768,6 +785,8 @@ async def upload_bundle(
             digest = hashlib.sha256()
             with open(zip_path, "wb") as f:
                 async for chunk in request.stream():
+                    if f.tell() + len(chunk) > MAX_BUNDLE:
+                        raise HTTPException(status_code=413, detail=_too_big())
                     f.write(chunk)
                     digest.update(chunk)
             actual = digest.hexdigest()

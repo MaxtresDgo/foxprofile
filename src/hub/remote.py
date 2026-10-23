@@ -33,6 +33,10 @@ class RemoteLauncher:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._leases: dict[str, str] = {}
+        # Who held each profile last: only they may send its data back once the
+        # lease is gone, or take it again from an agent's poll.
+        # ponytail: in memory, a hub restart forgets it; persist in hub.json if that matters.
+        self._last: dict[str, str] = {}
         self._queues: dict[str, queue.Queue] = defaultdict(queue.Queue)
         self._seen: dict[str, float] = {}
         self._results: dict[str, _LaunchResult] = {}
@@ -61,7 +65,7 @@ class RemoteLauncher:
             raise ProfileBusyError(name)
         if not self.online(user):
             raise AgentOfflineError(user)
-        self._leases[name] = user
+        self._leases[name] = self._last[name] = user
 
     def dispatch(self, user: str, profile: Profile) -> None:
         """Lease the profile to `user` and ask their agent to launch it."""
@@ -123,6 +127,10 @@ class RemoteLauncher:
         with self._lock:
             return self._leases.get(name)
 
+    def last_holder(self, name: str) -> str | None:
+        with self._lock:
+            return self._last.get(name)
+
     def release(self, name: str, user: str) -> bool:
         """End `user`'s lease. False if someone else holds the profile."""
         with self._lock:
@@ -141,7 +149,8 @@ class RemoteLauncher:
         with self._lock:
             self._seen[user] = time.monotonic()
             for name in running:
-                self._leases.setdefault(name, user)
+                if name not in self._leases and self._last.get(name, user) == user:
+                    self._leases[name] = self._last[name] = user
 
     def next_command(self, user: str) -> dict | None:
         with contextlib.suppress(queue.Empty):
