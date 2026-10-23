@@ -613,7 +613,7 @@ const I18N = {
     sync_need_two: "Chọn ít nhất hai profile đang chạy", syncing: "Đang đồng bộ {leader} → {n} profile", sync_stop: "Dừng đồng bộ",
     sync_started: "Đã bắt đầu đồng bộ từ {leader}", sync_stopped: "Đã dừng đồng bộ: {leader}",
     select_all: "Chọn tất cả", select_row: "Chọn {name}",
-    confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile", bulk_edit: "Sửa", bulk_edit_title: "Sửa {n} profile", bulk_edit_hint: "Đánh dấu các trường cần đổi; các trường khác giữ nguyên giá trị của từng profile. Để trống sẽ bỏ proxy, hoặc đưa timezone và locale về tự động.", bulk_edit_nothing: "Hãy đánh dấu ít nhất một trường cần đổi", updated_n: "Đã cập nhật {n} profile",
+    confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile", bulk_edit: "Sửa", bulk_edit_title: "Sửa {n} profile", bulk_edit_hint: "Đánh dấu các trường cần đổi; các trường khác giữ nguyên giá trị của từng profile. Để trống sẽ bỏ proxy, hoặc đưa timezone và locale về tự động.", bulk_edit_nothing: "Hãy đánh dấu ít nhất một trường cần đổi", bulk_failed: "Lỗi ({n}): {names}", updated_n: "Đã cập nhật {n} profile",
     login_side: "Server này chạy FoxProfile. Đăng nhập bằng API token để quản lý profile từ xa.",
     login_hint: "Nhập API token (biến FOXPROFILE_API_TOKEN) của server.", token: "API token", login: "Đăng nhập",
     bad_token: "Token không đúng", create: "Tạo profile", edit_title: "Sửa profile", edit_sub: "Đang sửa {name}", create_sub: "Một profile là một danh tính: thiết bị, proxy và vị trí riêng.",
@@ -659,7 +659,7 @@ const I18N = {
     ads_button: "Nhập từ AdsPower", ads_sub: "Mang theo tên, proxy, User-Agent và cookie. Profile dùng engine Chrome; fingerprint (canvas, audio, WebGL) là mới.",
     ads_hint_local: "AdsPower phải đang mở trên máy này và bật Local API (Settings › API).", ads_hint_hub: "Đọc từ AdsPower trên máy của bạn qua agent: AdsPower đang mở và bật Local API.",
     ads_port: "Cổng API", ads_key: "API key (nếu AdsPower yêu cầu)", ads_find: "Tìm profile", ads_none: "AdsPower không có profile nào.",
-    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_busy: "Đang có một lần nhập từ AdsPower", ads_progress: "Đang nhập {i}/{n} từ AdsPower: {name}", ads_progress_failed: "{n} lỗi", ads_reimport: "Nhập lại các profile đã có (làm mới cookie của chúng)", ads_done_re: "Đã tạo {created}, nhập lại {reimported}, bỏ qua {skipped}, lỗi {failed}",
+    ads_select_all: "Chọn tất cả", ads_exists: "Đã có", ads_import_n: "Nhập {n}", ads_created: "Đã tạo · cookie: {n}", ads_busy: "Đang có một lần nhập từ AdsPower", ads_cancelled: "Đã huỷ nhập", ads_progress: "Đang nhập {i}/{n} từ AdsPower: {name}", ads_progress_failed: "{n} lỗi", ads_reimport: "Nhập lại các profile đã có (làm mới cookie của chúng)", ads_done_re: "Đã tạo {created}, nhập lại {reimported}, bỏ qua {skipped}, lỗi {failed}",
     ads_done: "Đã tạo {created}, bỏ qua {skipped}, lỗi {failed}", ads_no_proxy: "Không proxy", ads_no_group: "Không có nhóm", ads_summary: "{total} profile · đã nhập {done} · còn {pending} · lỗi {failed}", ads_hub_group: "→ nhóm {group}",
     agent_auth_title: "Cấp quyền đăng nhập cho agent", agent_auth_hint: "FoxProfile agent trên {pc} sẽ mở các profile của tài khoản này trên máy đó.",
     agent_auth_this_pc: "máy tính này", agent_auth_role: "Vai trò", agent_auth_hub: "Hub",
@@ -710,7 +710,7 @@ const I18N = {
     sync_need_two: "Select at least two running profiles", syncing: "Syncing {leader} → {n} profile(s)", sync_stop: "Stop sync",
     sync_started: "Sync started from {leader}", sync_stopped: "Sync stopped: {leader}",
     select_all: "Select all", select_row: "Select {name}",
-    confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}", bulk_edit: "Edit", bulk_edit_title: "Edit {n} profiles", bulk_edit_hint: "Tick the fields to change; the rest keep each profile's own value. An empty field removes the proxy, or puts timezone and locale back on automatic.", bulk_edit_nothing: "Tick at least one field to change", updated_n: "Updated {n} profiles",
+    confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}", bulk_edit: "Edit", bulk_edit_title: "Edit {n} profiles", bulk_edit_hint: "Tick the fields to change; the rest keep each profile's own value. An empty field removes the proxy, or puts timezone and locale back on automatic.", bulk_edit_nothing: "Tick at least one field to change", bulk_failed: "Failed ({n}): {names}", updated_n: "Updated {n} profiles",
     login_side: "This server runs FoxProfile. Log in with the API token to manage profiles remotely.",
     login_hint: "Enter the server's API token (FOXPROFILE_API_TOKEN).", token: "API token", login: "Log in",
     bad_token: "Invalid token", create: "Create profile", edit_title: "Edit profile", edit_sub: "Editing {name}", create_sub: "A profile is an identity: its own device, proxy and location.",
@@ -756,7 +756,7 @@ const I18N = {
     ads_button: "Import from AdsPower", ads_sub: "Brings name, proxy, User-Agent and cookies. Profiles use the Chrome engine; the fingerprint (canvas, audio, WebGL) is new.",
     ads_hint_local: "AdsPower must be open on this PC with its Local API on (Settings › API).", ads_hint_hub: "Read from AdsPower on your PC through the agent: AdsPower open with its Local API on.",
     ads_port: "API port", ads_key: "API key (if AdsPower asks for one)", ads_find: "Find profiles", ads_none: "AdsPower has no profiles.",
-    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_busy: "An AdsPower import is already running", ads_progress: "Importing {i} of {n} from AdsPower: {name}", ads_progress_failed: "{n} failed", ads_reimport: "Reimport the ones already here (refreshes their cookies)", ads_done_re: "{created} created, {reimported} reimported, {skipped} already here, {failed} failed",
+    ads_select_all: "Select all", ads_exists: "Already here", ads_import_n: "Import {n}", ads_created: "Created · cookies: {n}", ads_busy: "An AdsPower import is already running", ads_cancelled: "Import cancelled", ads_progress: "Importing {i} of {n} from AdsPower: {name}", ads_progress_failed: "{n} failed", ads_reimport: "Reimport the ones already here (refreshes their cookies)", ads_done_re: "{created} created, {reimported} reimported, {skipped} already here, {failed} failed",
     ads_done: "{created} created, {skipped} already here, {failed} failed", ads_no_proxy: "No proxy", ads_no_group: "No group", ads_summary: "{total} profiles · {done} imported · {pending} pending · {failed} failed", ads_hub_group: "→ group {group}",
     agent_auth_title: "Authorize the agent sign-in", agent_auth_hint: "The FoxProfile agent on {pc} will open this account's profiles on that PC.",
     agent_auth_this_pc: "this computer", agent_auth_role: "Role", agent_auth_hub: "Hub",
@@ -807,7 +807,7 @@ const I18N = {
     sync_need_two: "Selecciona al menos dos profiles en ejecución", syncing: "Sincronizando {leader} → {n} profile(s)", sync_stop: "Detener sincronización",
     sync_started: "Sincronización iniciada desde {leader}", sync_stopped: "Sincronización detenida: {leader}",
     select_all: "Seleccionar todos", select_row: "Seleccionar {name}",
-    confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}", bulk_edit: "Editar", bulk_edit_title: "Editar {n} profiles", bulk_edit_hint: "Marca los campos que quieres cambiar; los demás conservan el valor de cada profile. Un campo vacío quita el proxy, o devuelve timezone y locale a automático.", bulk_edit_nothing: "Marca al menos un campo para cambiar", updated_n: "{n} profiles actualizados",
+    confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}", bulk_edit: "Editar", bulk_edit_title: "Editar {n} profiles", bulk_edit_hint: "Marca los campos que quieres cambiar; los demás conservan el valor de cada profile. Un campo vacío quita el proxy, o devuelve timezone y locale a automático.", bulk_edit_nothing: "Marca al menos un campo para cambiar", bulk_failed: "Con error ({n}): {names}", updated_n: "{n} profiles actualizados",
     login_side: "Este servidor ejecuta FoxProfile. Inicia sesión con el token de la API para gestionar los profiles a distancia.",
     login_hint: "Introduce el token de la API del servidor (FOXPROFILE_API_TOKEN).", token: "Token de la API", login: "Iniciar sesión",
     bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
@@ -852,9 +852,9 @@ const I18N = {
     login_hint_hub: "Inicia sesión con el correo y la contraseña de la plataforma interna.",
     ads_button: "Importar desde AdsPower", ads_sub: "Trae nombre, proxy, User-Agent y cookies. Se crean con el motor Chrome; el fingerprint (canvas, audio, WebGL) es nuevo.",
     ads_hint_local: "AdsPower debe estar abierto en este PC con la API local activada (Ajustes › API).", ads_hint_hub: "Se lee del AdsPower de tu PC a través del agente: AdsPower abierto y con la API local activada.",
-    ads_port: "Puerto de la API", ads_key: "API key (si AdsPower la pide)", ads_find: "Buscar perfiles", ads_none: "AdsPower no tiene perfiles.",
-    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_busy: "Ya hay una importación de AdsPower en curso", ads_progress: "Importando {i} de {n} desde AdsPower: {name}", ads_progress_failed: "{n} con error", ads_reimport: "Reimportar los que ya existen (actualiza sus cookies)", ads_done_re: "{created} creados, {reimported} reimportados, {skipped} ya existían, {failed} con error",
-    ads_done: "{created} creados, {skipped} ya existían, {failed} con error", ads_no_proxy: "Sin proxy", ads_no_group: "Sin grupo", ads_summary: "{total} perfiles · {done} importados · {pending} pendientes · {failed} con error", ads_hub_group: "→ grupo {group}",
+    ads_port: "Puerto de la API", ads_key: "API key (si AdsPower la pide)", ads_find: "Buscar profiles", ads_none: "AdsPower no tiene profiles.",
+    ads_select_all: "Seleccionar todos", ads_exists: "Ya existe", ads_import_n: "Importar {n}", ads_created: "Creado · cookies: {n}", ads_busy: "Ya hay una importación de AdsPower en curso", ads_cancelled: "Importación cancelada", ads_progress: "Importando {i} de {n} desde AdsPower: {name}", ads_progress_failed: "{n} con error", ads_reimport: "Reimportar los que ya existen (actualiza sus cookies)", ads_done_re: "{created} creados, {reimported} reimportados, {skipped} ya existían, {failed} con error",
+    ads_done: "{created} creados, {skipped} ya existían, {failed} con error", ads_no_proxy: "Sin proxy", ads_no_group: "Sin grupo", ads_summary: "{total} profiles · {done} importados · {pending} pendientes · {failed} con error", ads_hub_group: "→ grupo {group}",
     agent_auth_title: "Autorizar el inicio de sesión en el agente", agent_auth_hint: "El agente de FoxProfile en {pc} abrirá los profiles de esta cuenta en ese PC.",
     agent_auth_this_pc: "esta computadora", agent_auth_role: "Rol", agent_auth_hub: "Hub",
     agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
@@ -862,13 +862,13 @@ const I18N = {
     agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
     agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_connecting: "Tu PC: conectando con el agente…", agent_connect_failed: "No se pudo conectar con el agente", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
     agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
-    agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene perfiles abiertos.",
+    agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene profiles abiertos.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · build dev", agents_macos_dev: "macOS · build dev", agents_no_file: "Todavía no hay instalador",
     agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo… {pct}%", agents_uploaded: "{name} subido",
     agents_upload_failed: "No se pudo subir el instalador", agents_upload_cors: "El navegador no pudo subir al bucket. Revisa la regla CORS del bucket (PUT desde la dirección de este panel) y el proxy que tenga delante.", agents_upload_etag: "El bucket no deja al navegador leer el ETag: añade ExposeHeaders: [\"ETag\"] a su regla CORS.", agents_list: "Agentes conectados", agents_none: "Ningún agente se ha conectado desde que arrancó el hub.",
-    agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} perfiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
-    agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los perfiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
-    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus perfiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)",
+    agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} profiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
+    agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los profiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
+    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus profiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)",
     agent_state_script: "Corre con el script: actualizar con git", agent_state_old: "Versión anterior: instalar el instalador nuevo una vez",
     users: "Usuarios", role_admin: "Administrador", role_operator: "Operador",
     owner: "Operador", unassigned: "Sin asignar",
@@ -987,7 +987,22 @@ function maskProxy(p) {
 }
 const hhmm = (d) => d.toTimeString().slice(0, 5);
 
-async function refresh() {
+// Runs fn over items, at most n at a time.
+async function pool(items, n, fn) {
+  const queue = [...items];
+  await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => { while (queue.length) await fn(queue.shift()); }));
+}
+
+// One refresh at a time: a call during one asks for another round when it ends,
+// so a caller awaiting it after a change still sees that change.
+let refreshing = null, refreshAgain = false;
+function refresh() {
+  if (refreshing) { refreshAgain = true; return refreshing; }
+  refreshing = (async () => { do { refreshAgain = false; await refreshOnce(); } while (refreshAgain); })()
+    .finally(() => { refreshing = null; });
+  return refreshing;
+}
+async function refreshOnce() {
   try {
     const [list, run, who, sync, accts] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
       hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync"),
@@ -1002,9 +1017,17 @@ async function refresh() {
     for (const name of [...liveSince.keys()]) if (!now.has(name)) liveSince.delete(name);
     running = now;
     for (const name of [...failed.keys()]) if (now.has(name) || !profiles.some((p) => p.name === name)) failed.delete(name);
-    await Promise.all(profiles.filter((p) => !(p.name in fingerprints)).map(loadFingerprint));
     render();
+    loadFingerprints();
   } catch (e) { if (e.status !== 401) toast(e.message, true); }
+}
+// The list shows first; the fingerprints follow, six requests at a time.
+let fpLoading = false;
+function loadFingerprints() {
+  const missing = profiles.filter((p) => !(p.name in fingerprints));
+  if (fpLoading || !missing.length) return;
+  fpLoading = true;
+  pool(missing, 6, loadFingerprint).finally(() => { fpLoading = false; render(); });
 }
 async function loadFingerprint(p) {
   try { fingerprints[p.name] = await api("GET", `/profiles/${enc(p.name)}/fingerprint`); } catch { fingerprints[p.name] = null; }
@@ -1161,7 +1184,7 @@ function row(p) {
     h("div", { class: "c-device device", role: "cell" }, h("span", { class: "os", role: "img", title: osName || p.os_type, "aria-label": osName || p.os_type }, osName ? icon("os-" + p.os_type) : "OS"),
       h("div", { class: "stack" }, h("span", { class: p.engine === "chrome" ? "engine chrome" : "engine" }, engine),
         fp && fp.exists ? h("span", { class: "data minor" }, [fp.screen, `${fp.hardware_concurrency || "?"} CPU`].filter(Boolean).join(" · "))
-          : h("span", { class: "minor" }, t("no_fp_short")))),
+          : h("span", { class: "minor" }, fp === undefined ? "…" : t("no_fp_short")))),
     h("div", { class: "c-proxy stack", role: "cell" }, proxy
       ? [h("span", { class: "data", title: proxy }, proxy.split("://")[1]), h("span", { class: "minor" }, proxy.split("://")[0].toUpperCase())]
       : [h("span", { class: "direct" }, t("direct")), h("span", { class: "minor" }, t("no_proxy_short"))],
@@ -1260,6 +1283,12 @@ async function stopSync(leader) {
   refresh();
 }
 
+// One notice for a bulk action's failures ([name, error] pairs), not one per profile.
+function toastFailures(fails, done = "") {
+  const names = fails.slice(0, 3).map(([n]) => n).join(", ") + (fails.length > 3 ? ", …" : "");
+  toast([done, t("bulk_failed", { n: fails.length, names }), fails[0][1]].filter(Boolean).join(" · "), true);
+}
+
 async function bulk(action) {
   const names = [...selected];
   if (action === "delete") {
@@ -1267,13 +1296,19 @@ async function bulk(action) {
     if (!stopped.length) return toast(t("stop_first"), true);
     if (!(await confirmDialog(t("confirm_bulk_delete", { n: stopped.length }), t("bulk_delete"), true))) return;
     let deleted = 0;
-    for (const n of stopped) { try { await api("DELETE", `/profiles/${enc(n)}`); deleted++; selected.delete(n); delete fingerprints[n]; } catch (e) { toast(`${n}: ${e.message}`, true); } }
-    const skipped = names.length - deleted;
-    if (deleted) toast(t("deleted_n", { n: deleted }) + (skipped ? " · " + t("bulk_skip_running", { n: skipped }) : ""));
+    const fails = [];
+    for (const n of stopped) { try { await api("DELETE", `/profiles/${enc(n)}`); deleted++; selected.delete(n); delete fingerprints[n]; } catch (e) { fails.push([n, e.message]); } }
+    const skipped = names.length - stopped.length;
+    const done = deleted ? t("deleted_n", { n: deleted }) + (skipped ? " · " + t("bulk_skip_running", { n: skipped }) : "") : "";
+    if (fails.length) toastFailures(fails, done); else if (done) toast(done);
     return refresh();
   }
   const targets = profiles.filter((p) => names.includes(p.name) && (action === "launch" ? !running.has(p.name) : running.has(p.name)));
-  await Promise.all(targets.map((p) => toggle(p, { quiet: true })));
+  // A few at a time: in hub mode they all open on this one PC.
+  const fails = [];
+  await pool(targets, 3, async (p) => { const error = await toggle(p, { quiet: true, batch: true }); if (error) fails.push([p.name, error]); });
+  await refresh();
+  if (fails.length) toastFailures(fails);
 }
 
 // The same PATCH as the editor, once per profile; only the ticked fields are sent.
@@ -1281,13 +1316,14 @@ function openBulkEdit() {
   const names = [...selected];
   modal((close) => {
     const msg = h("div", { class: "msg", role: "status" });
-    const os = h("select", { id: "b-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"], ["android", "Android (Chrome)"]].map(([v, label]) =>
-      h("option", { value: v }, label)));
+    // Android is a Chrome persona: not offered while a Camoufox profile is selected.
+    const camoufox = profiles.some((p) => names.includes(p.name) && p.engine !== "chrome");
+    const os = h("select", { id: "b-os" }, [["windows", "Windows"], ["macos", "macOS"], ["linux", "Linux"], ["android", "Android (Chrome)"]]
+      .filter(([v]) => v !== "android" || !camoufox).map(([v, label]) => h("option", { value: v }, label)));
     const proxy = h("input", { id: "b-proxy", placeholder: "socks5://user:pass@host:port", autocomplete: "off", class: "data" });
     const tz = h("input", { id: "b-tz", placeholder: t("tz_hint"), autocomplete: "off", class: "data" });
     const loc = h("input", { id: "b-locale", placeholder: t("locale_hint"), autocomplete: "off", class: "data" });
     const owner = hub && me.role === "admin" ? h("select", { id: "b-owner" }, h("option", { value: "" }, t("unassigned"))) : null;
-    if (owner) api("GET", "/hub/users").then((users) => users.forEach((u) => owner.append(h("option", { value: u.name }, u.name))));
     const led = hub ? Object.keys(me.my_groups).filter((g) => me.my_groups[g] === "lead") : [];
     const group = led.length ? h("select", { id: "b-group" }, h("option", { value: "" }, t("no_group")), led.map((g) => h("option", { value: g }, g))) : null;
     const fields = [["os_type", t("os"), os], ["proxy", t("proxy_label"), proxy], ["timezone", t("timezone"), tz], ["locale", t("locale"), loc],
@@ -1299,6 +1335,12 @@ function openBulkEdit() {
       return h("div", { class: "field" },
         h("label", { for: ticked[key].id, style: "display:flex;gap:8px;align-items:center" }, ticked[key], label), input);
     });
+    if (owner) {
+      // Not tickable until the users are here: with only "Unassigned" it would unassign them all.
+      ticked.owner.disabled = true;
+      api("GET", "/hub/users").then((users) => { users.forEach((u) => owner.append(h("option", { value: u.name }, u.name))); ticked.owner.disabled = false; })
+        .catch((ex) => { msg.className = "msg err"; msg.textContent = ex.message; });
+    }
     return h("form", { onsubmit: async (e) => {
       e.preventDefault();
       const on = fields.filter(([key]) => ticked[key].checked).map(([key, , input]) => [key, input.value.trim()]);
@@ -1309,6 +1351,7 @@ function openBulkEdit() {
       const submitBtn = e.currentTarget.querySelector(".modal-foot .btn-act");
       submitBtn.disabled = true;
       let updated = 0;
+      const fails = [];
       // One at a time: the server writes profiles.json for each.
       for (const n of names) {
         try {
@@ -1316,9 +1359,10 @@ function openBulkEdit() {
           if ("owner" in values) await api("PUT", `/hub/owners/${enc(n)}`, { user: values.owner || null });
           if ("group" in values) await api("PUT", `/hub/profile-group/${enc(n)}`, { group: values.group || null });
           updated++;
-        } catch (ex) { toast(`${n}: ${ex.message}`, true); }
+        } catch (ex) { fails.push([n, ex.message]); }
       }
-      if (updated) toast(t("updated_n", { n: updated }));
+      const done = updated ? t("updated_n", { n: updated }) : "";
+      if (fails.length) toastFailures(fails, done); else if (done) toast(done);
       close(); refresh();
     } },
       modalHead(t("bulk_edit_title", { n: names.length }), t("bulk_edit_hint"), close),
@@ -1329,7 +1373,9 @@ function openBulkEdit() {
   });
 }
 
-async function toggle(p, { quiet = false } = {}) {
+// `batch`: part of a bulk action, which reports the error (returned) and refreshes once.
+async function toggle(p, { quiet = false, batch = false } = {}) {
+  let error = null;
   const stopping = running.has(p.name);
   busy.set(p.name, stopping ? "stopping" : "starting");
   failed.delete(p.name);
@@ -1348,10 +1394,12 @@ async function toggle(p, { quiet = false } = {}) {
     }
   } catch (e) {
     if (!stopping) failed.set(p.name, e.message);
-    toast(`${p.name}: ${e.message}`, true);
+    error = e.message;
+    if (!batch) toast(`${p.name}: ${e.message}`, true);
   }
   busy.delete(p.name);
-  await refresh();
+  if (batch) render(); else await refresh();
+  return error;
 }
 
 function modal(build, { wide = false, onDismiss = null } = {}) {
@@ -1412,11 +1460,16 @@ function openEditor(p) {
     const msg = h("div", { class: "msg", role: "status" });
     const geo = h("div");
     const owner = hub && me.role === "admin" ? h("select", { id: "f-owner" }) : null;
+    // A new profile belongs to whoever creates it (routes/profiles.py).
+    const currentOwner = p ? me.owners[p.name] || "" : me.name;
     if (owner) {
-      const current = p ? me.owners[p.name] || "" : me.name;
+      // The current owner is there from the start: saving before the list comes,
+      // or when it fails, must not unassign the profile.
       owner.append(h("option", { value: "" }, t("unassigned")));
-      api("GET", "/hub/users").then((users) => users.forEach((u) =>
-        owner.append(h("option", { value: u.name, selected: u.name === current }, u.name))));
+      if (currentOwner) owner.append(h("option", { value: currentOwner, selected: true }, currentOwner));
+      api("GET", "/hub/users").then((users) => users.forEach((u) => {
+        if (u.name !== currentOwner) owner.append(h("option", { value: u.name }, u.name));
+      })).catch(() => {});
     }
     // Admins and leads move profiles between the groups they lead; a group they
     // only belong to stays as it is.
@@ -1455,7 +1508,7 @@ function openEditor(p) {
       try {
         if (p) { await api("PATCH", `/profiles/${enc(p.name)}`, body); delete fingerprints[p.name]; toast(t("saved")); }
         else { await api("POST", "/profiles", body); toast(t("created", { name: body.name })); }
-        if (owner) await api("PUT", `/hub/owners/${enc(body.name)}`, { user: owner.value || null });
+        if (owner && owner.value !== currentOwner) await api("PUT", `/hub/owners/${enc(body.name)}`, { user: owner.value || null });
         if (group && group.value !== currentGroup) await api("PUT", `/hub/profile-group/${enc(body.name)}`, { group: group.value || null });
         close(); refresh();
       } catch (ex) { say("err", ex.message); }
@@ -1962,13 +2015,17 @@ function openAgentDownload() {
 // The import runs after the dialog closes (AdsPower answers once a second, so a
 // big batch takes minutes): a toast when it starts, the profiles appear as they
 // are created, a toast with the result at the end.
-let adsImporting = false;
+let adsImporting = false, adsCancel = false;
 async function runAdsImport(todo, access) {
-  adsImporting = true;
+  adsImporting = true; adsCancel = false;
+  // One button for the whole run: moved back after each progress toast, so a click never lands on a stale one.
+  const cancel = h("button", { class: "btn btn-ghost", style: "color:inherit;height:28px;padding:0 10px", onclick: () => { adsCancel = true; cancel.disabled = true; } }, t("cancel"));
   const done = { created: 0, reimported: 0, skipped: 0, failed: 0 }, errors = [];
   for (const [i, r] of todo.entries()) {
+    if (adsCancel) break;  // the one in flight finishes; the rest are left alone
     // Stays on screen while it runs: which one, out of how many, and errors so far.
     toast(t("ads_progress", { i: i + 1, n: todo.length, name: r.target }) + (done.failed ? " · " + t("ads_progress_failed", { n: done.failed }) : ""), false, true);
+    $("toast").append(cancel);
     try {
       // A profile that is here already only gets its cookies refreshed.
       const res = await api("POST", "/adspower/import", { ...access, profile_id: r.id, name: r.target, group: r.group || "", reimport: r.status === "exists" });
@@ -1979,7 +2036,7 @@ async function runAdsImport(todo, access) {
   }
   adsImporting = false;
   await refresh();
-  toast([t(done.reimported ? "ads_done_re" : "ads_done", done), ...errors.slice(0, 2)].join(" · "), done.failed > 0);
+  toast([adsCancel ? t("ads_cancelled") : "", t(done.reimported ? "ads_done_re" : "ads_done", done), ...errors.slice(0, 2)].filter(Boolean).join(" · "), done.failed > 0);
 }
 
 function openAdsPower() {
