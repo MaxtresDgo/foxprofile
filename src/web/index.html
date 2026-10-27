@@ -213,6 +213,10 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .modal-body h3 { margin: 18px 0 2px; font-size: 14px; } .modal-body h3:first-child { margin-top: 0; }
 /* General settings page */
 .settings-sheet { max-width: 760px; padding: 0 22px; }
+.backups-tools { display: flex; gap: 8px; min-width: min(540px, 100%); }
+.backups-tools select { flex: 0 1 200px; min-width: 0; }
+.backups-tools .search { flex: 1 1 280px; }
+.backups-group { display: flex; align-items: baseline; gap: 8px; margin: 22px 0 0; font-size: 14px; }
 .setting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 18px 0; border-bottom: 1px solid var(--rule); }
 .setting:last-child { border-bottom: 0; }
 .setting b { display: block; font-weight: 600; }
@@ -461,6 +465,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-os-linux" viewBox="0 0 24 24"><path d="M12 3c-2.5 0-3.8 2-3.8 4.6 0 1.6-.6 2.7-1.6 4.2-1 1.5-1.6 3.2-1.6 4.7 0 2.6 3 4.5 7 4.5s7-1.9 7-4.5c0-1.5-.6-3.2-1.6-4.7-1-1.5-1.6-2.6-1.6-4.2C15.8 5 14.5 3 12 3Z"/><path d="M9.5 12.5c0 3 1 5.5 2.5 5.5s2.5-2.5 2.5-5.5"/><path d="m11 9 1 .8 1-.8"/><circle cx="10.6" cy="7.2" r=".4"/><circle cx="13.4" cy="7.2" r=".4"/></symbol>
   <symbol id="i-os-android" viewBox="0 0 24 24"><path d="M3 19a9 9 0 0 1 18 0Z"/><path d="M7 12.2 4.8 8.6M17 12.2l2.2-3.6"/><circle cx="8.6" cy="15.6" r=".6"/><circle cx="15.4" cy="15.6" r=".6"/></symbol>
   <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5M3.5 3.5v5h5M12 7.5V12l3 2"/></symbol>
   <symbol id="i-cookie" viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 0 9.5 9.5 4 4 0 0 1-4.8-4.7A4 4 0 0 1 12 2.5Z"/><path d="M8.5 8.5h.01M15.5 15h.01M11.5 12.5h.01M11 17h.01M7.5 14h.01"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16 7l3 3M18.5 4.5l2 2"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
@@ -529,6 +534,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
       <button class="rail-link hidden" id="users-btn"><svg class="i"><use href="#i-user"/></svg><span data-t="users"></span></button>
       <button class="rail-link hidden" id="groups-btn"><svg class="i"><use href="#i-users"/></svg><span data-t="groups"></span></button>
       <button class="rail-link hidden" id="agents-btn"><svg class="i"><use href="#i-monitor"/></svg><span data-t="agents_button"></span></button>
+      <button class="rail-link hidden" id="backups-btn"><svg class="i"><use href="#i-history"/></svg><span data-t="backups"></span></button>
       <button class="rail-link" id="ext-btn"><svg class="i"><use href="#i-puzzle"/></svg><span data-t="ext_button"></span></button>
       <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
       <button class="rail-link" id="ads-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="ads_button"></span></button>
@@ -554,6 +560,20 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
           <div><b data-t="language"></b><p data-t="language_hint"></p></div>
           <div class="chips" role="group" aria-label="Language"><button data-lang="es">Español</button><button data-lang="en">English</button><button data-lang="vi">Tiếng Việt</button></div>
         </div>
+      </div>
+    </section>
+    <section class="hidden" id="backups-page" aria-labelledby="backups-h">
+      <div class="head">
+        <div><h1 id="backups-h" tabindex="-1" data-t="backups"></h1><div class="counts" id="backups-sub"></div></div>
+        <div class="backups-tools">
+          <select id="backups-group"></select>
+          <label class="search"><svg class="i s" aria-hidden="true"><use href="#i-search"/></svg><input id="backups-q" type="search" autocomplete="off"></label>
+        </div>
+      </div>
+      <div class="sheet settings-sheet">
+        <p class="minor" data-t="backups_hint"></p>
+        <div class="msg" id="backups-msg" role="status"></div>
+        <div id="backups-list"></div>
       </div>
     </section>
     <div id="profiles-view">
@@ -595,6 +615,12 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 "use strict";
 const I18N = {
   vi: {
+    backups: "Sao lưu", backups_hint: "Snapshot của mọi profile trên NAS. Profile mồ côi là profile đã xoá: khôi phục lại hoặc xoá snapshot của nó.", backups_sub: "{n} profile · {s} có snapshot · {orphans} mồ côi", backups_search: "Tìm profile", snapshot_view: "Xem snapshot", snapshot_hide: "Ẩn snapshot", snapshot_put_back_this: "Khôi phục từ bản này", backups_group: "Lọc theo nhóm", snapshot_orphans: "Mồ côi", snapshot_saved_of: "Đã lưu snapshot của {name}", snapshots_none_any: "NAS chưa có snapshot nào.",
+    snapshot_count: "{n} snapshot", snapshot_newest: "mới nhất {when}", snapshot_orphan: "mồ côi", snapshot_put_back: "Khôi phục profile", snapshot_put_back_as: "Khôi phục với tên",
+    snapshot_put_back_done: "Đã khôi phục profile {name}", snapshot_delete_confirm: "Xoá vĩnh viễn {n} snapshot của {name} trên NAS?", snapshot_deleted: "Đã xoá snapshot của {name}",
+    snapshots: "Snapshot", snapshots_hint: "bản sao dữ liệu trình duyệt trên NAS", snapshots_none: "Chưa có snapshot nào. Mỗi lần đồng bộ sẽ tự lưu một bản.",
+    snapshot_create: "Tạo snapshot", snapshot_restore: "Khôi phục", snapshot_saved: "Đã lưu snapshot", snapshot_restored: "Đã khôi phục. Trạng thái trước đó được lưu thành snapshot.",
+    snapshot_confirm: "Khôi phục {name} về bản lúc {when}? Dữ liệu hiện tại được lưu thành snapshot trước; tài khoản đã lưu không bị ảnh hưởng.",
     tagline: "Quản lý profile anti-detect", new_profile: "Tạo profile", filters: "Lọc",
     f_all: "Tất cả", f_running: "Đang chạy", f_proxy: "Có proxy", f_direct: "Không proxy", f_chrome: "Engine Chrome",
     api_docs: "Tài liệu API", logout: "Đăng xuất", your_profiles: "Profile", search: "Tìm theo tên hoặc proxy",
@@ -692,6 +718,12 @@ const I18N = {
     ext_button: "Extension", ext_title: "Extension của trình duyệt", ext_hint: "Chrome: .crx hoặc .zip cho profile engine Chrome. Firefox: .xpi cho Camoufox.", ext_upload: "Tải file lên", ext_store: "ID hoặc link Chrome Web Store", ext_store_add: "Thêm từ cửa hàng", ext_store_note: "Được tải từ máy chủ của Google khi bạn bấm Thêm.", ext_uploading: "Đang tải lên {name}…", ext_store_fetching: "Đang tải từ Chrome Web Store…", ext_added: "Đã thêm {name} {version}", ext_none: "Chưa có extension nào.", ext_all: "Mọi profile", ext_in_groups: "Nhóm: {list}", ext_in_profiles: "{n} profile", ext_excluded: "loại trừ {n}", ext_nowhere: "Chưa áp dụng cho profile nào", ext_where: "Áp dụng cho", ext_confirm_delete: "Xoá “{name}” khỏi mọi profile?", ext_scope_all: "Mọi profile {engine}", ext_scope_groups: "Profile của các nhóm", ext_scope_profiles: "Các profile này", ext_scope_excluded: "Loại trừ: không bao giờ tải", ext_scope_hint: "Profile đang mở sẽ tải thay đổi ở lần mở sau.", ext_filter: "Lọc", ext_no_profiles: "Không có profile {engine}.", ext_no_groups: "Chưa có nhóm nào.",
   },
   en: {
+    backups: "Backups", backups_hint: "Every profile's snapshots on the NAS. Orphans are deleted profiles: put one back or delete its snapshots.", backups_sub: "{n} profiles · {s} with snapshots · {orphans} orphans", backups_search: "Search profiles", snapshot_view: "View snapshots", snapshot_hide: "Hide snapshots", snapshot_put_back_this: "Put back from this one", backups_group: "Filter by group", snapshot_orphans: "Orphans", snapshot_saved_of: "Snapshot of {name} saved", snapshots_none_any: "No snapshots on the NAS yet.",
+    snapshot_count: "{n} snapshots", snapshot_newest: "newest {when}", snapshot_orphan: "orphan", snapshot_put_back: "Put back profile", snapshot_put_back_as: "Put back as",
+    snapshot_put_back_done: "Profile {name} is back", snapshot_delete_confirm: "Delete the {n} snapshots of {name} from the NAS for good?", snapshot_deleted: "Snapshots of {name} deleted",
+    snapshots: "Snapshots", snapshots_hint: "copies of the browser data on the NAS", snapshots_none: "No snapshots yet. Each sync saves one.",
+    snapshot_create: "Save snapshot", snapshot_restore: "Restore", snapshot_saved: "Snapshot saved", snapshot_restored: "Restored. The previous state was saved as a snapshot.",
+    snapshot_confirm: "Restore {name} to the copy from {when}? The current data is saved as a snapshot first; saved accounts are not touched.",
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
     f_all: "All", f_running: "Running", f_proxy: "With proxy", f_direct: "No proxy", f_chrome: "Chrome engine",
     api_docs: "API docs", logout: "Log out", your_profiles: "Profiles", search: "Search by name or proxy",
@@ -789,6 +821,12 @@ const I18N = {
     ext_button: "Extensions", ext_title: "Browser extensions", ext_hint: "Chrome: .crx or .zip for Chrome engine profiles. Firefox: .xpi for Camoufox.", ext_upload: "Upload file", ext_store: "Chrome Web Store ID or link", ext_store_add: "Add from the store", ext_store_note: "Downloaded from Google's servers when you click Add.", ext_uploading: "Uploading {name}…", ext_store_fetching: "Downloading from the Chrome Web Store…", ext_added: "Added {name} {version}", ext_none: "No extensions yet.", ext_all: "All profiles", ext_in_groups: "Groups: {list}", ext_in_profiles: "{n} profiles", ext_excluded: "{n} excluded", ext_nowhere: "Not applied to any profile", ext_where: "Applies to", ext_confirm_delete: "Remove “{name}” from every profile?", ext_scope_all: "Every {engine} profile", ext_scope_groups: "Profiles of these groups", ext_scope_profiles: "These profiles", ext_scope_excluded: "Excluded: never load it", ext_scope_hint: "Open profiles load the change the next time they open.", ext_filter: "Filter", ext_no_profiles: "No {engine} profiles.", ext_no_groups: "No groups yet.",
   },
   es: {
+    backups: "Respaldos", backups_hint: "Los snapshots de todos los profiles en el NAS. Los huérfanos son profiles borrados: recupera uno o borra sus snapshots.", backups_sub: "{n} profiles · {s} con snapshots · {orphans} huérfanos", backups_search: "Buscar profiles", snapshot_view: "Ver snapshots", snapshot_hide: "Ocultar snapshots", snapshot_put_back_this: "Recuperar desde esta", backups_group: "Filtrar por grupo", snapshot_orphans: "Huérfanos", snapshot_saved_of: "Snapshot de {name} guardado", snapshots_none_any: "Aún no hay snapshots en el NAS.",
+    snapshot_count: "{n} snapshots", snapshot_newest: "el más reciente {when}", snapshot_orphan: "huérfano", snapshot_put_back: "Recuperar profile", snapshot_put_back_as: "Recuperar como",
+    snapshot_put_back_done: "Profile {name} recuperado", snapshot_delete_confirm: "¿Borrar para siempre los {n} snapshots de {name} del NAS?", snapshot_deleted: "Snapshots de {name} borrados",
+    snapshots: "Snapshots", snapshots_hint: "copias de los datos del navegador en el NAS", snapshots_none: "Aún no hay snapshots. Cada sync guarda uno.",
+    snapshot_create: "Guardar snapshot", snapshot_restore: "Restaurar", snapshot_saved: "Snapshot guardado", snapshot_restored: "Restaurado. El estado anterior quedó guardado como snapshot.",
+    snapshot_confirm: "¿Restaurar {name} a la copia del {when}? Los datos actuales se guardan antes como snapshot; las cuentas guardadas no se tocan.",
     tagline: "Gestor de profiles anti-detect", new_profile: "Nuevo profile", filters: "Filtrar",
     f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome",
     api_docs: "Docs de la API", logout: "Cerrar sesión", your_profiles: "Profiles", search: "Buscar por nombre o proxy",
@@ -894,6 +932,7 @@ const store = {
 let lang = store.get("foxprofile.lang") || "es";
 let token = store.get("foxprofile.token") || "";
 let profiles = [], running = new Set(), fingerprints = {};
+let snapshotsOn = false;         // /info: a snapshot bucket is set
 let hub = false, me = null;      // hub mode: browsers open on each operator's PC
 let filter = "all";
 let scope = store.get("foxprofile.group");  // hub: null = all groups, "" = no group, else a group name
@@ -916,6 +955,9 @@ function applyI18n() {
   $("search").placeholder = t("search");
   $("search").setAttribute("aria-label", t("search"));
   $("group-q").placeholder = t("search_groups");
+  $("backups-q").placeholder = t("backups_search");
+  $("backups-q").setAttribute("aria-label", t("backups_search"));
+  $("backups-group").setAttribute("aria-label", t("backups_group"));
   $("group-q").setAttribute("aria-label", t("search_groups"));
   $("sheet").setAttribute("aria-label", t("your_profiles"));
   $("v-text").placeholder = t("type_hint");
@@ -1197,6 +1239,7 @@ function row(p) {
       iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
       iconBtn("cookie", t("cookies"), () => openCookies(p), "", on),
       iconBtn("key", t("accounts"), () => openAccounts(p)),
+      snapshotsOn ? iconBtn("history", t("snapshots"), () => openSnapshots(p), "", on) : null,
       iconBtn("edit", t("edit"), () => openEditor(p)),
       iconBtn("trash", t("delete"), () => removeProfile(p), "danger", on)));
 }
@@ -1808,6 +1851,143 @@ function openCookies(p) {
   });
 }
 
+function openSnapshots(p) {
+  if (running.has(p.name)) return toast(t("stop_first"), true);
+  const base = `/profiles/${enc(p.name)}/snapshots`;
+  const when = (s) => new Date(s.created).toLocaleString(lang);
+  modal((close) => {
+    const list = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const say = (cls, text) => { msg.className = "msg " + cls; msg.textContent = text; };
+    let working = false;
+    const run = async (fn) => {
+      if (working) return;
+      working = true; say("info", t("working"));
+      try { await fn(); } catch (e) { say("err", e.message); } finally { working = false; }
+    };
+    const load = async () => {
+      const { snapshots } = await api("GET", base);
+      list.replaceChildren(...(snapshots.length ? snapshots.map((s) => h("div", { class: "acct" },
+        h("div", { class: "acct-head" },
+          h("span", { class: "stack" }, h("b", {}, when(s)), h("span", { class: "minor data" }, (s.size / 1048576).toFixed(1) + " MB")),
+          h("span", { class: "acct-actions" }, h("button", { type: "button", class: "btn btn-act", onclick: () => restore(s) }, t("snapshot_restore"))))))
+        : [h("p", { class: "minor" }, t("snapshots_none"))]));
+    };
+    const restore = async (s) => {
+      if (!(await confirmDialog(t("snapshot_confirm", { name: p.name, when: when(s) }), t("snapshot_restore"), true))) return;
+      await run(async () => { await api("POST", `${base}/${s.id}/restore`); await load(); say("ok", t("snapshot_restored")); refresh(); });
+    };
+    run(async () => { await load(); say("", ""); });
+    return h("div", {},
+      modalHead(t("snapshots"), `${p.name} · ${t("snapshots_hint")}`, close),
+      h("div", { class: "modal-body" }, list, msg),
+      h("div", { class: "modal-foot" },
+        h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close")),
+        h("button", { type: "button", class: "btn btn-act", onclick: () => run(async () => { await api("POST", base); await load(); say("ok", t("snapshot_saved")); }) },
+          icon("plus", true), t("snapshot_create"))));
+  });
+}
+
+// Settings › Backups: every profile's snapshots in the bucket, deleted ones (orphans) too.
+let backups = [];
+const backupsSay = (cls, text) => { $("backups-msg").className = "msg " + cls; $("backups-msg").textContent = text; };
+let backupsWorking = false;
+async function backupsRun(fn) {
+  if (backupsWorking) return;
+  backupsWorking = true; backupsSay("info", t("working"));
+  try { await fn(); } catch (e) { backupsSay("err", e.message); } finally { backupsWorking = false; }
+}
+async function loadBackups() {
+  await backupsRun(async () => { backups = (await api("GET", "/snapshots")).profiles; backupsSay("", ""); });
+  drawBackups();
+}
+// Every profile (the panel's list), with its snapshots if any, then the orphans.
+function backupItems() {
+  const snaps = new Map(backups.filter((r) => !r.orphan).map((r) => [r.name, r]));
+  const group = (name) => (hub && me ? me.groups[name] || "" : "");
+  return [...profiles.map((p) => ({ count: 0, size: 0, ...snaps.get(p.name), name: p.name, orphan: false, group: group(p.name) })),
+    ...backups.filter((r) => r.orphan).map((r) => ({ ...r, group: null }))];
+}
+function drawBackups() {
+  const items = backupItems();
+  // The filter: all, one group (hub), no group (hub) or the orphans; null group = orphans.
+  const opts = [["*", t("all_groups")], ...(hub ? [["", t("no_group")], ...groupNames().map((g) => [g, g])] : []), [null, t("snapshot_orphans")]];
+  const pick = $("backups-group");
+  const picked = pick.selectedIndex > 0 && pick.options.length === opts.length ? pick.selectedIndex : 0;
+  pick.replaceChildren(...opts.map(([, label], i) => h("option", { value: String(i), selected: i === picked }, label)));
+  const only = opts[picked][0];
+  const q = $("backups-q").value.trim();
+  const shown = items.filter((r) => (only === "*" || r.group === only) && r.name.toLowerCase().includes(q.toLowerCase()));
+  $("backups-sub").textContent = t("backups_sub", { n: profiles.length, s: items.filter((r) => !r.orphan && r.count).length,
+    orphans: items.filter((r) => r.orphan).length });
+  if (!shown.length) return $("backups-list").replaceChildren(h("p", { class: "minor" }, q ? t("no_match", { q }) : t("snapshots_none_any")));
+  // One section per group: named groups, then no group, then the orphans.
+  const rank = (g) => (g === null ? 2 : g === "" ? 1 : 0);
+  const sections = new Map();
+  for (const r of [...shown].sort((a, b) => rank(a.group) - rank(b.group) || (a.group || "").localeCompare(b.group || "")
+    || a.name.localeCompare(b.name, undefined, { numeric: true })))
+    (sections.get(r.group) || sections.set(r.group, []).get(r.group)).push(r);
+  const heads = hub || sections.size > 1;
+  $("backups-list").replaceChildren(...[...sections].flatMap(([g, rows]) => [
+    heads ? h("h3", { class: "backups-group" }, g === null ? t("snapshot_orphans") : g || t(hub ? "no_group" : "your_profiles"), h("span", { class: "minor" }, String(rows.length))) : null,
+    ...rows.map(backupRow)].filter(Boolean)));
+}
+function backupRow(r) {
+  const when = (iso) => new Date(iso).toLocaleString(lang);
+  const sub = h("span", { class: "minor" }, r.count
+    ? `${t("snapshot_count", { n: r.count })} · ${(r.size / 1048576).toFixed(1)} MB · ${t("snapshot_newest", { when: when(r.newest) })}`
+    : t("snapshots_none"));
+  const reload = async () => { backups = (await api("GET", "/snapshots")).profiles; drawBackups(); };
+  const on = running.has(r.name);
+  const save = r.orphan ? null : h("button", { type: "button", class: "btn btn-line", disabled: on, title: on ? t("stop_first") : "",
+    onclick: () => backupsRun(async () => { await api("POST", `/profiles/${enc(r.name)}/snapshots`); await reload(); backupsSay("ok", t("snapshot_saved_of", { name: r.name })); }) },
+    t("snapshot_create"));
+  const name = r.orphan ? h("input", { value: r.name, maxlength: 64, autocomplete: "off", "aria-label": `${t("snapshot_put_back_as")}: ${r.name}` }) : null;
+  // Restore one snapshot: into the profile, or (orphan) as the profile put back.
+  const restore = (s) => backupsRun(async () => {
+    if (r.orphan) {
+      const res = await api("POST", `/snapshots/${r.uid}/restore`, { name: name.value.trim(), snap_id: s ? s.id : "" });
+      backupsSay("ok", t("snapshot_put_back_done", { name: res.name }));
+    } else {
+      if (!(await confirmDialog(t("snapshot_confirm", { name: r.name, when: when(s.created) }), t("snapshot_restore"), true))) return backupsSay("", "");
+      await api("POST", `/profiles/${enc(r.name)}/snapshots/${s.id}/restore`);
+      backupsSay("ok", t("snapshot_restored"));
+    }
+    await reload(); refresh();
+  });
+  const remove = async () => {
+    if (!(await confirmDialog(t("snapshot_delete_confirm", { n: r.count, name: r.name }), t("delete"), true))) return;
+    await backupsRun(async () => {
+      await api("DELETE", `/snapshots/${r.uid}`);
+      backupsSay("ok", t("snapshot_deleted", { name: r.name }));
+      backups = backups.filter((b) => b.uid !== r.uid); drawBackups();
+    });
+  };
+  const list = h("div");
+  const toggle = h("button", { type: "button", class: "btn btn-line", "aria-expanded": "false", onclick: async () => {
+    const open = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.textContent = t(open ? "snapshot_hide" : "snapshot_view");
+    if (!open) return list.replaceChildren();
+    list.replaceChildren(h("p", { class: "minor" }, t("working")));
+    try {
+      const { snapshots } = await api("GET", `/snapshots/${r.uid}`);
+      list.replaceChildren(...snapshots.map((s) => h("div", { class: "acct-line" },
+        h("span", { class: "data" }, when(s.created)), h("span", { class: "minor" }, (s.size / 1048576).toFixed(1) + " MB"),
+        h("button", { type: "button", class: "btn btn-act", style: "margin-left:auto", onclick: () => restore(s) },
+          t(r.orphan ? "snapshot_put_back_this" : "snapshot_restore")))));
+    } catch (e) { list.replaceChildren(h("p", { class: "msg err" }, e.message)); }
+  } }, t("snapshot_view"));
+  return h("div", { class: "acct" },
+    h("div", { class: "acct-head" },
+      h("span", { class: "stack" }, h("b", {}, r.name, r.orphan ? h("span", { class: "tag" }, t("snapshot_orphan")) : null), sub),
+      h("span", { class: "acct-actions" }, r.count ? toggle : null, save,
+        r.orphan ? h("button", { type: "button", class: "btn btn-act", onclick: () => restore(null) }, t("snapshot_put_back")) : null,
+        r.orphan ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${r.name}`, onclick: remove }, icon("trash")) : null)),
+    r.orphan ? h("div", { class: "acct-line" }, h("span", { class: "acct-k" }, t("snapshot_put_back_as")), name) : null,
+    list);
+}
+
 // --- Hub: who is logged in, their agent, user admin ---------------------------
 let agentWasConnecting = false;
 function renderMe(who) {
@@ -1837,18 +2017,22 @@ function renderMe(who) {
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
   $("ext-btn").classList.toggle("hidden", me.role !== "admin");
+  $("backups-btn").classList.toggle("hidden", !snapshotsOn || me.role !== "admin");
 }
 function showSettings(on) {
   $("rail").classList.toggle("settings", on);
   if (on) $("settings-back").focus();
-  else showGeneral(false);
+  else showPage(null);
 }
-// The General page replaces the profile list while Settings is open.
-function showGeneral(on) {
-  $("profiles-view").classList.toggle("hidden", on);
-  $("general-page").classList.toggle("hidden", !on);
-  $("general-btn").setAttribute("aria-current", on ? "page" : "false");
-  if (on) $("general-h").focus();
+// Settings pages (General, Backups) replace the profile list while Settings is open.
+function showPage(page) {
+  $("profiles-view").classList.toggle("hidden", !!page);
+  for (const [id, btn, head] of [["general-page", "general-btn", "general-h"], ["backups-page", "backups-btn", "backups-h"]]) {
+    $(id).classList.toggle("hidden", id !== page);
+    $(btn).setAttribute("aria-current", id === page ? "page" : "false");
+    if (id === page) $(head).focus();
+  }
+  if (page === "backups-page") loadBackups();
 }
 
 // Theme: "light", "dark" or "system" (no data-theme: the CSS follows the OS).
@@ -2601,9 +2785,12 @@ $("users-btn").onclick = openUsers;
 $("groups-btn").onclick = openGroups;
 $("agents-btn").onclick = openAgents;
 $("ext-btn").onclick = openExtensions;
+$("backups-btn").onclick = () => showPage("backups-page");
+$("backups-q").oninput = drawBackups;
+$("backups-group").onchange = drawBackups;
 $("agent-get-btn").onclick = openAgentDownload;
 $("settings-btn").onclick = () => showSettings(true);
-$("general-btn").onclick = () => showGeneral(true);
+$("general-btn").onclick = () => showPage("general-page");
 document.querySelectorAll("[data-theme-pick]").forEach((b) => {
   b.onclick = () => { theme = b.dataset.themePick; store.set("foxprofile.theme", theme === "system" ? null : theme); applyTheme(); };
 });
@@ -2649,6 +2836,8 @@ document.addEventListener("keydown", (e) => {
     const res = await fetch("/api/v1/info");
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const info = await res.json();
+    snapshotsOn = !!info.snapshots;
+    $("backups-btn").classList.toggle("hidden", !snapshotsOn);
     if (info.mode === "hub") {
       hub = true;
       $("user-field").classList.remove("hidden");

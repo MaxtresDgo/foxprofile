@@ -252,6 +252,8 @@ Mọi cấu hình đều không bắt buộc. Muốn đổi thì sao chép `.env
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Thư mục dữ liệu, mỗi profile một thư mục con |
 | `FOXPROFILE_EXTENSIONS_FILE` | `extensions.json` | Extension của trình duyệt và phạm vi áp dụng |
 | `FOXPROFILE_EXTENSIONS_DIR` | `extensions` | File của các extension và bản đã giải nén |
+| `FOXPROFILE_SNAPSHOTS` | `5` | Số snapshot giữ lại cho mỗi profile trong bucket snapshot (`0` để tắt) |
+| `FOXPROFILE_SNAPSHOT_S3_BUCKET` | *(trống: tắt)* | Bucket S3 (NAS chạy RustFS, MinIO, AWS) lưu snapshot profile; `FOXPROFILE_SNAPSHOT_S3_ENDPOINT`, `_ACCESS_KEY`, `_SECRET_KEY`, `_REGION` mặc định dùng giá trị `FOXPROFILE_S3_*`; cần `boto3` (`requirements-hub.txt`). Xem [docs/HUB.md](docs/HUB.md) |
 | `FOXPROFILE_LOG_DIR` | `logs` | Thư mục log |
 | `FOXPROFILE_LOG_LEVEL` | `INFO` | Mức log |
 | `FOXPROFILE_PROXY_TIMEOUT` | `10` | Thời gian chờ khi kiểm tra proxy (giây) |
@@ -296,6 +298,11 @@ Tiền tố: `/api/v1`. Xem đầy đủ tại `/docs` khi ứng dụng đang ch
 | `POST` | `/profiles/import` | Nhập profile từ ZIP |
 | `GET` | `/profiles/{name}/cookies?format=json\|netscape` | Xuất cookie |
 | `POST` | `/profiles/{name}/cookies` | Nhập cookie (`{"content": "<JSON hoặc cookies.txt>"}`) |
+| `GET` / `POST` | `/profiles/{name}/snapshots` | Liệt kê / lưu snapshot trong bucket snapshot |
+| `POST` | `/profiles/{name}/snapshots/{id}/restore` | Khôi phục một snapshot (dữ liệu hiện tại được lưu thành snapshot trước) |
+| `GET` | `/snapshots` | Mọi profile có snapshot, theo uid; profile đã xoá được đánh dấu `orphan` (hub: chỉ admin) |
+| `GET` / `DELETE` | `/snapshots/{uid}` | Snapshot của một profile theo uid, kể cả profile đã xoá / xoá snapshot của profile đã xoá |
+| `POST` | `/snapshots/{uid}/restore` | Khôi phục profile đã xoá (`{"name", "snap_id"}` tuỳ chọn: mặc định tên cũ và snapshot mới nhất) |
 | `GET` / `DELETE` | `/profiles/{name}/fingerprint` | Xem / tạo fingerprint mới |
 | `GET` | `/profiles/{name}/ip-check` | Kiểm tra IP ra của profile: quốc gia, timezone theo Cloudflare/ipinfo/ip-api, cảnh báo lệch |
 | `GET` | `/browser` | Danh sách profile đang chạy |
