@@ -18,6 +18,7 @@ class IProfileManager(Protocol):
         timezone: str | None = None,
         locale: str | None = None,
         engine: str = "camoufox",
+        uid: str | None = None,
     ) -> bool: ...
 
     def update_profile(

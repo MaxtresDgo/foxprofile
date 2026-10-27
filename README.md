@@ -252,6 +252,8 @@ Everything is optional. To override defaults, copy `.env.example` to `.env`.
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Data directory, one subdirectory per profile |
 | `FOXPROFILE_EXTENSIONS_FILE` | `extensions.json` | Browser extensions and where each applies |
 | `FOXPROFILE_EXTENSIONS_DIR` | `extensions` | The extensions' files, and their unpacked copies |
+| `FOXPROFILE_SNAPSHOTS` | `5` | Snapshots kept per profile in the snapshot bucket (`0` turns them off) |
+| `FOXPROFILE_SNAPSHOT_S3_BUCKET` | *(empty: off)* | S3 bucket (a NAS running RustFS, MinIO, AWS) for profile snapshots; `FOXPROFILE_SNAPSHOT_S3_ENDPOINT`, `_ACCESS_KEY`, `_SECRET_KEY`, `_REGION` default to their `FOXPROFILE_S3_*` values; needs `boto3` (`requirements-hub.txt`). See [docs/HUB.md](docs/HUB.md) |
 | `FOXPROFILE_LOG_DIR` | `logs` | Log directory |
 | `FOXPROFILE_LOG_LEVEL` | `INFO` | Log level |
 | `FOXPROFILE_PROXY_TIMEOUT` | `10` | Proxy check timeout (seconds) |
@@ -296,6 +298,11 @@ Prefix `/api/v1`. The full reference is at `/docs` while the app is running.
 | `POST` | `/profiles/import` | Import a profile from ZIP |
 | `GET` | `/profiles/{name}/cookies?format=json\|netscape` | Export cookies |
 | `POST` | `/profiles/{name}/cookies` | Import cookies (`{"content": "<JSON or cookies.txt>"}`) |
+| `GET` / `POST` | `/profiles/{name}/snapshots` | List / save snapshots in the snapshot bucket |
+| `POST` | `/profiles/{name}/snapshots/{id}/restore` | Restore a snapshot (the current data is saved as one first) |
+| `GET` | `/snapshots` | Every profile with snapshots, by uid; deleted profiles are marked `orphan` (hub: admins) |
+| `GET` / `DELETE` | `/snapshots/{uid}` | One profile's snapshots by uid, also a deleted one's / delete a deleted profile's snapshots |
+| `POST` | `/snapshots/{uid}/restore` | Put a deleted profile back (`{"name", "snap_id"}` optional: default its old name and newest snapshot) |
 | `GET` / `DELETE` | `/profiles/{name}/fingerprint` | Show / generate a new fingerprint |
 | `GET` | `/profiles/{name}/ip-check` | Where Cloudflare/ipinfo/ip-api place the profile's exit IP, with mismatch warnings |
 | `GET` | `/browser` | Running profiles |

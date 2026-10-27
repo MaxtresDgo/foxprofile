@@ -8,6 +8,8 @@ from .mcp_setup import router as mcp_setup_router
 from .page import router as page_router
 from .profiles import router as profiles_router
 from .proxy import router as proxy_router
+from .snapshots import bucket_router as snapshots_bucket_router
+from .snapshots import router as snapshots_router
 
 __all__ = [
     "accounts_router",
@@ -20,4 +22,6 @@ __all__ = [
     "page_router",
     "profiles_router",
     "proxy_router",
+    "snapshots_bucket_router",
+    "snapshots_router",
 ]

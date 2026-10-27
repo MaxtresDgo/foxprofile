@@ -8,7 +8,7 @@ import time
 
 from ...core.config import DATA_DIR, PROFILES_FILE
 from ...core.logging import get_logger
-from ...models.profile import ENGINES, Profile
+from ...models.profile import ENGINES, UID_RE, Profile
 from ...utils.validation import (
     valid_or_none,
     validate_locale,
@@ -68,6 +68,7 @@ class ProfileManager:
             try:
                 with pathlib.Path(PROFILES_FILE).open(encoding="utf-8") as f:
                     data = json.load(f)
+                    missing_uid = False
                     for name, p_data in data.items():
                         if not validate_profile_name(name)[0] or p_data.get("name") != name:
                             logger.warning("Skipping profile with unsafe name: %r", name)
@@ -83,8 +84,15 @@ class ProfileManager:
                             "locale": valid_or_none(p_data.get("locale"), validate_locale),
                             "engine": _engine_or_default(p_data.get("engine")),
                         }
+                        uid = p_data.get("uid")
+                        if isinstance(uid, str) and UID_RE.fullmatch(uid):
+                            clean_data["uid"] = uid
+                        else:  # older profiles.json: give it one, saved below
+                            missing_uid = True
                         self.profiles[name] = Profile(**clean_data)
                 logger.info("Loaded %d profiles", len(self.profiles))
+                if missing_uid:
+                    self.save_profiles()
             except Exception as e:
                 logger.exception("Error loading profiles: %s", e)
 
@@ -115,7 +123,9 @@ class ProfileManager:
         timezone: str | None = None,
         locale: str | None = None,
         engine: str = "camoufox",
+        uid: str | None = None,
     ) -> bool:
+        """`uid`: keep an earlier profile's (one put back from its snapshots)."""
         with self._lock:
             if self._find_by_casefold(name) is not None:
                 return False
@@ -134,6 +144,8 @@ class ProfileManager:
                 locale=locale or None,
                 engine=engine,
             )
+            if uid:
+                self.profiles[name].uid = uid
             self.save_profiles()
             logger.info("Created profile: %s", name)
             return True
@@ -271,6 +283,8 @@ class ProfileManager:
                 return False, result
 
             profile = result
+            if existing_key is not None:  # the same profile: it keeps its snapshots
+                profile.uid = self.profiles[existing_key].uid
 
             # An overwrite under a different case replaces the old entry rather
             # than leaving two names for one data directory.

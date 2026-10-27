@@ -14,6 +14,7 @@ from ..core import config
 from ..core.config import API_PORT, API_TOKEN, HEADLESS
 from ..core.logging import get_logger
 from ..core.strings import current_language, request_language
+from ..services.profile import snapshots
 from . import mcp_http
 from .auth import require_token
 from .guard import LocalOnlyGuard
@@ -28,6 +29,8 @@ from .routes import (
     page_router,
     profiles_router,
     proxy_router,
+    snapshots_bucket_router,
+    snapshots_router,
 )
 from .schemas.common import SuccessResponse
 
@@ -114,6 +117,8 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     app.include_router(mcp_setup_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(adspower_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(extensions_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(snapshots_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(snapshots_bucket_router, prefix=API_PREFIX, dependencies=protected)
     app.router.routes.append(mcp_route)
     if container.hub:
         # Browsers live on the operators' PCs; page actions relay through their agents.
@@ -139,6 +144,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
             "mode": "hub" if container.hub else "local",
             "language": current_language(),
             "army_callback": config.ARMY_CALLBACK if container.hub else "",
+            "snapshots": snapshots.enabled(),
         }
 
     @app.get("/", include_in_schema=False)

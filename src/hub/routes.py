@@ -46,12 +46,13 @@ from ..core import config
 from ..core.config import DATA_DIR
 from ..core.logging import get_logger
 from ..core.strings import get_string
+from ..services.profile import snapshots
 from ..services.profile.transfer import (
     IntegrityError,
+    WrongProfileError,
     export_to_zip,
     file_sha256,
-    import_from_zip,
-    read_cookies,
+    swap_in,
 )
 from . import agent_code, installers, platform_auth
 from .remote import POLL_WAIT
@@ -765,7 +766,7 @@ async def upload_bundle(
 ) -> dict:
     """Replace the profile's browser data with the agent's copy: the request body,
     or with chunked=1 the pieces sent to /part."""
-    require_profile(name, request.app.state.container.profile_manager)
+    profile = require_profile(name, request.app.state.container.profile_manager)
     # A late upload is fine while nobody else holds the profile (lease dropped
     # because the agent went offline, or the hub restarted).
     _require_lease(request, name, allow_free=True)
@@ -794,6 +795,8 @@ async def upload_bundle(
         if expected and expected.lower() != actual:
             raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt"))
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
+        if snapshots.enabled():  # the checked upload is this version's snapshot
+            snapshots.upload_later(profile, zip_path)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     if release:
@@ -803,24 +806,15 @@ async def upload_bundle(
 
 
 def _swap_in(zip_path: str, tmp: str, name: str, data_root: pathlib.Path) -> None:
-    extract = os.path.join(tmp, "data")
-    ok, result = import_from_zip(zip_path, extract)
-    if not ok:
-        raise HTTPException(status_code=400, detail=result)
-    if result.name != name:
-        raise HTTPException(status_code=400, detail=get_string("err_archive_other"))
-    new = pathlib.Path(extract, name)
-    new.mkdir(parents=True, exist_ok=True)
     try:
-        read_cookies(str(new))  # never replace good data with damaged cookies
-    except IntegrityError as e:
+        swap_in(zip_path, tmp, name, data_root)
+    except IntegrityError as e:  # never replace good data with damaged cookies
         logger.warning("Upload of %s refused: %s", name, e)
         raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt")) from e
-    target = data_root / name
-    old = pathlib.Path(tmp, "old")
-    if target.exists():
-        target.rename(old)
-    new.rename(target)
+    except WrongProfileError as e:
+        raise HTTPException(status_code=400, detail=get_string("err_archive_other")) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 class AnswerBody(BaseModel):

@@ -641,3 +641,33 @@ def test_groups_share_profiles_and_leads_manage_their_own(hub):
     assert HubStore("hub.json", SECRET).groups == {}
     pathlib.Path("old.json").write_text(json.dumps({"users": {}, "owners": {}}))
     assert HubStore("old.json", SECRET).profile_groups == {}
+
+
+def test_each_sync_saves_the_uploaded_version_as_a_snapshot(hub, s3):
+    client, _, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    for session in (b"one", b"two"):
+        upload = _zip("shop-01", {"data/cookies.sqlite": session})
+        assert (
+            client.put("/api/v1/hub/bundle/shop-01", content=upload, headers=ana).status_code == 200
+        )
+    listed = client.get("/api/v1/profiles/shop-01/snapshots", headers=ana).json()["snapshots"]
+    assert len(listed) == 2
+    # The server keeps only the current version; the bucket the earlier one too.
+    first = listed[-1]["id"]
+    assert (
+        client.post(f"/api/v1/profiles/shop-01/snapshots/{first}/restore", headers=ana).status_code
+        == 200
+    )
+    assert pathlib.Path("camoufox_data/shop-01/cookies.sqlite").read_bytes() == b"one"
+    # Someone else's profile stays hidden.
+    bob = _login(client, "bob", "bobbobbobbob")
+    assert client.get("/api/v1/profiles/shop-01/snapshots", headers=bob).status_code == 404
+
+
+def test_only_admins_see_the_whole_snapshot_bucket(hub, s3):
+    client, _, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    assert client.get("/api/v1/snapshots", headers=ana).status_code == 403
+    assert client.get("/api/v1/snapshots", headers=admin).json() == {"profiles": []}

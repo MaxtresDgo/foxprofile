@@ -33,6 +33,10 @@ class IntegrityError(ValueError):
     pass
 
 
+class WrongProfileError(ValueError):
+    pass
+
+
 def file_sha256(path: str) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as f:
@@ -176,3 +180,26 @@ def import_from_zip(
     except Exception as e:
         logger.exception("Error importing profile: %s", e)
         return False, str(e)
+
+
+def swap_in(
+    zip_path: str, tmp: str, name: str, data_root: pathlib.Path, check_name: bool = True
+) -> None:
+    """Replace data_root/<name> with an archive's data, through `tmp` on the same
+    filesystem (the old data ends up in tmp/old). ValueError if the archive is
+    unreadable, WrongProfileError if it is another profile's (check_name: a
+    snapshot may carry the name the profile had then), IntegrityError if its
+    cookies are damaged: good data is never replaced with bad."""
+    extract = os.path.join(tmp, "data")
+    ok, result = import_from_zip(zip_path, extract)
+    if not ok:
+        raise ValueError(result)
+    if check_name and result.name != name:
+        raise WrongProfileError(result.name)
+    new = pathlib.Path(extract, result.name)
+    new.mkdir(parents=True, exist_ok=True)
+    read_cookies(str(new))
+    target = data_root / name
+    if target.exists():
+        target.rename(pathlib.Path(tmp, "old"))
+    new.rename(target)
