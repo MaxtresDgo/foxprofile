@@ -150,7 +150,8 @@ def test_protocol_control_and_tab_restore(chrome_exe, tmp_path, origin_url):
             ":", 2
         )
         tabs = control(int(port), token, "tabs")["tabs"]
-        assert sorted(t["title"] for t in tabs) == ["page /one", "page /two"]
+        # The start page (services/browser/label.py), named after the profile, then the saved tabs.
+        assert sorted(t["title"] for t in tabs) == ["alice", "page /one", "page /two"]
     finally:
         runner.stop()
     assert json.loads(persona_file.read_text("utf-8")) == first_persona
@@ -180,6 +181,8 @@ def test_last_tab_closing_reports_browser_closed(chrome_exe, tmp_path):
         _, port, token = next(line for line in runner.log if line.startswith("CONTROL:")).split(
             ":", 2
         )
+        # The start page is a tab too: close it, then the blank one opened after it.
+        control(int(port), token, "tab_close", index=0)
         control(int(port), token, "evaluate", script="() => window.close()")
         runner.wait_for("BROWSER_CLOSED", timeout=30)
         assert runner.proc.wait(30) == 0

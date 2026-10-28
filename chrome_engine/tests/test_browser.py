@@ -117,7 +117,7 @@ def test_extensions_from_the_launcher_run_in_pages(chrome_exe, tmp_path, monkeyp
 
     async def scenario():
         origin = await Origin("127.0.0.1").start()
-        args = runner._extension_args()
+        args = runner._extension_args(runner.extension_dirs())
         eng = ChromeEngine(tmp_path / "p", executable=chrome_exe, headless=True, extra_args=args)
         context = await eng.start()
         try:
