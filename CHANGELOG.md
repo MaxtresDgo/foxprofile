@@ -48,6 +48,7 @@
 - Xuất profile ZIP bỏ qua thư mục cache của trình duyệt.
 
 ### Sửa
+- Profile Android (engine Chrome) không còn bị tràn khỏi màn hình: trên Windows, chiều cao trang được thu lại để cửa sổ vừa vùng làm việc của màn hình chính (trừ thanh tác vụ, theo tỉ lệ DPI) và cửa sổ được đặt ở giữa màn hình. `screen` mà trang thấy vẫn là màn hình của điện thoại; trang ngắn hơn màn hình đúng như các thanh của Chrome trên điện thoại (412x915 → 412x839).
 - Web panel (hub): sửa một profile trước khi danh sách người dùng tải xong (hoặc khi tải lỗi) không còn bỏ người dùng được giao; `PUT /hub/owners` chỉ gửi khi người dùng thật sự đổi. Trong sửa hàng loạt, ô người dùng chỉ đánh dấu được khi danh sách đã tải.
 - Web panel với hàng nghìn profile: danh sách hiện trước, fingerprint tải sau (6 yêu cầu cùng lúc thay vì tất cả); mỗi lúc chỉ một lần làm mới.
 - Thao tác hàng loạt: mở/dừng tối đa 3 profile cùng lúc và làm mới một lần ở cuối; các lỗi gộp thành một thông báo ("Lỗi (3): a, b, c") thay vì thông báo sau ghi đè thông báo trước.
