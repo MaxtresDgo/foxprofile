@@ -67,6 +67,8 @@ class BrowserLauncher:
         # Unpacked extension folders a profile loads (Container wires the
         # catalogue; a hub agent, what the hub sent with the launch).
         self.extensions: Callable[[Profile], list[str]] = lambda profile: []
+        # Group and accounts for the start page (label.details(); Container wires it).
+        self.details: Callable[[Profile], dict] = lambda profile: {}
         atexit.register(self.shutdown_all)
 
     @contextlib.contextmanager
@@ -164,7 +166,7 @@ class BrowserLauncher:
                 on_start()
 
             try:
-                proc = spawn_browser(profile, self.extensions(profile))
+                proc = spawn_browser(profile, self.extensions(profile), self.details(profile))
                 with self._lock:
                     self._active_sessions[profile.name] = proc
                     self._stop_notifiers[profile.name] = stop_event

@@ -15,7 +15,7 @@ from src.services.profile.transfer import export_to_zip, import_from_zip
 
 
 def tag(number="", remark=""):
-    return {"name": "shop-01", "number": number, "remark": remark}
+    return {**label.current("shop-01"), "number": number, "remark": remark}
 
 
 def test_titles():
@@ -25,11 +25,32 @@ def test_titles():
 
 
 def test_runner_reads_what_the_launcher_passed(monkeypatch):
-    env = label.env(Profile(name="shop-01", number="42", remark=None))
+    accounts = [{"id": "a1", "platform": "facebook", "username": "fox", "has_password": True}]
+    extra = label.details("Sales", accounts)
+    env = label.env(Profile(name="shop-01", number="42", remark=None), extra)
     monkeypatch.setenv(label.LABEL_ENV, env)
-    assert label.current("shop-01") == tag("42")
+    got = label.current("shop-01", "socks5://user:pass@203.0.113.5:1080", "android")
+    assert (got["number"], got["remark"], got["group"]) == ("42", "", "Sales")
+    assert got["accounts"] == [{"platform": "facebook", "username": "fox"}]
+    assert got["proxy"] == "SOCKS5 · 203.0.113.5:1080"  # never the credentials
     monkeypatch.delenv(label.LABEL_ENV)
-    assert label.current("shop-01") == tag()
+    assert label.current("shop-01")["number"] == ""
+
+
+def test_start_page_shows_what_is_known():
+    page = label.page_body(
+        {
+            **tag("42", "No <chip>"),
+            "group": "Sales",
+            "os": "android",
+            "accounts": [{"platform": "facebook", "username": "fox"}],
+        }
+    )
+    for text in ("#42 · shop-01", "Sales", "Facebook", "fox", "Android", "No &lt;chip&gt;"):
+        assert text in page
+    assert "<script" not in page and "pass" not in page
+    # Nothing given, nothing shown, except the proxy: "none" is worth saying.
+    assert ">Sales<" not in label.page_body(tag())
 
 
 @pytest.mark.parametrize("engine", ["chrome", "camoufox"])

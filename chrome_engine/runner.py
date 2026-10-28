@@ -19,7 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from chrome_engine import fetch
+from chrome_engine import fetch, geo
 from chrome_engine.engine import ChromeEngine
 from src.core.config import DATA_DIR, HEADLESS, RESTORE_TABS
 from src.services.browser import control, label, session
@@ -74,6 +74,19 @@ def _extension_args(dirs: list[str]) -> list[str]:
     return [f"--disable-extensions-except={joined}", f"--load-extension={joined}"]
 
 
+async def _place(engine: ChromeEngine) -> dict:
+    """The start page's exit IP: the one the engine looked up for the timezone, or
+    (no proxy, or a pinned timezone and locale) the same lookup now."""
+    found = engine.geo or await asyncio.to_thread(
+        geo.lookup, engine.bridge.url if engine.bridge else None
+    )
+    return {
+        "ip": found.ip,
+        "country": found.locale.rpartition("-")[2],
+        "timezone": found.timezone,
+    }
+
+
 def _headless() -> bool:
     # "virtual" means a hidden Xvfb display for Camoufox; Chrome runs headless instead.
     return HEADLESS in (True, "virtual")
@@ -88,7 +101,7 @@ async def run_browser(
 ) -> int:
     profile_dir = os.path.join(os.getcwd(), DATA_DIR, profile_name)
     proxy = proxy_str if proxy_str and proxy_str != "None" else None
-    tag = label.current(profile_name)
+    tag = label.current(profile_name, proxy_str, os_type)
     extensions = extension_dirs()
     badge = label.write_extension(tag, "chrome")
     if badge:
@@ -120,7 +133,7 @@ async def run_browser(
     try:
         for warning in engine.warnings:
             _say(f"Warning: {warning}")
-        restored = await open_tabs(context, profile_dir, tag)
+        restored = await open_tabs(context, profile_dir, tag, asyncio.ensure_future(_place(engine)))
         if restored:
             _say(f"Restored {restored} tab(s)")
 

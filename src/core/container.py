@@ -51,12 +51,24 @@ class Container:
             remote.extensions = lambda p: store.for_profile(
                 p.name, p.engine, self.hub_store.profile_groups.get(p.name)
             )
+            remote.details = lambda p: self._details(p, self.hub_store.profile_groups.get(p.name))
             return remote
         from ..services.browser.launcher import BrowserLauncher
 
         launcher = BrowserLauncher()
         launcher.extensions = lambda p: store.dirs(store.for_profile(p.name, p.engine))
+        launcher.details = lambda p: self._details(p, None)
         return launcher
+
+    def _details(self, profile, group: str | None) -> dict:
+        """The start page's group and accounts (no secrets); a locked store shows none."""
+        from ..services.browser import label
+
+        try:
+            accounts = self.profile_manager.accounts.list(profile.name)
+        except Exception:
+            accounts = []
+        return label.details(group, accounts)
 
     @property
     def extensions(self):

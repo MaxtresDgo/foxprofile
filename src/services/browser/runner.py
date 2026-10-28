@@ -14,7 +14,7 @@ from camoufox.virtdisplay import VirtualDisplay
 
 from chrome_engine.proxy_bridge import ProxyBridge, Upstream
 from src.core.config import DATA_DIR, HEADLESS, RESTORE_TABS
-from src.services.browser import control, label, session
+from src.services.browser import control, label, session, taskbar
 from src.services.browser import display as xvfb
 from src.services.browser.fingerprint import load_or_create
 from src.services.browser.process import extension_dirs
@@ -64,12 +64,16 @@ def _open_urls(context: object) -> list[str]:
     return [p.url for p in context.pages if not p.is_closed()]
 
 
-async def open_tabs(context: object, profile_dir: str, tag: dict[str, str]) -> int:
-    """The label tab first, then the saved tabs, or one blank tab to work in."""
+async def open_tabs(
+    context: object, profile_dir: str, tag: dict, place_job: asyncio.Future | None = None
+) -> int:
+    """The start page first, then the saved tabs, or one blank tab to work in; on
+    Windows, the number on the browser's taskbar icon too."""
     try:
-        await label.open_tab(context, tag)
+        await label.open_tab(context, tag, place_job)
     except Exception as e:  # a missing label never stops the launch
         _safe_print(f"Warning: no label tab: {_compact_error(e, 200)}")
+    taskbar.start(tag["number"], tag["name"])
     restored = await restore_tabs(context, session.load(profile_dir)) if RESTORE_TABS else 0
     if not restored:
         await (await context.new_page()).bring_to_front()
@@ -183,7 +187,7 @@ async def run_browser(
         **geo_overrides(timezone, locale),
     }
 
-    tag = label.current(profile_name)
+    tag = label.current(profile_name, proxy_str, os_type)
     addons = extension_dirs()
     badge = label.write_extension(tag, "camoufox")
     if badge:
@@ -206,6 +210,8 @@ async def run_browser(
         # Blocking (up to ~30 s over a slow proxy), so off the event loop; inside
         # the try so a dead proxy reports LAUNCH_FAILED like any launch error.
         launch_config["geoip"] = await asyncio.to_thread(exit_ip, proxy_str)
+        # Placed with the local GeoIP database while the browser starts.
+        place_job = asyncio.ensure_future(asyncio.to_thread(label.place, launch_config["geoip"]))
         if needs_bridge(proxy_config):
             # A loopback proxy without credentials that opens every connection
             # through the SOCKS5 proxy with them; hostnames still resolve there.
@@ -218,7 +224,7 @@ async def run_browser(
             launch_config["virtual_display"] = display.get()
             xvfb.record(display.proc.pid, launch_config["virtual_display"])
         async with AsyncCamoufox(**launch_config) as context:
-            restored = await open_tabs(context, profile_dir, tag)
+            restored = await open_tabs(context, profile_dir, tag, place_job)
             if restored:
                 _safe_print(f"Restored {restored} tab(s)")
 

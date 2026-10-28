@@ -18,7 +18,7 @@ class FakeProc:
 def bl(monkeypatch):
     spawned = []
 
-    def spawn(profile, extensions=()):
+    def spawn(profile, extensions=(), details=None):
         spawned.append(profile.name)
         return FakeProc()
 
@@ -49,7 +49,7 @@ def test_second_launch_returns_false_without_callbacks(bl):
 def test_concurrent_launches_spawn_one_browser(bl, monkeypatch):
     entered, release = threading.Event(), threading.Event()
 
-    def slow_spawn(profile, extensions=()):
+    def slow_spawn(profile, extensions=(), details=None):
         entered.set()
         release.wait(5)
         bl.spawned.append(profile.name)
@@ -70,7 +70,7 @@ def test_concurrent_launches_spawn_one_browser(bl, monkeypatch):
 
 
 def test_failed_spawn_releases_the_profile(bl, monkeypatch):
-    def broken(profile, extensions=()):
+    def broken(profile, extensions=(), details=None):
         raise OSError("no runner")
 
     monkeypatch.setattr(launcher_mod, "spawn_browser", broken)

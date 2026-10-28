@@ -41,11 +41,14 @@ def extension_dirs() -> list[str]:
     return [d for d in os.environ.get(EXTENSIONS_ENV, "").split(os.pathsep) if d]
 
 
-def spawn_browser(profile: Profile, extensions: list[str] = ()) -> subprocess.Popen:
-    """Spawn the browser subprocess for the given profile."""
+def spawn_browser(
+    profile: Profile, extensions: list[str] = (), details: dict | None = None
+) -> subprocess.Popen:
+    """Spawn the browser subprocess for the given profile. `details`: label.details()
+    for its start page."""
     env = os.environ.copy()
     env[EXTENSIONS_ENV] = os.pathsep.join(extensions)
-    env[label.LABEL_ENV] = label.env(profile)
+    env[label.LABEL_ENV] = label.env(profile, details)
     existing_pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = _PROJECT_ROOT + (
         os.pathsep + existing_pythonpath if existing_pythonpath else ""
