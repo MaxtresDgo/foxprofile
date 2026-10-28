@@ -93,6 +93,11 @@ def login(body: LoginBody, request: Request) -> dict:
         user = platform_auth.authenticate(body.email, body.password)
     except platform_auth.LoginError as e:
         raise HTTPException(status_code=e.status, detail=str(e)) from e
+    return _sign_in(request, user)
+
+
+def _sign_in(request: Request, user: dict) -> dict:
+    """A hub session for a platform user; their permissions decide the role."""
     admin = platform_auth.has_permission(user["permisos"], config.AUTH_ADMIN_PERMISSION)
     if not admin and not platform_auth.has_permission(
         user["permisos"], config.AUTH_ACCESS_PERMISSION
@@ -101,6 +106,36 @@ def login(body: LoginBody, request: Request) -> dict:
     store = hub_store(request)
     token = store.sign_in(user["email"], "admin" if admin else "operator", user["name"])
     return {"token": token, **store.verify(token)}
+
+
+class ArmyLoginBody(BaseModel):
+    token: str = Field(max_length=8000)
+
+
+# Army tokens already used, by state: each opens one session. Kept longer than any
+# token lives (Army signs them for 10 minutes).
+# ponytail: in memory, fine for the hub's single process.
+ARMY_USED_TTL = 3600
+_army_used: dict[str, float] = {}
+_army_lock = threading.Lock()
+
+
+@public_router.post("/army-login")
+def army_login(body: ArmyLoginBody, request: Request) -> dict:
+    """A hub session from the token Army's panel opens the hub with (no password:
+    Army already checked it), plus where to send the Army key and with which state."""
+    try:
+        user = platform_auth.verify_army_token(body.token)
+    except platform_auth.LoginError as e:
+        raise HTTPException(status_code=e.status, detail=str(e)) from e
+    now = time.time()
+    with _army_lock:
+        for state in [s for s, exp in _army_used.items() if exp < now]:
+            del _army_used[state]
+        if user["state"] in _army_used:
+            raise HTTPException(status_code=401, detail=get_string("err_army_token"))
+        _army_used[user["state"]] = now + ARMY_USED_TTL
+    return {**_sign_in(request, user), "callback": user["callback"], "state": user["state"]}
 
 
 @router.get("/me")
@@ -177,9 +212,9 @@ def redeem_agent_code(body: AgentCode, request: Request) -> dict:
 @router.post("/me/army-key")
 def new_army_key(request: Request) -> dict:
     """A key for Army's panel, handed to it by the panel's "Authorize Army" page
-    (posted to config.ARMY_CALLBACK only); replaces the previous one of its kind."""
+    (posted to the callback signed in the Army token); replaces the previous one of its kind."""
     user, store = _user(request), hub_store(request)
-    if not config.ARMY_CALLBACK:
+    if not config.ARMY_SECRET:
         raise HTTPException(status_code=404, detail=get_string("err_no_army"))
     if user["name"] not in store.users:
         raise HTTPException(status_code=400, detail=get_string("err_no_personal_key"))

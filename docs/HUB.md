@@ -263,13 +263,14 @@ Los agentes instalados con el MSI o el `.pkg` siguen solos la versión del hub: 
 
 Army (`/perfiles-users` y `/perfiles-admin`) abre los perfiles en nombre de cada usuario con una clave propia de ese usuario, nunca con `FOXPROFILE_API_TOKEN`:
 
-1. En Army, el usuario pulsa *Vincular con Fox*. Army abre el panel del hub en `#army=<state>`.
-2. Inicia sesión (la misma cuenta de Army) y pulsa *Autorizar*. El panel crea una clave `army_key` (`POST /hub/me/army-key`, separada de la de MCP y la del agente) y la envía por POST, con el `state`, **solo** a `FOXPROFILE_ARMY_CALLBACK`. Esa dirección sale de la configuración del hub, no del enlace.
-3. Army comprueba el `state` y que la clave sea de ese mismo correo, y la guarda cifrada.
+1. En Army, el usuario pulsa *Vincular con Fox*. El back de Army firma un token corto (HS256, 10 minutos, audiencia `foxprofile`) con `FOXPROFILE_ARMY_SECRET`: correo, nombre, permisos, un `state` de un solo uso y `cb`, la dirección del callback de **ese** back. Abre el panel del hub en `#army=<token>`.
+2. El panel lo cambia por una sesión en `POST /hub/army-login`, sin pedir contraseña: Army ya la comprobó, y los permisos del token deciden el rol igual que en un inicio de sesión normal. Cada token sirve una sola vez. Si el panel ya tenía sesión con otra cuenta, muestra *¿Ese no eres tú?* con *Cerrar sesión y continuar como …*.
+3. Al pulsar *Autorizar*, el panel crea una clave `army_key` (`POST /hub/me/army-key`, separada de la de MCP y la del agente) y la envía por POST, con el `state`, a `cb`. Como esa dirección va firmada, un enlace armado no puede mandar la clave a otro lado, y cada ambiente de Army (local, stage, prod) vuelve al suyo.
+4. Army comprueba el `state` y que la clave sea de ese mismo correo, y la guarda cifrada.
 
 Con esa clave Army también lee `GET /accounts` (red y usuario de las cuentas de cada perfil que ve, sin contraseña ni 2FA) para mostrarlas en sus tarjetas. Las demás rutas de cuentas siguen cerradas a toda clave personal, la de Army incluida.
 
-Sin `FOXPROFILE_ARMY_CALLBACK` la vinculación está apagada. Para asignar perfiles a quien todavía no entró al hub, un admin crea la cuenta con `PUT /hub/users/{correo}` (si ya existe, conserva su rol).
+Sin `FOXPROFILE_ARMY_SECRET` la vinculación está apagada. Quien tiene el secreto puede abrir sesión como cualquiera en el hub: cada hub lleva el suyo (dev ≠ prod) y solo lo conocen los back de Army que deben poder vincularse con él. Para asignar perfiles a quien todavía no entró al hub, un admin crea la cuenta con `PUT /hub/users/{correo}` (si ya existe, conserva su rol).
 
 ## Visor remoto, cookies y MCP
 

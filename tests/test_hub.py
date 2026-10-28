@@ -1,10 +1,14 @@
 """Hub mode: operator sessions, per-user profile visibility and the agent protocol."""
 
+import base64
 import contextlib
 import hashlib
+import hmac
 import io
 import json
 import pathlib
+import secrets
+import time
 import zipfile
 
 import pytest
@@ -22,6 +26,8 @@ from src.services.browser.launcher import BrowserControlError
 from src.services.profile.transfer import COOKIES_GZ, COOKIES_SHA, pack_cookies, read_cookies
 
 SECRET = "s" * 32
+ARMY_SECRET = "a" * 32
+CALLBACK = "https://army.example.com/perfiles/fox/vincular/callback"
 # The identity platform: email -> (password, permissions). It only lets in users
 # holding the permission it requires for FoxProfile, like the real one.
 PLATFORM = {
@@ -470,11 +476,11 @@ def test_army_key_opens_the_users_own_profiles(hub, monkeypatch):
     client, container, admin = hub
     ana = _login(client, "ana", "anaanaanaana")
     client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
-    # Off until the hub knows where Army takes the key.
+    # Off until the hub shares a secret with Army.
     assert client.post("/api/v1/hub/me/army-key", headers=ana).status_code == 404
-    assert client.get("/api/v1/info").json()["army_callback"] == ""
-    monkeypatch.setattr(config, "ARMY_CALLBACK", "https://army.example.com/fox/callback")
-    assert client.get("/api/v1/info").json()["army_callback"].startswith("https://army.")
+    assert client.get("/api/v1/info").json()["army"] is False
+    monkeypatch.setattr(config, "ARMY_SECRET", ARMY_SECRET)
+    assert client.get("/api/v1/info").json()["army"] is True
 
     army = {
         "Authorization": "Bearer "
@@ -488,6 +494,64 @@ def test_army_key_opens_the_users_own_profiles(hub, monkeypatch):
     client.post("/api/v1/hub/me/key", headers=ana)
     client.post("/api/v1/hub/me/agent-key", headers=ana)
     assert client.get("/api/v1/hub/me", headers=army).status_code == 200
+
+
+def _army_token(secret=ARMY_SECRET, **claims):
+    """What Army's back signs (jsonwebtoken, HS256) when a user presses Link."""
+
+    def b64(d):
+        return base64.urlsafe_b64encode(json.dumps(d).encode()).rstrip(b"=").decode()
+
+    claims = {
+        "sub": "Dan@Example.com",
+        "name": "Dan",
+        "permisos": ["foxprofile:access"],
+        "state": secrets.token_urlsafe(32),
+        "cb": CALLBACK,
+        "aud": "foxprofile",
+        "exp": int(time.time()) + 600,
+        **claims,
+    }
+    body = b64({"alg": "HS256", "typ": "JWT"}) + "." + b64(claims)
+    sig = hmac.new(secret.encode(), body.encode(), hashlib.sha256).digest()
+    return body + "." + base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+
+
+def test_army_login_signs_in_without_a_password(hub, monkeypatch):
+    client, _, _ = hub
+    url = "/api/v1/hub/army-login"
+    # Off without the shared secret, even with a well-formed token.
+    assert client.post(url, json={"token": _army_token()}).status_code == 401
+    monkeypatch.setattr(config, "ARMY_SECRET", ARMY_SECRET)
+
+    token = _army_token(state="s" * 43)
+    r = client.post(url, json={"token": token})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert (body["name"], body["role"], body["display"]) == ("dan@example.com", "operator", "Dan")
+    assert (body["callback"], body["state"]) == (CALLBACK, "s" * 43)
+    session = {"Authorization": "Bearer " + body["token"]}
+    assert client.get("/api/v1/hub/me", headers=session).json()["name"] == "dan@example.com"
+    assert client.post("/api/v1/hub/me/army-key", headers=session).status_code == 200
+    # One session per token.
+    assert client.post(url, json={"token": token}).status_code == 401
+
+    assert client.post(url, json={"token": _army_token(secret="b" * 32)}).status_code == 401
+    assert (
+        client.post(url, json={"token": _army_token(exp=int(time.time()) - 1)}).status_code == 401
+    )
+    assert client.post(url, json={"token": _army_token(aud="other")}).status_code == 401
+    assert (
+        client.post(url, json={"token": _army_token(cb="javascript:alert(1)")}).status_code == 401
+    )
+    assert client.post(url, json={"token": "not.a.token"}).status_code == 401
+    # Army's permissions decide the role, like a password login.
+    r = client.post(url, json={"token": _army_token(permisos=["reports:read"])})
+    assert r.status_code == 403
+    r = client.post(
+        url, json={"token": _army_token(sub="boss@example.com", permisos=["foxprofile:admin"])}
+    )
+    assert r.json()["role"] == "admin"
 
 
 def test_admin_creates_accounts_to_assign_profiles(hub):

@@ -73,10 +73,11 @@ AUTH_ADMIN_PERMISSION = _env("AUTH_ADMIN_PERMISSION", "foxprofile:admin")
 # Checked here too, not only by the platform: a misconfigured platform must not
 # let all its users in. Admins always get in.
 AUTH_ACCESS_PERMISSION = _env("AUTH_ACCESS_PERMISSION", "foxprofile:access")
-# Army's panel links each user's account (hub/routes.new_army_key): after they
-# authorize it, the hub panel POSTs their key here, and only here. It is fixed in
-# this config, never taken from the link, so a crafted link cannot send a key elsewhere.
-ARMY_CALLBACK = _env("ARMY_CALLBACK", "").rstrip("/")
+# Army's panel links each user's account (hub/routes.army_login, new_army_key): it
+# opens the panel with a short-lived token signed with this shared secret (HS256),
+# which signs the user in and names where the panel POSTs their key. Only a holder
+# of the secret can name that address. Empty = linking off.
+ARMY_SECRET = _env("ARMY_SECRET", "")
 # Agent side: where the hub is and which operator this PC belongs to.
 HUB_URL = _env("HUB_URL", "").rstrip("/")
 # Agent installers in a private S3 bucket (RustFS, MinIO, AWS) instead of next to

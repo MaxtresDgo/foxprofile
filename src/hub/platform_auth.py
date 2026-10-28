@@ -8,9 +8,14 @@ Its token is not kept: a 2xx only proves the login, and the hub issues its own s
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 import math
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from ..core import config
@@ -83,6 +88,41 @@ def _refused(e: urllib.error.HTTPError) -> LoginError:
     if isinstance(wait, (int, float)) and wait > 0:
         return LoginError(429, get_string("err_login_wait", minutes=math.ceil(wait / 60)))
     return LoginError(401, get_string("err_bad_login"))
+
+
+def _b64(part: str) -> bytes:
+    return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+
+
+def verify_army_token(token: str) -> dict:
+    """{"email", "name", "permisos", "state", "callback"} from the token Army's panel
+    opens the hub with (HS256, signed with ARMY_SECRET, audience "foxprofile"), or
+    LoginError. Army checked the password; the signature is what we trust."""
+    try:
+        head, body, sig = token.split(".")
+        want = hmac.new(config.ARMY_SECRET.encode(), f"{head}.{body}".encode(), hashlib.sha256)
+        if not config.ARMY_SECRET or not hmac.compare_digest(_b64(sig), want.digest()):
+            raise ValueError("bad signature")
+        if json.loads(_b64(head)).get("alg") != "HS256":
+            raise ValueError("bad alg")
+        claims = json.loads(_b64(body))
+        callback = str(claims["cb"])
+        if (
+            claims.get("aud") != "foxprofile"
+            or float(claims["exp"]) < time.time()
+            or urllib.parse.urlsplit(callback).scheme not in ("http", "https")
+        ):
+            raise ValueError("expired or malformed")
+        return {
+            "email": str(claims["sub"]).strip().lower(),
+            "name": str(claims.get("name") or "").strip(),
+            "permisos": list(claims.get("permisos") or []),
+            "state": str(claims["state"]),
+            "callback": callback,
+        }
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
+        logger.info("Army token refused: %s", e)
+        raise LoginError(401, get_string("err_army_token")) from e
 
 
 def has_permission(permisos: list, required: str) -> bool:
