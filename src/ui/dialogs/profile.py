@@ -6,7 +6,7 @@ import flet as ft
 
 from ...core.strings import get_string
 from ...interfaces.protocols import IProxyService
-from ...models.profile import Profile
+from ...models.profile import NUMBER_MAX, REMARK_MAX, Profile
 from ...services.proxy.geo_check import GeoCheckResult, check_geo
 from ...utils.validation import (
     validate_locale,
@@ -22,7 +22,8 @@ from ..theme.styles import ACCENT_STYLE, DLG_FIELD_KWARGS, OUTLINE_STYLE
 def open_profile_dialog(
     page: ft.Page,
     proxy_service: IProxyService,
-    on_save: Callable[[str, str, str, str, str, str], str | None],
+    # name, proxy, os, timezone, locale, engine, number, remark
+    on_save: Callable[[str, str, str, str, str, str, str, str], str | None],
     profile: Profile | None = None,
 ) -> None:
     is_edit = profile is not None
@@ -38,6 +39,17 @@ def open_profile_dialog(
     name_field = ft.TextField(
         value=profile.name if profile is not None else "",
         hint_text="" if profile is not None else get_string("enter_profile_name"),
+        **DLG_FIELD_KWARGS,
+    )
+    number_field = ft.TextField(
+        value=(profile.number or "") if profile is not None else "",
+        max_length=NUMBER_MAX,
+        text_style=_DATA,
+        **DLG_FIELD_KWARGS,
+    )
+    remark_field = ft.TextField(
+        value=(profile.remark or "") if profile is not None else "",
+        max_length=REMARK_MAX,
         **DLG_FIELD_KWARGS,
     )
     proxy_field = ft.TextField(
@@ -161,7 +173,9 @@ def open_profile_dialog(
             page.update()
             return
 
-        error = on_save(name, proxy, os_type, timezone, locale, engine)
+        number = (number_field.value or "").strip()
+        remark = (remark_field.value or "").strip()
+        error = on_save(name, proxy, os_type, timezone, locale, engine, number, remark)
         if error:
             name_error.value = error
             name_error.visible = True
@@ -199,6 +213,21 @@ def open_profile_dialog(
                 controls=[
                     _field(get_string("profile_name"), name_field),
                     name_error,
+                    ft.Row(
+                        spacing=12,
+                        vertical_alignment=ft.CrossAxisAlignment.START,
+                        controls=[
+                            ft.Container(
+                                expand=2,
+                                content=_field(get_string("profile_number"), number_field),
+                            ),
+                            ft.Container(
+                                expand=3,
+                                content=_field(get_string("profile_remark"), remark_field),
+                            ),
+                        ],
+                    ),
+                    ft.Text(get_string("profile_label_hint"), size=12, color=COLORS["text_dim"]),
                     ft.Row(
                         spacing=12,
                         vertical_alignment=ft.CrossAxisAlignment.START,

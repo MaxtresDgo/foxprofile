@@ -8,7 +8,7 @@ import time
 
 from ...core.config import DATA_DIR, PROFILES_FILE
 from ...core.logging import get_logger
-from ...models.profile import ENGINES, UID_RE, Profile
+from ...models.profile import ENGINES, NUMBER_MAX, REMARK_MAX, UID_RE, Profile, label_text
 from ...utils.validation import (
     valid_or_none,
     validate_locale,
@@ -83,6 +83,8 @@ class ProfileManager:
                             "timezone": valid_or_none(p_data.get("timezone"), validate_timezone),
                             "locale": valid_or_none(p_data.get("locale"), validate_locale),
                             "engine": _engine_or_default(p_data.get("engine")),
+                            "number": label_text(p_data.get("number"), NUMBER_MAX),
+                            "remark": label_text(p_data.get("remark"), REMARK_MAX),
                         }
                         uid = p_data.get("uid")
                         if isinstance(uid, str) and UID_RE.fullmatch(uid):
@@ -215,6 +217,17 @@ class ProfileManager:
 
             self.save_profiles()
             logger.info("Updated profile: %s -> %s", original_name, new_name)
+            return True
+
+    def set_label(self, name: str, number: object, remark: object) -> bool:
+        """The number and remark the browser shows (services/browser/label.py)."""
+        with self._lock:
+            profile = self.profiles.get(name)
+            if profile is None:
+                return False
+            profile.number = label_text(number, NUMBER_MAX)
+            profile.remark = label_text(remark, REMARK_MAX)
+            self.save_profiles()
             return True
 
     def delete_profile(self, name: str) -> bool:

@@ -211,6 +211,7 @@ def restore_orphan(
         uid=uid,
     ):
         raise HTTPException(status_code=409, detail=get_string("err_profile_exists"))
+    pm.set_label(name, saved.get("number"), saved.get("remark"))
     try:
         _restore(bl, pm.profiles[name], snap_id)
     except HTTPException:

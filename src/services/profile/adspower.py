@@ -156,6 +156,7 @@ class AdsPower:
             "id": profile_id,
             "no": item.get("profile_no"),
             "name": item.get("name") or "",
+            "remark": item.get("remark") or "",
             "proxy": proxy,
             "user_agent": user_agent,
             "os_type": os_type,
@@ -306,6 +307,7 @@ def create(pm: Any, data: dict[str, Any], name: str, data_dir: str) -> dict[str,
         proxy = ""
     if name in pm.profiles or not pm.add_profile(name, proxy, data["os_type"], None, None, ENGINE):
         return {"status": "exists", "name": name, "warnings": []}
+    fill_label(pm, name, data)
     # Before the first launch (cookie import is one), so it is this phone from the start.
     user_agent = data["user_agent"] if data["os_type"] == "android" else None
     personas.save(
@@ -320,6 +322,18 @@ def create(pm: Any, data: dict[str, Any], name: str, data_dir: str) -> dict[str,
             warnings.append(get_string("err_accounts_locked"))
     logger.info("Created %s from AdsPower profile %s", name, data.get("id"))
     return {"status": "created", "name": name, "warnings": warnings}
+
+
+def fill_label(pm: Any, name: str, data: dict[str, Any]) -> None:
+    """AdsPower's number and remark (services/browser/label.py), only where the
+    profile has none: one written in FoxProfile is never replaced."""
+    profile = pm.profiles.get(name)
+    if profile is None:
+        return
+    number = profile.number or data.get("no")
+    remark = profile.remark or data.get("remark")
+    if (number, remark) != (profile.number, profile.remark):
+        pm.set_label(name, number, remark)
 
 
 def has_cookies(data: dict[str, Any]) -> bool:
@@ -354,11 +368,13 @@ def import_here(pm: Any, bl: Any, data: dict[str, Any], name: str, data_dir: str
 
 def reimport_here(pm: Any, bl: Any, data: dict[str, Any], name: str) -> dict[str, Any]:
     """Refresh existing profile `name`'s cookies from AdsPower, on this machine.
-    Only the cookies: its proxy, accounts, persona and browser data stay."""
+    Only the cookies (and a missing number or remark): its proxy, accounts,
+    persona and browser data stay."""
     from ..browser import cookies
     from ..browser.launcher import ProfileBusyError
 
     result: dict[str, Any] = {"status": "reimported", "name": name, "cookies": 0, "warnings": []}
+    fill_label(pm, name, data)
     if not has_cookies(data):
         result["warnings"].append(get_string("adspower_no_cookies"))
         return result

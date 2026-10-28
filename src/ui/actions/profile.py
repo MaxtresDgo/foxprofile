@@ -38,11 +38,19 @@ def edit_profile(
     original = profile.name
 
     def on_save(
-        new_name: str, new_proxy: str, new_os: str, timezone: str, locale: str, _engine: str
+        new_name: str,
+        new_proxy: str,
+        new_os: str,
+        timezone: str,
+        locale: str,
+        _engine: str,
+        number: str,
+        remark: str,
     ) -> str | None:
         if new_name != original and bl.is_running(original):
             return get_string("stop_before_rename")
         if pm.update_profile(original, new_name, new_proxy, new_os, timezone, locale):
+            pm.set_label(new_name, number, remark)
             log(get_string("updated_profile", old=original, new=new_name))
             refresh()
             return None
@@ -59,11 +67,20 @@ def add_profile(
     refresh: Callable[[], None],
 ) -> None:
     def on_save(
-        name: str, proxy: str, os_type: str, timezone: str, locale: str, engine: str
+        name: str,
+        proxy: str,
+        os_type: str,
+        timezone: str,
+        locale: str,
+        engine: str,
+        number: str,
+        remark: str,
     ) -> str | None:
         if engine == "chrome" and (reason := chrome_prefetch.unsupported_reason()):
             return get_string("chrome_engine_unsupported", reason=reason)
         if pm.add_profile(name, proxy, os_type, timezone, locale, engine):
+            if number or remark:
+                pm.set_label(name, number, remark)
             log(get_string("created_profile", name=name))
             if engine == "chrome":
                 chrome_prefetch.start(log)

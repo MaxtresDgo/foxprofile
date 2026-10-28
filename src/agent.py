@@ -208,6 +208,9 @@ class Agent:
         container = Container(hub=False)
         self.bl = container.browser_launcher
         self.bl.extensions = lambda profile: self._ext_dirs.get(profile.name, [])
+        # Group and accounts for each launch's start page, as the hub sent them.
+        self._details: dict[str, dict] = {}
+        self.bl.details = lambda profile: self._details.get(profile.name, {})
         self.proxies = container.proxy_service
         self.data_root = pathlib.Path(DATA_DIR)
         self.data_root.mkdir(parents=True, exist_ok=True)
@@ -265,8 +268,11 @@ class Agent:
 
     # --- commands --------------------------------------------------------------
 
-    def launch(self, profile_dict: dict, extensions: list[dict] = ()) -> None:
+    def launch(
+        self, profile_dict: dict, extensions: list[dict] = (), details: dict | None = None
+    ) -> None:
         name = profile_dict["name"]
+        self._details[name] = details or {}
         try:
             with self.busy("opening", name):
                 profile = self._download(name)
@@ -592,7 +598,7 @@ class Agent:
             if not resp:
                 continue
             if resp["op"] == "launch":
-                args = (resp["profile"], resp.get("extensions") or [])
+                args = (resp["profile"], resp.get("extensions") or [], resp.get("details"))
                 threading.Thread(target=self.launch, args=args, daemon=True).start()
             elif resp["op"] == "stop":
                 threading.Thread(target=self.stop, args=(resp["name"],), daemon=True).start()

@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from src.services.browser import runner, session
+from src.services.browser import label, runner, session
 
 
 def test_save_and_load_round_trip(tmp_path):
@@ -61,6 +61,11 @@ class FakePage:
     async def bring_to_front(self):
         pass
 
+    async def evaluate(self, script, arg):
+        if "broken" in arg.get("title", ""):
+            raise RuntimeError("Target closed")
+        self.shown = {**getattr(self, "shown", {}), **arg}
+
 
 class FakeContext:
     def __init__(self):
@@ -72,17 +77,49 @@ class FakeContext:
         return page
 
 
-def test_restore_reuses_blank_tab_and_opens_the_rest():
+def test_restore_opens_tabs_after_the_open_ones():
     ctx = FakeContext()
     n = asyncio.run(runner.restore_tabs(ctx, ["https://a.test/", "https://b.test/"]))
     assert n == 2
-    assert [p.url for p in ctx.pages] == ["https://a.test/", "https://b.test/"]
+    assert [p.url for p in ctx.pages] == ["about:blank", "https://a.test/", "https://b.test/"]
 
 
 def test_restore_survives_a_failing_tab():
     ctx = FakeContext()
     asyncio.run(runner.restore_tabs(ctx, ["https://fail.test/", "https://ok.test/"]))
-    assert [p.url for p in ctx.pages] == ["about:blank", "https://ok.test/"]
+    assert [p.url for p in ctx.pages] == ["about:blank", "about:blank", "https://ok.test/"]
+
+
+def test_label_tab_comes_first(tmp_path, monkeypatch):
+    monkeypatch.setattr(runner, "RESTORE_TABS", True)
+    tag = label.current("shop-01")
+    tag.update(number="42", remark="No <chip>")
+    session.save(str(tmp_path), ["https://a.test/"])
+    ctx = FakeContext()
+
+    async def with_ip():
+        place = asyncio.get_running_loop().create_future()
+        place.set_result({"ip": "203.0.113.9", "country": "MX", "timezone": "America/Mexico_City"})
+        restored = await runner.open_tabs(ctx, str(tmp_path), tag, place)
+        await asyncio.sleep(0)  # the IP is shown by a task of its own
+        return restored
+
+    assert asyncio.run(with_ip()) == 1
+    shown = ctx.pages[0].shown
+    assert shown["title"] == "shop-01-No <chip>"
+    assert "No &lt;chip&gt;" in shown["body"]
+    assert shown["ip"] == "203.0.113.9"
+    assert [p.url for p in ctx.pages[1:]] == ["https://a.test/"]
+
+    # Nothing saved: one blank tab to work in, so the label tab stays as it is.
+    ctx = FakeContext()
+    assert asyncio.run(runner.open_tabs(ctx, str(tmp_path / "new"), tag)) == 0
+    assert len(ctx.pages) == 2
+
+    # A label tab that fails to load never stops the launch.
+    ctx = FakeContext()
+    broken = {**tag, "remark": "broken"}
+    assert asyncio.run(runner.open_tabs(ctx, str(tmp_path), broken)) == 1
 
 
 def test_snapshot_saves_changes_and_keeps_tabs_when_window_closes(tmp_path, monkeypatch):

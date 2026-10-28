@@ -389,6 +389,7 @@ def test_hub_import_reads_adspower_on_the_callers_pc(hub, tmp_path, monkeypatch)
         "id": "id1",
         "no": "1",
         "name": "Account 1",
+        "remark": "No chip",
         "proxy": None,
         "user_agent": PHONE_UA,
         "os_type": "android",
@@ -411,6 +412,8 @@ def test_hub_import_reads_adspower_on_the_callers_pc(hub, tmp_path, monkeypatch)
     assert r.json()["status"] == "created" and r.json()["cookies"] == 1
     hub_store = container._instances["hub"]
     assert hub_store.owners["Account 1"] == "ana"
+    created = container.profile_manager.profiles["Account 1"]
+    assert (created.number, created.remark) == ("1", "No chip")
     saved = personas.load(tmp_path / "camoufox_data" / "Account 1")
     assert saved.user_agent == PHONE_UA  # on the hub, so it travels in the profile ZIP
     accounts = client.get("/api/v1/profiles/Account 1/accounts", headers=ana).json()
