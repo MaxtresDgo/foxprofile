@@ -716,6 +716,7 @@ const I18N = {
     mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
     mcp_key_note: "Key chỉ hiện một lần và thay thế key cũ. AI dùng key này chỉ thấy profile của bạn và mở chúng trên máy của bạn.",
     army_auth_title: "Liên kết tài khoản với Army", army_auth_hint: "Panel Army sẽ mở các profile của tài khoản này trên máy của bạn, qua agent.", army_cancelled: "Chưa liên kết Army. Bạn có thể đóng tab này.",
+    army_link_bad: "Không liên kết được với Army", army_not_you_title: "Đó không phải bạn?", army_not_you: "Bạn đang đăng nhập FoxProfile bằng {hub}, nhưng Army gửi bạn đến với tài khoản {army}.", army_continue_as: "Đăng xuất và tiếp tục với {user}",
     ext_button: "Extension", ext_title: "Extension của trình duyệt", ext_hint: "Chrome: .crx hoặc .zip cho profile engine Chrome. Firefox: .xpi cho Camoufox.", ext_upload: "Tải file lên", ext_store: "ID hoặc link Chrome Web Store", ext_store_add: "Thêm từ cửa hàng", ext_store_note: "Được tải từ máy chủ của Google khi bạn bấm Thêm.", ext_uploading: "Đang tải lên {name}…", ext_store_fetching: "Đang tải từ Chrome Web Store…", ext_added: "Đã thêm {name} {version}", ext_none: "Chưa có extension nào.", ext_all: "Mọi profile", ext_in_groups: "Nhóm: {list}", ext_in_profiles: "{n} profile", ext_excluded: "loại trừ {n}", ext_nowhere: "Chưa áp dụng cho profile nào", ext_where: "Áp dụng cho", ext_confirm_delete: "Xoá “{name}” khỏi mọi profile?", ext_scope_all: "Mọi profile {engine}", ext_scope_groups: "Profile của các nhóm", ext_scope_profiles: "Các profile này", ext_scope_excluded: "Loại trừ: không bao giờ tải", ext_scope_hint: "Profile đang mở sẽ tải thay đổi ở lần mở sau.", ext_filter: "Lọc", ext_no_profiles: "Không có profile {engine}.", ext_no_groups: "Chưa có nhóm nào.",
   },
   en: {
@@ -820,6 +821,7 @@ const I18N = {
     mcp_new_key: "Create my personal key and insert it",
     mcp_key_note: "The key is shown only now and replaces your previous one. An AI using it sees only your profiles and opens them on your PC.",
     army_auth_title: "Link your account with Army", army_auth_hint: "Army's panel will open this account's profiles on your PC, through your agent.", army_cancelled: "Army was not linked. You can close this tab.",
+    army_link_bad: "Could not link with Army", army_not_you_title: "Not you?", army_not_you: "You are signed in to FoxProfile as {hub}, but Army sent you as {army}.", army_continue_as: "Log out and continue as {user}",
     ext_button: "Extensions", ext_title: "Browser extensions", ext_hint: "Chrome: .crx or .zip for Chrome engine profiles. Firefox: .xpi for Camoufox.", ext_upload: "Upload file", ext_store: "Chrome Web Store ID or link", ext_store_add: "Add from the store", ext_store_note: "Downloaded from Google's servers when you click Add.", ext_uploading: "Uploading {name}…", ext_store_fetching: "Downloading from the Chrome Web Store…", ext_added: "Added {name} {version}", ext_none: "No extensions yet.", ext_all: "All profiles", ext_in_groups: "Groups: {list}", ext_in_profiles: "{n} profiles", ext_excluded: "{n} excluded", ext_nowhere: "Not applied to any profile", ext_where: "Applies to", ext_confirm_delete: "Remove “{name}” from every profile?", ext_scope_all: "Every {engine} profile", ext_scope_groups: "Profiles of these groups", ext_scope_profiles: "These profiles", ext_scope_excluded: "Excluded: never load it", ext_scope_hint: "Open profiles load the change the next time they open.", ext_filter: "Filter", ext_no_profiles: "No {engine} profiles.", ext_no_groups: "No groups yet.",
   },
   es: {
@@ -924,6 +926,7 @@ const I18N = {
     mcp_new_key: "Crear mi clave personal e insertarla",
     mcp_key_note: "La clave solo se muestra ahora y reemplaza a la anterior. Una IA que la use solo ve tus profiles y los abre en tu PC.",
     army_auth_title: "Vincular tu cuenta con Army", army_auth_hint: "El panel de Army abrirá los profiles de esta cuenta en tu PC, a través de tu agente.", army_cancelled: "No se vinculó Army. Puedes cerrar esta pestaña.",
+    army_link_bad: "No se pudo vincular con Army", army_not_you_title: "¿Ese no eres tú?", army_not_you: "Tienes sesión en FoxProfile como {hub}, pero Army te envió como {army}.", army_continue_as: "Cerrar sesión y continuar como {user}",
     ext_button: "Extensiones", ext_title: "Extensiones de los navegadores", ext_hint: "Chrome: .crx o .zip para los profiles con engine Chrome. Firefox: .xpi para Camoufox.", ext_upload: "Subir archivo", ext_store: "ID o enlace de la Chrome Web Store", ext_store_add: "Añadir de la tienda", ext_store_note: "Se descarga de los servidores de Google al pulsar Añadir.", ext_uploading: "Subiendo {name}…", ext_store_fetching: "Descargando de la Chrome Web Store…", ext_added: "Añadida {name} {version}", ext_none: "Todavía no hay extensiones.", ext_all: "Todos los profiles", ext_in_groups: "Grupos: {list}", ext_in_profiles: "{n} profiles", ext_excluded: "{n} excluidos", ext_nowhere: "No se aplica a ningún profile", ext_where: "Dónde se aplica", ext_confirm_delete: "¿Quitar “{name}” de todos los profiles?", ext_scope_all: "Todos los profiles {engine}", ext_scope_groups: "Profiles de estos grupos", ext_scope_profiles: "Estos profiles", ext_scope_excluded: "Excluidos: nunca la cargan", ext_scope_hint: "Los profiles abiertos cargan el cambio la próxima vez que se abran.", ext_filter: "Filtrar", ext_no_profiles: "No hay profiles {engine}.", ext_no_groups: "Todavía no hay grupos.",
   },
 };
@@ -2666,11 +2669,11 @@ function takeAgentHash() {
 // The agent reusing an open panel tab only changes the hash: boot again for it.
 addEventListener("hashchange", () => { if (/^#(agent|army)=/.test(location.hash)) location.reload(); });
 
-// --- Army sign-in (hub/routes.new_army_key) ---------------------------------------
-// Army's panel opens #army=<state>. Authorize creates an Army key and POSTs it as a
-// form, with that state, to the hub's own FOXPROFILE_ARMY_CALLBACK (from /info, never
-// from the link), so a crafted link cannot send the key anywhere else.
-let armyCallback = "";
+// --- Army sign-in (hub/routes.army_login, new_army_key) ------------------------------
+// Army's panel opens #army=<token>: short-lived, signed by Army with the hub's
+// FOXPROFILE_ARMY_SECRET, naming the user, a state and where the key goes (a crafted
+// link cannot name another address). It opens a session without a password;
+// Authorize creates an Army key and POSTs it there as a form, with that state.
 let armyAuth = (() => { try { return JSON.parse(sessionStorage.getItem("foxprofile.army")); } catch { return null; } })();
 function saveArmyAuth(v) {
   armyAuth = v;
@@ -2678,19 +2681,44 @@ function saveArmyAuth(v) {
 }
 function takeArmyHash() {
   if (!location.hash.startsWith("#army=")) return;
-  const state = new URLSearchParams(location.hash.slice(1)).get("army") || "";
+  const jwt = new URLSearchParams(location.hash.slice(1)).get("army") || "";
   history.replaceState(null, "", location.pathname + location.search);
-  if (/^[\w-]{20,}$/.test(state)) saveArmyAuth({ state });
+  if (/^[\w-]+\.[\w-]+\.[\w-]+$/.test(jwt)) saveArmyAuth({ jwt });
+}
+function setSession(tok) { token = tok; store.set("foxprofile.token", tok); }
+function armyFailed(e) { saveArmyAuth(null); showAgentEnd(t("army_link_bad"), e.message || ""); }
+function cancelArmy() { saveArmyAuth(null); showAgentEnd(t("agent_cancelled_title"), t("army_cancelled")); }
+async function startArmy() {
+  const res = await fetch("/api/v1/hub/army-login", { method: "POST", headers: { "Content-Type": "application/json", "Accept-Language": lang },
+    body: JSON.stringify({ token: armyAuth.jwt }) });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : t("army_link_bad"));
+  const { token: session, callback, state, ...next } = body;
+  saveArmyAuth({ callback, state });  // the token is spent: a reload goes straight to Authorize
+  // Whoever is already signed in here; not api(), whose 401 would open the login.
+  const current = token && await fetch("/api/v1/hub/me", { headers: { Authorization: "Bearer " + token } })
+    .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (current && current.name !== next.name) return showArmyNotYou(current, next, session);
+  setSession(session);
+  return showArmyAuth();
+}
+function showArmyNotYou(current, next, session) {
+  showAgentCard(
+    h("h1", { tabindex: "-1" }, t("army_not_you_title")),
+    h("p", { class: "muted" }, t("army_not_you", { hub: current.name, army: next.name })),
+    h("button", { class: "btn btn-act", type: "button", onclick: () => { setSession(session); showArmyAuth().catch(armyFailed); } },
+      t("army_continue_as", { user: next.name })),
+    h("div", { class: "agent-actions" }, h("button", { class: "btn btn-ghost", type: "button", onclick: cancelArmy }, t("cancel"))));
 }
 async function showArmyAuth() {
-  const who = await api("GET", "/hub/me");  // a 401 shows the login, keeping armyAuth
+  const who = await api("GET", "/hub/me");
   const row = (k, v) => [h("dt", {}, t(k)), h("dd", {}, v)];
   const err = h("div", { class: "msg err", role: "alert" });
   const authorize = h("button", { class: "btn btn-act", type: "button", onclick: async () => {
     authorize.disabled = true; err.textContent = "";
     try {
       const { key } = await api("POST", "/hub/me/army-key");
-      const form = h("form", { method: "post", action: armyCallback, class: "hidden" },
+      const form = h("form", { method: "post", action: armyAuth.callback, class: "hidden" },
         h("input", { type: "hidden", name: "state", value: armyAuth.state }), h("input", { type: "hidden", name: "key", value: key }));
       saveArmyAuth(null);
       document.body.append(form);
@@ -2702,9 +2730,7 @@ async function showArmyAuth() {
     h("p", { class: "muted" }, t("army_auth_hint")),
     h("dl", { class: "agent-who" }, row("email", who.name), row("agent_auth_role", t("role_" + who.role)), row("agent_auth_hub", location.host)),
     err, authorize,
-    h("div", { class: "agent-actions" },
-      h("button", { class: "btn btn-line", type: "button", onclick: () => { token = ""; store.set("foxprofile.token", null); showLogin(); } }, t("agent_switch")),
-      h("button", { class: "btn btn-ghost", type: "button", onclick: () => { saveArmyAuth(null); showAgentEnd(t("agent_cancelled_title"), t("army_cancelled")); } }, t("cancel"))));
+    h("div", { class: "agent-actions" }, h("button", { class: "btn btn-ghost", type: "button", onclick: cancelArmy }, t("cancel"))));
 }
 function showAgentCard(...children) {
   clearInterval(listTimer); listTimer = null;
@@ -2777,7 +2803,7 @@ $("login-form").onsubmit = async (e) => {
       }
       token = (await res.json()).token;
       store.set("foxprofile.token", token); $("token").value = ""; $("login-err").textContent = "";
-      agentAuth ? showAgentAuth() : armyAuth && armyCallback ? showArmyAuth() : showApp(true);
+      agentAuth ? showAgentAuth() : armyAuth && armyAuth.callback ? showArmyAuth() : showApp(true);
     } catch (err) { $("login-err").textContent = err.message; }
     return;
   }
@@ -2856,9 +2882,9 @@ document.addEventListener("keydown", (e) => {
     }
     if (hub && takeAgentHash() === "done") return showAgentEnd(t("agent_done_title"), t("agent_done", { user: (agentAuth && agentAuth.user) || "" }), true);
     if (hub && agentAuth) return token ? showAgentAuth().catch(showLogin) : showLogin();
-    armyCallback = info.army_callback || "";
-    if (hub && armyCallback) takeArmyHash();
-    if (hub && armyCallback && armyAuth) return token ? showArmyAuth().catch(showLogin) : showLogin();
+    if (hub && info.army) takeArmyHash();
+    if (hub && armyAuth && armyAuth.jwt) return startArmy().catch(armyFailed);
+    if (hub && armyAuth && armyAuth.callback) return token ? showArmyAuth().catch(showLogin) : showLogin();
     if (info.auth_required && !token) return showLogin();
     try { await showApp(info.auth_required); } catch { showLogin(); }
   } catch (e) {

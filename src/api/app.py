@@ -143,7 +143,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
             "mcp_path": mcp_http.MCP_PATH,
             "mode": "hub" if container.hub else "local",
             "language": current_language(),
-            "army_callback": config.ARMY_CALLBACK if container.hub else "",
+            "army": bool(config.ARMY_SECRET) and container.hub,
             "snapshots": snapshots.enabled(),
         }
 

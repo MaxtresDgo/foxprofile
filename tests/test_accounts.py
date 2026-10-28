@@ -152,7 +152,7 @@ def test_hub_accounts_are_private_and_closed_to_personal_keys(hub, monkeypatch):
         == 403
     )
     # Army's key reads the summary (no secrets) for its panel, and nothing else.
-    monkeypatch.setattr(config, "ARMY_CALLBACK", "https://army.example.com/fox/callback")
+    monkeypatch.setattr(config, "ARMY_SECRET", "a" * 32)
     army = {
         "Authorization": "Bearer "
         + client.post("/api/v1/hub/me/army-key", headers=bob).json()["key"]
