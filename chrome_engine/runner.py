@@ -22,9 +22,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from chrome_engine import fetch
 from chrome_engine.engine import ChromeEngine
 from src.core.config import DATA_DIR, HEADLESS, RESTORE_TABS
-from src.services.browser import control, session
+from src.services.browser import control, label, session
 from src.services.browser.process import extension_dirs
-from src.services.browser.runner import restore_tabs, snapshot_tabs
+from src.services.browser.runner import open_tabs, snapshot_tabs
 
 _shutdown = asyncio.Event()
 
@@ -66,9 +66,8 @@ async def ensure_installed() -> None:
     _say("Chrome engine installed")
 
 
-def _extension_args() -> list[str]:
-    """Chrome's switches for the extensions the launcher passed."""
-    dirs = extension_dirs()
+def _extension_args(dirs: list[str]) -> list[str]:
+    """Chrome's switches for these unpacked extensions."""
     if not dirs:
         return []
     joined = ",".join(dirs)
@@ -89,6 +88,12 @@ async def run_browser(
 ) -> int:
     profile_dir = os.path.join(os.getcwd(), DATA_DIR, profile_name)
     proxy = proxy_str if proxy_str and proxy_str != "None" else None
+    tag = label.current(profile_name)
+    extensions = extension_dirs()
+    badge = label.write_extension(tag, "chrome")
+    if badge:
+        extensions.append(badge)
+        label.pin_in_chrome(profile_dir)
     engine = ChromeEngine(
         profile_dir,
         platform=os_type,
@@ -97,7 +102,7 @@ async def run_browser(
         # "" keeps the timezone / locale following the proxy's exit IP.
         timezone=timezone,
         locale=locale,
-        extra_args=_extension_args(),
+        extra_args=_extension_args(extensions),
     )
     _say(f"Starting Chrome engine for {profile_name}...")
     try:
@@ -115,12 +120,9 @@ async def run_browser(
     try:
         for warning in engine.warnings:
             _say(f"Warning: {warning}")
-        if not context.pages:
-            await context.new_page()
-        if RESTORE_TABS:
-            restored = await restore_tabs(context, session.load(profile_dir))
-            if restored:
-                _say(f"Restored {restored} tab(s)")
+        restored = await open_tabs(context, profile_dir, tag)
+        if restored:
+            _say(f"Restored {restored} tab(s)")
 
         close_event = asyncio.Event()
 

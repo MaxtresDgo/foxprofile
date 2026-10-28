@@ -21,6 +21,8 @@ class IProfileManager(Protocol):
         uid: str | None = None,
     ) -> bool: ...
 
+    def set_label(self, name: str, number: object, remark: object) -> bool: ...
+
     def update_profile(
         self,
         original_name: str,

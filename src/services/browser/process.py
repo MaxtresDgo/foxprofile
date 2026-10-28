@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from ...core.logging import get_logger
 from ...models.profile import Profile
-from . import display
+from . import display, label
 
 logger = get_logger("browser.process")
 
@@ -45,6 +45,7 @@ def spawn_browser(profile: Profile, extensions: list[str] = ()) -> subprocess.Po
     """Spawn the browser subprocess for the given profile."""
     env = os.environ.copy()
     env[EXTENSIONS_ENV] = os.pathsep.join(extensions)
+    env[label.LABEL_ENV] = label.env(profile)
     existing_pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = _PROJECT_ROOT + (
         os.pathsep + existing_pythonpath if existing_pythonpath else ""

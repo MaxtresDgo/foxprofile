@@ -16,6 +16,8 @@ class ProfileCreate(BaseModel):
         description="camoufox (Firefox) or chrome (experimental, fingerprint-chromium). "
         "Fixed once the profile is created",
     )
+    number: str | None = Field(None, max_length=20, description="Shown on the toolbar badge")
+    remark: str | None = Field(None, max_length=60, description="Shown after the name in the tab")
 
 
 class ProfileUpdate(BaseModel):
@@ -27,6 +29,8 @@ class ProfileUpdate(BaseModel):
     timezone: str | None = Field(None, description='"" switches back to automatic')
     locale: str | None = Field(None, description='"" switches back to automatic')
     engine: str | None = Field(None, description="Cannot be changed; only the current value")
+    number: str | None = Field(None, max_length=20, description='"" removes it')
+    remark: str | None = Field(None, max_length=60, description='"" removes it')
 
 
 class ProfileResponse(BaseModel):
@@ -36,6 +40,8 @@ class ProfileResponse(BaseModel):
     timezone: str | None = None
     locale: str | None = None
     engine: str = "camoufox"
+    number: str | None = None
+    remark: str | None = None
     data_dir: str
     is_running: bool
 

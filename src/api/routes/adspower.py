@@ -120,6 +120,7 @@ def _reimport(body: AdsPowerImport, request: Request, pm, bl, hub) -> dict[str, 
         )
     params = {"port": body.port, "api_key": body.api_key, "profile_id": body.profile_id}
     data = check_on_agent(request, bl, "adspower_fetch", params, _FETCH_TIMEOUT)
+    adspower.fill_label(pm, body.name, data)
     result: dict[str, Any] = {
         "status": "reimported",
         "name": body.name,

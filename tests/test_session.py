@@ -61,6 +61,11 @@ class FakePage:
     async def bring_to_front(self):
         pass
 
+    async def evaluate(self, script, arg):
+        if "broken" in arg[0]:
+            raise RuntimeError("Target closed")
+        self.title, self.content = arg
+
 
 class FakeContext:
     def __init__(self):
@@ -72,17 +77,38 @@ class FakeContext:
         return page
 
 
-def test_restore_reuses_blank_tab_and_opens_the_rest():
+def test_restore_opens_tabs_after_the_open_ones():
     ctx = FakeContext()
     n = asyncio.run(runner.restore_tabs(ctx, ["https://a.test/", "https://b.test/"]))
     assert n == 2
-    assert [p.url for p in ctx.pages] == ["https://a.test/", "https://b.test/"]
+    assert [p.url for p in ctx.pages] == ["about:blank", "https://a.test/", "https://b.test/"]
 
 
 def test_restore_survives_a_failing_tab():
     ctx = FakeContext()
     asyncio.run(runner.restore_tabs(ctx, ["https://fail.test/", "https://ok.test/"]))
-    assert [p.url for p in ctx.pages] == ["about:blank", "https://ok.test/"]
+    assert [p.url for p in ctx.pages] == ["about:blank", "about:blank", "https://ok.test/"]
+
+
+def test_label_tab_comes_first(tmp_path, monkeypatch):
+    monkeypatch.setattr(runner, "RESTORE_TABS", True)
+    tag = {"name": "shop-01", "number": "42", "remark": "No <chip>"}
+    session.save(str(tmp_path), ["https://a.test/"])
+    ctx = FakeContext()
+    assert asyncio.run(runner.open_tabs(ctx, str(tmp_path), tag)) == 1
+    assert ctx.pages[0].title == "shop-01-No <chip>"
+    assert "No &lt;chip&gt;" in ctx.pages[0].content
+    assert [p.url for p in ctx.pages[1:]] == ["https://a.test/"]
+
+    # Nothing saved: one blank tab to work in, so the label tab stays as it is.
+    ctx = FakeContext()
+    assert asyncio.run(runner.open_tabs(ctx, str(tmp_path / "new"), tag)) == 0
+    assert len(ctx.pages) == 2
+
+    # A label tab that fails to load never stops the launch.
+    ctx = FakeContext()
+    broken = {**tag, "remark": "broken"}
+    assert asyncio.run(runner.open_tabs(ctx, str(tmp_path), broken)) == 1
 
 
 def test_snapshot_saves_changes_and_keeps_tabs_when_window_closes(tmp_path, monkeypatch):

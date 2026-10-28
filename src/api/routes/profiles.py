@@ -133,6 +133,8 @@ def create_profile(
         body.engine,
     ):
         raise HTTPException(status_code=409, detail=get_string("err_profile_exists"))
+    if body.number or body.remark:
+        pm.set_label(body.name, body.number, body.remark)
 
     if hub is not None and request.state.user["name"] in hub.users:
         hub.set_owner(body.name, request.state.user["name"])
@@ -209,6 +211,13 @@ def update_profile(
         raise HTTPException(status_code=409, detail=get_string("err_update_failed"))
     if (store := hub_store(request)) is not None and new_name != name:
         store.rename_profile(name, new_name)
+    if "number" in supplied or "remark" in supplied:
+        renamed = pm.profiles[new_name]
+        pm.set_label(
+            new_name,
+            supplied.get("number", renamed.number),
+            supplied.get("remark", renamed.remark),
+        )
 
     logger.info("API updated profile: %s -> %s", name, new_name)
     bus.emit()
