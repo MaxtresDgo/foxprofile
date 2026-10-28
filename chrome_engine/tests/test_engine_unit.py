@@ -13,7 +13,7 @@ from chrome_engine.engine import (
     EngineNotInstalled,
     build_args,
 )
-from chrome_engine.persona import Persona
+from chrome_engine.persona import Persona, generate
 
 P = Persona(seed=5, platform="windows", platform_version="15.0.0", hardware_concurrency=8)
 
@@ -36,6 +36,20 @@ def test_build_args_headless_sets_a_real_screen():
 def test_build_args_offscreen():
     args = build_args(P, headless="offscreen")
     assert "--window-position=-32000,-32000" in args
+
+
+def test_a_phone_fits_the_screen_centred():
+    phone = generate("android", seed=5, screen=[412, 915, 2.625])
+    laptop = (0, 0, 1536, 816)  # 1080p at 125%, without the taskbar
+    w, h = engine_mod.phone_viewport(phone, laptop)
+    assert w == 412 and h + engine_mod.WINDOW_FRAME[1] == 816
+    args = build_args(phone, area=laptop)
+    assert "--window-size=516,816" in args and "--window-position=510,0" in args
+    options = engine_mod._device_options(phone, laptop)
+    assert options["viewport"] == {"width": 412, "height": h}
+    assert options["screen"] == {"width": 412, "height": 915}  # what the page reports
+    # A big screen: the phone's own height less its bars, never taller.
+    assert engine_mod.phone_viewport(phone, (0, 0, 2560, 1400)) == (412, 839)
 
 
 def test_build_args_proxy_and_extra_come_last():

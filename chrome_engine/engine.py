@@ -53,6 +53,15 @@ IGNORED_DEFAULT_ARGS = (
     "--no-sandbox",
 )
 HEADLESS_SCREEN = (1920, 1080)
+# A phone's page is shorter than its screen by Chrome's own bars (status bar,
+# address bar): Playwright's Pixel 7 is a 915 screen with an 839 viewport.
+PHONE_BARS = 76
+# What Playwright adds around a headed viewport on Windows (persistent context)
+# when it sizes the window: tab strip, toolbar, infobar and borders.
+WINDOW_FRAME = (16, 134)
+# Chrome keeps a window at least this wide (its toolbar), so a phone's page has
+# an empty strip on its right. ponytail: measured on Chrome 148, only used to centre it.
+CHROME_MIN_WIDTH = 516
 
 _FEATURES_BLOCK = re.compile(r"disabledFeatures = \[(.*?)\]\.filter\(Boolean\)", re.S)
 
@@ -133,11 +142,60 @@ def default_sandbox() -> bool:
     return True
 
 
+def work_area() -> tuple[int, int, int, int] | None:
+    """The primary monitor's work area (left, top, width, height), without the
+    taskbar, in DIPs like Chrome's window switches. None off Windows or on failure."""
+    # ponytail: Windows only (the agents' PCs); elsewhere the phone keeps its full height.
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32, shcore = ctypes.windll.user32, ctypes.windll.shcore
+        user32.SetThreadDpiAwarenessContext.restype = ctypes.c_void_p
+        user32.SetThreadDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+        user32.MonitorFromPoint.restype = wintypes.HMONITOR
+        user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+        shcore.GetDpiForMonitor.argtypes = [
+            wintypes.HMONITOR, ctypes.c_int, ctypes.POINTER(wintypes.UINT), ctypes.POINTER(wintypes.UINT),
+        ]  # fmt: skip
+        # Physical pixels, then divided by the monitor's scale (125% → 1.25).
+        old = user32.SetThreadDpiAwarenessContext(-4)  # PER_MONITOR_AWARE_V2
+        try:
+            rect, dpi_x, dpi_y = wintypes.RECT(), wintypes.UINT(), wintypes.UINT()
+            if not user32.SystemParametersInfoW(0x30, 0, ctypes.byref(rect), 0):  # SPI_GETWORKAREA
+                return None
+            primary = user32.MonitorFromPoint(wintypes.POINT(0, 0), 1)  # DEFAULTTOPRIMARY
+            shcore.GetDpiForMonitor(primary, 0, ctypes.byref(dpi_x), ctypes.byref(dpi_y))
+        finally:
+            if old:
+                user32.SetThreadDpiAwarenessContext(old)
+        scale = (dpi_y.value or 96) / 96
+        sides = (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+        return tuple(round(v / scale) for v in sides)  # type: ignore[return-value]
+    except Exception:
+        return None
+
+
+def phone_viewport(
+    persona: personas.Persona, area: tuple[int, int, int, int] | None = None
+) -> tuple[int, int]:
+    """An android persona's page: its screen less the phone's bars, and short
+    enough for the window to fit `area` (the PC's screen, see work_area())."""
+    assert persona.screen is not None
+    w, h = int(persona.screen[0]), int(persona.screen[1]) - PHONE_BARS
+    if area:
+        h = min(h, area[3] - WINDOW_FRAME[1])
+    return w, h
+
+
 def build_args(
     persona: personas.Persona,
     proxy_url: str | None = None,
     headless: bool | str = False,
     extra_args: tuple[str, ...] | list[str] = (),
+    area: tuple[int, int, int, int] | None = None,
 ) -> list[str]:
     """Command-line switches for a launch (Playwright adds its own before these)."""
     args = persona.to_args()
@@ -154,25 +212,33 @@ def build_args(
         size = f"{phone[0]},{phone[1]}" if phone else "1600,900"
         args += ["--window-position=-32000,-32000", f"--window-size={size}"]
     elif phone:
-        # Room for the tab strip and toolbar around the emulated viewport.
-        args.append(f"--window-size={phone[0] + 16},{phone[1] + 120}")
+        # The viewport plus the browser's bars, centred on the PC's screen.
+        w, h = phone_viewport(persona, area)
+        w, h = max(w + WINDOW_FRAME[0], CHROME_MIN_WIDTH), h + WINDOW_FRAME[1]
+        args.append(f"--window-size={w},{h}")
+        if area:
+            left, top, width, height = area
+            x, y = left + max(0, (width - w) // 2), top + max(0, (height - h) // 2)
+            args.append(f"--window-position={x},{y}")
     else:
         args.append("--start-maximized")
     args += list(extra_args)
     return args
 
 
-def _device_options(persona: personas.Persona) -> dict[str, Any]:
+def _device_options(
+    persona: personas.Persona, area: tuple[int, int, int, int] | None = None
+) -> dict[str, Any]:
     """Playwright options for the persona's device: a phone, or the real window."""
     if persona.platform != "android":
         return {"no_viewport": True}
     assert persona.screen is not None
     w, h, dpr = persona.screen
-    size = {"width": int(w), "height": int(h)}
+    page_w, page_h = phone_viewport(persona, area)
     return {
         "user_agent": persona.user_agent,
-        "viewport": size,
-        "screen": size,
+        "viewport": {"width": page_w, "height": page_h},
+        "screen": {"width": int(w), "height": int(h)},
         "device_scale_factor": dpr,
         "is_mobile": True,
         "has_touch": True,
@@ -257,11 +323,14 @@ class ChromeEngine:
             persona = persona.with_geo(self.geo.timezone, self.geo.locale)
         self.persona = persona
 
+        # A phone's window has to fit this PC's screen (headed only).
+        area = work_area() if persona.platform == "android" and self.headless is False else None
         self.args = build_args(
             persona,
             proxy_url=self.bridge.url if self.bridge else None,
             headless=self.headless,
             extra_args=self._extra_args,
+            area=area,
         )
 
         from playwright.async_api import async_playwright
@@ -279,7 +348,7 @@ class ChromeEngine:
             ignore_default_args=self._ignored_default_args(),
             chromium_sandbox=self.sandbox,
             accept_downloads=True,
-            **_device_options(persona),
+            **_device_options(persona, area),
         )
         if self.geo and self.geo.latitude is not None and self.geo.longitude is not None:
             # Only the position is emulated; sites still have to ask for permission.
