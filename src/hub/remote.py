@@ -112,6 +112,12 @@ class RemoteLauncher:
             raise AgentOfflineError(user)
         return self._call(user, {"op": op, "params": params}, timeout)
 
+    def install_chrome(self, user: str, version: str) -> None:
+        """Ask `user`'s agent to install a Chrome engine build; its polls report it."""
+        if not self.online(user):
+            raise AgentOfflineError(user)
+        self._queues[user].put({"op": "chrome_install", "version": version})
+
     def cookies(self, user: str, profile: Profile, action: str, params: dict) -> Any:
         """Export/import a stopped profile's cookies on `user`'s PC (cookies.py runs there)."""
         with self._lock:

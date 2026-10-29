@@ -117,6 +117,10 @@ def create_profile(
     _require_os(body.os_type, body.engine)
     hub = hub_store(request)
     _require_engine(body.engine, here=hub is None)
+    if body.engine == "chrome" and body.chrome_version:
+        problem = chrome_prefetch.version_problem(body.chrome_version, here=hub is None)
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
     _require_geo(body.timezone, body.locale)
 
     if body.proxy:
@@ -131,6 +135,7 @@ def create_profile(
         body.timezone or None,
         body.locale or None,
         body.engine,
+        chrome_version=body.chrome_version,
     ):
         raise HTTPException(status_code=409, detail=get_string("err_profile_exists"))
     if body.number or body.remark:
@@ -140,7 +145,7 @@ def create_profile(
         hub.set_owner(body.name, request.state.user["name"])
     logger.info("API created profile: %s", body.name)
     if body.engine == "chrome" and hub is None:
-        chrome_prefetch.start()
+        chrome_prefetch.start(pm.profiles[body.name].chrome_version)
     bus.emit()
     return build_profile_response(body.name, pm, bl)
 
@@ -199,6 +204,12 @@ def update_profile(
     if "os_type" in supplied:
         _require_os(new_os, profile.engine)
     _require_geo(supplied.get("timezone"), supplied.get("locale"))
+    new_build = supplied.get("chrome_version") or profile.chrome_version
+    if new_build != profile.chrome_version:
+        here = hub_store(request) is None
+        problem = chrome_prefetch.upgrade_problem(profile, new_build, bl.is_running(name), here)
+        if problem:
+            raise HTTPException(status_code=problem[0], detail=problem[1])
 
     if "proxy" in supplied and new_proxy:
         valid, msg = validate_proxy_format(new_proxy)
@@ -211,6 +222,8 @@ def update_profile(
         raise HTTPException(status_code=409, detail=get_string("err_update_failed"))
     if (store := hub_store(request)) is not None and new_name != name:
         store.rename_profile(name, new_name)
+    if new_build != profile.chrome_version:
+        chrome_prefetch.move_to(pm, new_name, new_build)
     if "number" in supplied or "remark" in supplied:
         renamed = pm.profiles[new_name]
         pm.set_label(
@@ -353,7 +366,9 @@ def export_cookies(
             text, count = r["text"], r["count"]
         else:
             with bl.exclusive(name):
-                text, count = cookies.export_cookies(name, profile.os_type, format, profile.engine)
+                text, count = cookies.export_cookies(
+                    name, profile.os_type, format, profile.engine, profile.chrome_version
+                )
     except ProfileBusyError as e:
         raise HTTPException(status_code=409, detail=get_string("err_busy_other")) from e
     except (cookies.CookieError, BrowserControlError) as e:
@@ -384,7 +399,9 @@ def import_cookies(
             count = _cookies_on_agent(request, bl, profile, "import", params)["imported"]
         else:
             with bl.exclusive(name):
-                count = cookies.import_cookies(name, profile.os_type, body.content, profile.engine)
+                count = cookies.import_cookies(
+                    name, profile.os_type, body.content, profile.engine, profile.chrome_version
+                )
     except ProfileBusyError as e:
         raise HTTPException(status_code=409, detail=get_string("err_busy_other")) from e
     except cookies.CookieError as e:

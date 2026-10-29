@@ -209,6 +209,7 @@ def restore_orphan(
         valid_or_none(saved.get("locale"), validate_locale),
         engine,
         uid=uid,
+        chrome_version=saved.get("chrome_version"),
     ):
         raise HTTPException(status_code=409, detail=get_string("err_profile_exists"))
     pm.set_label(name, saved.get("number"), saved.get("remark"))

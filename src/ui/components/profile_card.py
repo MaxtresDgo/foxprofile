@@ -8,7 +8,7 @@ from ...services.profile.accounts import PLATFORM_LABELS
 from ...utils.proxy_parser import mask_proxy
 from ..theme.colors import COLORS, FONT_DATA, FONT_SEMIBOLD
 from ..theme.styles import DANGER_ICON_STYLE, ICON_STYLE
-from .launch_button import build_launch_button
+from .launch_button import build_install_button, build_launch_button
 
 # The OS badge shows a monochrome glyph (assets/os/*.svg, tinted with the ink token);
 # its name is the tooltip and the screen reader label.
@@ -104,8 +104,13 @@ def build_profile_card(
     device: str = "",
     since: str = "",
     failed: bool = False,
+    missing_build: str | None = None,
+    install_pct: int | None = None,
+    on_install: Callable[[str], None] | None = None,
 ) -> ft.Container:
-    """One profile as a table row: identity, device, proxy, geo, stamp, actions."""
+    """One profile as a table row: identity, device, proxy, geo, stamp, actions.
+    `missing_build`: the Chrome build it needs and this machine lacks; `install_pct`
+    while it installs (-1 = size not known yet)."""
     if is_running:
         bg = COLORS["card_hover"]
     elif is_selected:
@@ -154,6 +159,14 @@ def build_profile_card(
                         alignment=ft.MainAxisAlignment.END,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
+                            *(
+                                [
+                                    build_install_button(missing_build, install_pct, on_install),
+                                    ft.Container(width=8),
+                                ]
+                                if missing_build and on_install and not is_running
+                                else []
+                            ),
                             build_launch_button(
                                 profile.name,
                                 is_loading,
@@ -161,6 +174,7 @@ def build_profile_card(
                                 on_launch,
                                 accounts,
                                 on_open_with,
+                                blocked=bool(missing_build) and not is_running,
                             ),
                             ft.Container(width=8),
                             *_action_buttons(
@@ -208,7 +222,7 @@ def _stack(*lines: ft.Control) -> ft.Column:
 def _device(profile: Profile, device: str) -> ft.Row:
     chrome = profile.engine == "chrome"
     engine = ft.Text(
-        "Chrome" if chrome else "Camoufox",
+        f"Chrome {(profile.chrome_version or '').split('.')[0]}" if chrome else "Camoufox",
         size=13,
         font_family=FONT_SEMIBOLD if chrome else None,
         color=COLORS["sidebar"] if chrome else COLORS["text_main"],

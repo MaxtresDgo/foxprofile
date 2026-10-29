@@ -1,11 +1,14 @@
 """Event handlers extracted from App for Single Responsibility compliance."""
 
+import threading
+import time
 from collections.abc import Callable
 
 import flet as ft
 
 from ..core.strings import get_string
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
+from ..services.browser import chrome_prefetch
 from ..services.browser.login import login
 from ..services.browser.sync import SyncManager
 from ..services.profile.accounts import PLATFORM_LABELS, AccountsLocked
@@ -64,6 +67,19 @@ class AppHandlers:
 
     def on_launch(self, name: str) -> None:
         launch_or_stop(name, self._pm, self._bl, self._state, self._log)
+
+    def on_install_build(self, version: str) -> None:
+        """Install a Chrome engine build; the row shows its progress until it is done."""
+
+        def ticker() -> None:
+            # ponytail: redraws every 2 s while it downloads; a progress callback if that flickers.
+            while version in chrome_prefetch.installing():
+                self._state.schedule_refresh()
+                time.sleep(2)
+            self._state.schedule_refresh()
+
+        if chrome_prefetch.start(version, self._log):
+            threading.Thread(target=ticker, daemon=True).start()
 
     def on_delete(self, name: str) -> None:
         page = self._get_page()

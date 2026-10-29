@@ -142,11 +142,13 @@ async def create_profile(
     timezone: str | None = None,
     locale: str | None = None,
     engine: Literal["camoufox", "chrome"] = "camoufox",
+    chrome_version: str | None = None,
 ) -> dict:
     """Create a profile. proxy format: [scheme://][user:pass@]host:port or host:port:user:pass
     (http, https, socks4, socks5). timezone (IANA, e.g. Asia/Ho_Chi_Minh) and locale (e.g. vi-VN)
     default to following the proxy's IP. engine: camoufox (Firefox, default) or chrome
-    (experimental Chromium); it cannot be changed later."""
+    (experimental Chromium); it cannot be changed later. chrome_version: the Chrome build
+    (e.g. 139.0.7258.154), default build if unset; it must be installed before launching."""
     return await _arequest(
         "POST",
         "/profiles",
@@ -157,6 +159,7 @@ async def create_profile(
             "timezone": timezone,
             "locale": locale,
             "engine": engine,
+            "chrome_version": chrome_version,
         },
     )
 
@@ -169,9 +172,11 @@ async def update_profile(
     os_type: Literal["windows", "macos", "linux", "android"] | None = None,
     timezone: str | None = None,
     locale: str | None = None,
+    chrome_version: str | None = None,
 ) -> dict:
     """Rename a profile or change its proxy / OS / timezone / locale.
-    Changing the OS generates a new fingerprint. Pass timezone="" or locale="" to follow the IP again."""
+    Changing the OS generates a new fingerprint. Pass timezone="" or locale="" to follow the IP again.
+    chrome_version moves a stopped Chrome profile to a newer build only (never back)."""
     # Use `is not None` so that proxy="" is included and clears the proxy on the
     # API side (the previous `if v` filter silently dropped an empty string).
     body = {
@@ -180,7 +185,15 @@ async def update_profile(
         if v is not None
     }
     body.update(
-        {k: v for k, v in {"timezone": timezone, "locale": locale}.items() if v is not None}
+        {
+            k: v
+            for k, v in {
+                "timezone": timezone,
+                "locale": locale,
+                "chrome_version": chrome_version,
+            }.items()
+            if v is not None
+        }
     )
     return await _arequest("PATCH", f"/profiles/{_quote(name)}", body)
 

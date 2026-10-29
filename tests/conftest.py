@@ -12,7 +12,7 @@ def _no_chrome_download(monkeypatch):
     is_installed to False."""
     from src.services.browser import chrome_prefetch
 
-    monkeypatch.setattr(chrome_prefetch, "is_installed", lambda: True)
+    monkeypatch.setattr(chrome_prefetch, "is_installed", lambda *a: True)
 
 
 class FakeS3:

@@ -24,6 +24,7 @@ from .routes import (
     adspower_router,
     automation_router,
     browser_router,
+    chrome_router,
     extensions_router,
     mcp_setup_router,
     page_router,
@@ -111,6 +112,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     app.include_router(accounts_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(accounts_summary_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(browser_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(chrome_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(proxy_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(page_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(automation_router, prefix=API_PREFIX, dependencies=protected)

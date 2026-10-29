@@ -31,7 +31,7 @@ from . import fetch
 from . import persona as personas
 from .geo import ExitGeo, lookup
 from .proxy_bridge import ProxyBridge, Upstream
-from .release import host_os
+from .release import get_release, host_os, key
 
 # Playwright defaults a page can observe, or that make the browser behave
 # unlike a person's Chrome. Everything else Playwright passes is kept, except
@@ -312,6 +312,8 @@ class ChromeEngine:
 
     async def _start(self) -> Any:
         executable = self._resolve_executable()
+        if not self._executable:
+            self._refuse_older_build()
         persona = self._resolve_persona()
 
         upstream = Upstream.parse(self._proxy) if self._proxy else None
@@ -361,6 +363,8 @@ class ChromeEngine:
                 await self._phone(page)
             self._watch(page)
         self.context.on("page", self._watch)
+        if persona.platform == "android" and self.headless is False and self.context.pages:
+            await self._fit_window(self.context.pages[0])
         return self.context
 
     async def stop(self) -> None:
@@ -386,10 +390,27 @@ class ChromeEngine:
             return path
         installed = fetch.installed_executable(self._version)
         if not installed:
+            version = get_release(self._version).version
             raise EngineNotInstalled(
-                "fingerprint-chromium is not installed; run: python -m chrome_engine fetch"
+                f"fingerprint-chromium {version} is not installed; "
+                f"run: python -m chrome_engine fetch --version {version}"
             )
         return installed
+
+    def _refuse_older_build(self) -> None:
+        """Chromium cannot read data a newer build wrote (it records the last one
+        in "Last Version"): opening it with an older build loses cookies and storage."""
+        version = get_release(self._version).version
+        try:
+            last = (self.profile_dir / "Last Version").read_text(encoding="utf-8").strip()
+            newer = key(last) > key(version)
+        except (OSError, ValueError):
+            return
+        if newer:
+            raise EngineError(
+                f"This profile was last opened by Chromium {last}; build {version} is older "
+                "and cannot read its data"
+            )
 
     def _resolve_persona(self) -> personas.Persona:
         if self._persona is not None:
@@ -403,6 +424,7 @@ class ChromeEngine:
             persona = personas.load_or_create(
                 self.profile_dir,
                 self._platform or host_os(),
+                version=self._version,
                 timezone=self._timezone,
                 locale=self._locale,
             )
@@ -479,3 +501,41 @@ class ChromeEngine:
             return
         self._phone_sessions[page] = session
         page.on("close", lambda p: self._phone_sessions.pop(p, None))
+
+    async def _fit_window(self, page: Any) -> None:
+        """Size a phone's window to its viewport and center it on the screen.
+        Chromium keeps a tabbed window at least 500px wide and inside the screen's
+        work area, so a narrow phone leaves a margin and a tall one is cut off.
+        Builds without Browser.setContentsSize keep the launch size."""
+        assert self.persona is not None and self.persona.screen is not None
+        width, height = int(self.persona.screen[0]), int(self.persona.screen[1])
+        try:
+            session = await self.context.new_cdp_session(page)
+            window = (await session.send("Browser.getWindowForTarget"))["windowId"]
+
+            async def bounds(**change: Any) -> dict[str, Any]:
+                if change:
+                    await session.send(
+                        "Browser.setWindowBounds", {"windowId": window, "bounds": change}
+                    )
+                    await asyncio.sleep(0.2)  # the window manager applies it later
+                result = await session.send("Browser.getWindowBounds", {"windowId": window})
+                return result["bounds"]
+
+            # CDP has no screen query: a maximized window covers the work area.
+            area = await bounds(windowState="maximized")
+            await bounds(windowState="normal")
+            with contextlib.suppress(Exception):
+                await session.send(
+                    "Browser.setContentsSize",
+                    {"windowId": window, "width": width, "height": height},
+                )
+                await asyncio.sleep(0.2)
+            size = await bounds()
+            await bounds(
+                left=area["left"] + max(0, area["width"] - size["width"]) // 2,
+                top=area["top"] + max(0, area["height"] - size["height"]) // 2,
+            )
+            await session.detach()
+        except Exception:  # the window closed first: nothing to fit
+            return

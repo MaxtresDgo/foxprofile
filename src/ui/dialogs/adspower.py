@@ -298,7 +298,7 @@ def open_adspower_dialog(
             _importing.clear()
             progress.close()
         if counts["created"]:
-            chrome_prefetch.start(log)
+            chrome_prefetch.start(log=log)
         if counts["reimported"]:
             summary = get_string("adspower_done_re", **counts)
         else:

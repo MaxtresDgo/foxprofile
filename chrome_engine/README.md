@@ -8,6 +8,7 @@ Engine đã được nối vào FoxProfile: profile có trường `engine` (`cam
 
 ```bash
 python -m chrome_engine fetch            # tải ~190 MB, kiểm SHA-256, giải nén vào cache
+python -m chrome_engine fetch --version 139.0.7258.154   # một bản build khác (release.py ghim tối đa 20)
 python -m chrome_engine info             # đường dẫn đã cài
 python -m chrome_engine probe data/alice --timezone Asia/Ho_Chi_Minh --locale vi-VN
 python -m chrome_engine open  data/alice --proxy "socks5://user:pass@host:1080" --url https://example.com

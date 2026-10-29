@@ -2,10 +2,11 @@
 
 Run as a subprocess (like runner.py) so the async browser gets its own event
 loop. Usage:
-    python cookie_tool.py export <profile> <os> [engine]
-    python cookie_tool.py import <profile> <os> [engine]   (Playwright cookies JSON on stdin)
+    python cookie_tool.py export <profile> <os> [engine] [chrome build]
+    python cookie_tool.py import <profile> <os> [engine] [chrome build]
+                                       (Playwright cookies JSON on stdin)
 
-engine is "camoufox" (default) or "chrome".
+engine is "camoufox" (default) or "chrome"; a chrome profile opens with its build.
 
 The last stdout line is "RESULT:<json>".
 """
@@ -29,12 +30,12 @@ from src.services.browser.fingerprint import load_or_create
 from src.utils.validation import validate_profile_name
 
 
-def _open(profile_dir: str, os_type: str, engine: str) -> Any:
+def _open(profile_dir: str, os_type: str, engine: str, version: str | None = None) -> Any:
     if engine == "chrome":
         from chrome_engine import ChromeEngine
 
         # No proxy: cookies need no network, and no exit-IP lookup is made.
-        return ChromeEngine(profile_dir, platform=os_type, headless=True)
+        return ChromeEngine(profile_dir, platform=os_type, headless=True, version=version)
     return AsyncCamoufox(
         headless=True,
         os=os_type,
@@ -45,10 +46,15 @@ def _open(profile_dir: str, os_type: str, engine: str) -> Any:
 
 
 async def _run(
-    action: str, profile_name: str, os_type: str, payload: list, engine: str = "camoufox"
+    action: str,
+    profile_name: str,
+    os_type: str,
+    payload: list,
+    engine: str = "camoufox",
+    version: str | None = None,
 ) -> dict:
     profile_dir = os.path.join(os.getcwd(), DATA_DIR, profile_name)
-    async with _open(profile_dir, os_type, engine) as context:
+    async with _open(profile_dir, os_type, engine, version) as context:
         if action == "export":
             return {"cookies": await context.cookies()}
         await context.add_cookies(payload)
@@ -60,12 +66,16 @@ def main() -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
 
-    if len(sys.argv) not in (4, 5) or sys.argv[1] not in ("export", "import"):
-        print('RESULT:{"error": "usage: cookie_tool.py export|import <profile> <os> [engine]"}')
+    if len(sys.argv) not in (4, 5, 6) or sys.argv[1] not in ("export", "import"):
+        print(
+            'RESULT:{"error": "usage: cookie_tool.py export|import <profile> <os> '
+            '[engine] [chrome build]"}'
+        )
         return 2
 
     action, profile_name, os_type = sys.argv[1:4]
-    engine = sys.argv[4] if len(sys.argv) == 5 else "camoufox"
+    engine = sys.argv[4] if len(sys.argv) >= 5 else "camoufox"
+    version = sys.argv[5] if len(sys.argv) == 6 and sys.argv[5] else None
     valid, msg = validate_profile_name(profile_name)
     if (
         not valid
@@ -76,7 +86,7 @@ def main() -> int:
         return 2
     payload = json.loads(sys.stdin.read() or "[]") if action == "import" else []
     try:
-        result = asyncio.run(_run(action, profile_name, os_type, payload, engine))
+        result = asyncio.run(_run(action, profile_name, os_type, payload, engine, version))
     except Exception as e:
         print("RESULT:" + json.dumps({"error": f"{type(e).__name__}: {e}"}))
         return 1

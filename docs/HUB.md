@@ -18,6 +18,8 @@ PC de ana ── agente ─────> hub  (recibe "abrir perfil", descarga/s
 
 El agente se conecta hacia el hub: las PCs no necesitan abrir puertos.
 
+**Builds de Chrome.** Cada perfil con el motor Chrome usa un build de fingerprint-chromium (hasta 20 versiones fijadas). El agente informa en cada consulta al hub del sistema de su PC y de los builds que tiene instalados (`chrome_os`, `chrome_builds` en `GET /hub/poll`). El panel solo ofrece los builds que existen para ese sistema y deshabilita *Launch* mientras falte el build del perfil o el agente no esté conectado; el botón **Instalar** al lado manda la orden `{"op": "chrome_install", "version": …}` al agente, que lo descarga y muestra el progreso en el estado de la PC. Un perfil solo puede pasar a un build más nuevo, nunca volver a uno anterior. Los instaladores traen el build por defecto.
+
 ## 1. Instalar el hub (servidor)
 
 Requisitos: Docker con Compose.

@@ -347,7 +347,9 @@ def _cookies_here(pm: Any, bl: Any, name: str, data: dict[str, Any]) -> int:
 
     profile = pm.profiles[name]
     with bl.exclusive(name):
-        return cookies.import_cookies(name, profile.os_type, data["cookies"], profile.engine)
+        return cookies.import_cookies(
+            name, profile.os_type, data["cookies"], profile.engine, profile.chrome_version
+        )
 
 
 def import_here(pm: Any, bl: Any, data: dict[str, Any], name: str, data_dir: str) -> dict[str, Any]:

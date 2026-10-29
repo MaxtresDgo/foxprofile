@@ -111,10 +111,10 @@ def test_label_tab_comes_first(tmp_path, monkeypatch):
     assert shown["ip"] == "203.0.113.9"
     assert [p.url for p in ctx.pages[1:]] == ["https://a.test/"]
 
-    # Nothing saved: one blank tab to work in, so the label tab stays as it is.
+    # Nothing saved: Facebook's home to work in, so the label tab stays as it is.
     ctx = FakeContext()
     assert asyncio.run(runner.open_tabs(ctx, str(tmp_path / "new"), tag)) == 0
-    assert len(ctx.pages) == 2
+    assert [p.url for p in ctx.pages[1:]] == [runner.HOME_URL]
 
     # A label tab that fails to load never stops the launch.
     ctx = FakeContext()
