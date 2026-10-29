@@ -309,7 +309,7 @@ def test_calls_are_spaced_out(fake, monkeypatch):
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(chrome_prefetch, "start", lambda log=None: False)
+    monkeypatch.setattr(chrome_prefetch, "start", lambda *a, **k: False)
     monkeypatch.setattr(chrome_prefetch, "unsupported_reason", lambda: None)
     return TestClient(create_app(Container()), base_url="http://127.0.0.1")
 

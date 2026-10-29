@@ -52,6 +52,7 @@ import urllib.request  # noqa: E402
 import webbrowser  # noqa: E402
 import zipfile  # noqa: E402
 
+from chrome_engine.fetch import installed_versions as fetch_installed_versions  # noqa: E402
 from src.api.schemas.proxy import GeoCheckResponse  # noqa: E402
 from src.core.config import (  # noqa: E402
     DATA_DIR,
@@ -66,7 +67,7 @@ from src.core.strings import current_language, get_string, set_language  # noqa:
 from src.hub import agent_code  # noqa: E402
 from src.hub.agent_auth import SignIn, pc_name  # noqa: E402
 from src.models.profile import Profile  # noqa: E402
-from src.services.browser import cookies  # noqa: E402
+from src.services.browser import chrome_prefetch, cookies  # noqa: E402
 from src.services.browser import extensions as ext_files  # noqa: E402
 from src.services.browser.launcher import BrowserControlError  # noqa: E402
 from src.services.profile import adspower  # noqa: E402
@@ -184,6 +185,7 @@ class Agent:
             "req": agent_code.installed_requirements() or "",
             "pc": pc_name(),
             "ver": agent_code.installed_version(),
+            "chrome_os": chrome_prefetch.host() or "",
         }
         self.restart = False  # set when an update is unpacked: run() returns
         # Installed agents follow their hub's code; a dev hub deploys the dev branch.
@@ -195,6 +197,9 @@ class Agent:
         # What the panel shows about this PC (hub POST /agent/status): the browser
         # download, an update, or the profiles being opened or saved right now.
         self.browser_download: int | None = None  # percent, -1 before it is known
+        # Chrome engine builds the panel asked for (op chrome_install): version -> percent.
+        self.chrome_installs: dict[str, int] = {}
+        self.chrome_error = ""  # "<version> <error>" of the last failed one, for the panel
         self.updating = False
         self._ops: dict[str, str] = {}  # profile -> "opening" | "syncing"
         # Profiles downloaded by this run: their os_type and engine open the
@@ -226,6 +231,9 @@ class Agent:
         if self.browser_download is not None:
             pct = self.browser_download if self.browser_download >= 0 else None
             return {"state": "downloading", "pct": pct}
+        if self.chrome_installs:
+            version, pct = next(iter(self.chrome_installs.items()))
+            return {"state": "downloading", "build": version, "pct": pct if pct >= 0 else None}
         ops = list(self._ops.items())
         if ops:
             # Every profile being saved, for its row in the panel.
@@ -301,6 +309,33 @@ class Agent:
             else get_string("agent_failed", name=name, error=error)
         )
 
+    def install_chrome(self, version: str) -> None:
+        """Install a Chrome engine build; the next polls report it as installed."""
+        from chrome_engine import fetch
+
+        if version in self.chrome_installs:
+            return
+        self.chrome_installs[version] = -1
+        self.chrome_error = ""
+        self.report()
+        say(get_string("agent_chrome_installing", version=version))
+
+        def progress(done: int, total: int) -> None:
+            pct = done * 100 // total if total else -1
+            if pct != self.chrome_installs.get(version):
+                self.chrome_installs[version] = pct
+                self.report()
+
+        try:
+            fetch.install(version, progress=progress)
+            say(get_string("agent_chrome_installed", version=version))
+        except Exception as e:
+            say(get_string("agent_chrome_install_failed", version=version, error=e))
+            self.chrome_error = f"{version} {e}"
+        finally:
+            self.chrome_installs.pop(version, None)
+            self.report(force=True)
+
     def stop(self, name: str) -> None:
         # stop_profile does not fire on_stop, so sync here.
         # Time for the browser to close and write its cookies before the upload.
@@ -333,12 +368,12 @@ class Agent:
             profile = self._download(name)
             if cmd["action"] == "export":
                 text, count = cookies.export_cookies(
-                    name, profile.os_type, params["format"], profile.engine
+                    name, profile.os_type, params["format"], profile.engine, profile.chrome_version
                 )
                 result = {"text": text, "count": count}
             else:
                 count = cookies.import_cookies(
-                    name, profile.os_type, params["content"], profile.engine
+                    name, profile.os_type, params["content"], profile.engine, profile.chrome_version
                 )
                 self._pack_cookies(name, local)
                 self._upload(name, local)
@@ -487,7 +522,9 @@ class Agent:
         if not text or not json.loads(text):
             return
         try:
-            count = cookies.import_cookies(profile.name, profile.os_type, text, profile.engine)
+            count = cookies.import_cookies(
+                profile.name, profile.os_type, text, profile.engine, profile.chrome_version
+            )
             say(get_string("agent_cookies_restored", name=profile.name, count=count))
         except cookies.CookieError as e:
             # The browser's own store still has the cookies this PC can read.
@@ -501,7 +538,9 @@ class Agent:
             # it uploads its browser store alone. Ask the hub for them if that bites.
             return
         try:
-            text, count = cookies.export_cookies(name, profile.os_type, "json", profile.engine)
+            text, count = cookies.export_cookies(
+                name, profile.os_type, "json", profile.engine, profile.chrome_version
+            )
             pack_cookies(str(local), text)
             say(get_string("agent_cookies_packed", name=name, count=count))
         except (cookies.CookieError, OSError) as e:
@@ -584,7 +623,15 @@ class Agent:
         self.recover()
         while not self.restart:
             running = ",".join(sorted(self.bl.running_profile_names()))
-            query = urllib.parse.urlencode({"running": running, **self.identity})
+            builds = ",".join(fetch_installed_versions()) if self.identity["chrome_os"] else ""
+            query = urllib.parse.urlencode(
+                {
+                    "running": running,
+                    **self.identity,
+                    "chrome_builds": builds,
+                    "chrome_error": self.chrome_error,
+                }
+            )
             try:
                 resp = self.hub.call("GET", "/hub/poll?" + query, timeout=60)
             except (OSError, urllib.error.URLError) as e:
@@ -608,6 +655,9 @@ class Agent:
                 threading.Thread(target=self.cookie_job, args=(resp,), daemon=True).start()
             elif resp["op"] in ("proxy_check", "geo_check", "adspower_list", "adspower_fetch"):
                 threading.Thread(target=self.check, args=(resp,), daemon=True).start()
+            elif resp["op"] == "chrome_install":
+                args = (resp["version"],)
+                threading.Thread(target=self.install_chrome, args=args, daemon=True).start()
             elif resp["op"] == "update":
                 if self.follow_updates:
                     self.update(resp["code"])

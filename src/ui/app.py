@@ -9,7 +9,7 @@ from ..core.container import Container
 from ..core.logging import get_logger
 from ..core.strings import current_language, get_string, set_language
 from ..interfaces.protocols import IBrowserLauncher, IProfileManager, IProxyService
-from ..services.browser import fingerprint
+from ..services.browser import chrome_prefetch, fingerprint
 from ..services.profile.accounts import AccountsLocked
 from .components import (
     build_content_area,
@@ -225,6 +225,7 @@ class App:
             else None
         )
 
+        builds = self._chrome_builds(page_profiles)
         r.profile_list_area.controls = (
             [
                 build_profile_card(
@@ -243,6 +244,9 @@ class App:
                     device=self._device_label(p.name),
                     since=self._live_since.get(p.name, ""),
                     failed=p.name in self.state.failed,
+                    missing_build=builds[0](p),
+                    install_pct=builds[1].get(p.chrome_version or ""),
+                    on_install=self.h.on_install_build,
                 )
                 for p in page_profiles
             ]
@@ -283,6 +287,27 @@ class App:
             return self.pm.accounts.list(name)
         except AccountsLocked:
             return None
+
+    @staticmethod
+    def _chrome_builds(profiles) -> tuple:
+        """(profile -> its Chrome build if not installed here, version -> install percent)."""
+        if not any(p.engine == "chrome" for p in profiles):
+            return (lambda p: None), {}
+        from chrome_engine import fetch
+
+        try:
+            installed = set(fetch.installed_versions())
+        except Exception:  # unreadable cache dir
+            installed = set()
+
+        def missing(p) -> str | None:
+            return (
+                p.chrome_version
+                if p.engine == "chrome" and p.chrome_version not in installed
+                else None
+            )
+
+        return missing, chrome_prefetch.installing()
 
     @staticmethod
     def _device_label(name: str) -> str:

@@ -219,6 +219,8 @@ def test_hub_admins_manage_and_launches_carry_the_groups_extensions(hub):
 
     bl = container.browser_launcher
     bl.touch("ana", set())
+    # Her agent has the profile's Chrome build (it reports it on each poll).
+    bl.agents["ana"] = {"os": "macos", "builds": ["148.0.7778.215"]}
     client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
     command = client.get("/api/v1/hub/poll", headers=ana).json()
     assert command["op"] == "launch"

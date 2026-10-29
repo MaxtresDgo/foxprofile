@@ -3,11 +3,13 @@
 Same command line and stdout protocol as src/services/browser/runner.py, so
 BrowserLauncher can start a Chrome profile exactly like a Camoufox one:
 
-    python -m chrome_engine.runner <name> <proxy> <os> [timezone] [locale]
+    python -m chrome_engine.runner <name> <proxy> <os> [timezone] [locale] [build]
 
 prints CONTROL:<port>:<token>, then BROWSER_STARTED, and BROWSER_CLOSED when
 the last tab closes (or LAUNCH_FAILED: ...). The page-control server, tab
-restore and tab snapshots are FoxProfile's own, shared with Camoufox.
+restore and tab snapshots are FoxProfile's own, shared with Camoufox. `build`
+is the fingerprint-chromium version (the default one if empty); it must be
+installed already: the panels install it before they let a profile open.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from chrome_engine import fetch, geo
+from chrome_engine import geo
 from chrome_engine.engine import ChromeEngine
 from src.core.config import DATA_DIR, HEADLESS, RESTORE_TABS
 from src.services.browser import control, label, session
@@ -41,29 +43,6 @@ def _compact(exc: BaseException, limit: int = 220) -> str:
     text = " ".join(str(exc).split())
     text = text.split("Call log:", 1)[0].strip()
     return text[:limit] + ("..." if len(text) > limit else "")
-
-
-def _install_progress() -> fetch.Progress:
-    """Report download progress every 10% (the launcher shows these lines in the log)."""
-    last = -1
-
-    def report(done: int, total: int) -> None:
-        nonlocal last
-        pct = done * 100 // total if total else 0
-        if pct // 10 != last // 10:
-            last = pct
-            _say(f"Downloading Chrome engine: {pct}% ({done / 1e6:.0f}/{total / 1e6:.0f} MB)")
-
-    return report
-
-
-async def ensure_installed() -> None:
-    """Download the pinned browser build on first use."""
-    if fetch.installed_executable():
-        return
-    _say("Chrome engine is not installed yet; downloading it once...")
-    await asyncio.to_thread(fetch.install, progress=_install_progress())
-    _say("Chrome engine installed")
 
 
 def _extension_args(dirs: list[str]) -> list[str]:
@@ -98,6 +77,7 @@ async def run_browser(
     os_type: str,
     timezone: str = "",
     locale: str = "",
+    version: str = "",
 ) -> int:
     profile_dir = os.path.join(os.getcwd(), DATA_DIR, profile_name)
     proxy = proxy_str if proxy_str and proxy_str != "None" else None
@@ -116,10 +96,10 @@ async def run_browser(
         timezone=timezone,
         locale=locale,
         extra_args=_extension_args(extensions),
+        version=version or None,
     )
     _say(f"Starting Chrome engine for {profile_name}...")
     try:
-        await ensure_installed()
         context = await engine.start()
     except asyncio.CancelledError:
         _say("LAUNCH_CANCELLED")
@@ -189,7 +169,7 @@ async def _async_main(argv: list[str]) -> int:
             loop.add_signal_handler(sig, _shutdown.set)
     except NotImplementedError:
         pass
-    return await run_browser(*argv[:5])
+    return await run_browser(*argv[:6])
 
 
 def main() -> int:
@@ -197,7 +177,9 @@ def main() -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) < 4:
-        _say("Usage: python -m chrome_engine.runner <name> <proxy> <os> [timezone] [locale]")
+        _say(
+            "Usage: python -m chrome_engine.runner <name> <proxy> <os> [timezone] [locale] [build]"
+        )
         return 1
     try:
         return asyncio.run(_async_main(sys.argv[1:]))

@@ -23,6 +23,9 @@ from src.utils.proxy_parser import parse_proxy
 
 _shutdown = asyncio.Event()
 
+# The tab to work in when no tabs were saved: almost every profile is a Facebook account.
+HOME_URL = "https://www.facebook.com/"
+
 # How often the open tabs are snapshotted. The browser is stopped by killing
 # this process, so whatever was saved last is what the next launch reopens.
 TAB_SNAPSHOT_SECONDS = 2.0
@@ -67,7 +70,7 @@ def _open_urls(context: object) -> list[str]:
 async def open_tabs(
     context: object, profile_dir: str, tag: dict, place_job: asyncio.Future | None = None
 ) -> int:
-    """The start page first, then the saved tabs, or one blank tab to work in; on
+    """The start page first, then the saved tabs, or Facebook's home to work in; on
     Windows, the number on the browser's taskbar icon too."""
     try:
         await label.open_tab(context, tag, place_job)
@@ -76,7 +79,7 @@ async def open_tabs(
     taskbar.start(tag["number"], tag["name"])
     restored = await restore_tabs(context, session.load(profile_dir)) if RESTORE_TABS else 0
     if not restored:
-        await (await context.new_page()).bring_to_front()
+        await restore_tabs(context, [HOME_URL])
     return restored
 
 

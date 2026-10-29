@@ -26,7 +26,7 @@ def client(workdir, monkeypatch):
     from src.services.browser import chrome_prefetch
 
     # Creating a Chrome profile must not start a real ~150 MB download in tests.
-    monkeypatch.setattr(chrome_prefetch, "start", lambda log=None: False)
+    monkeypatch.setattr(chrome_prefetch, "start", lambda *a, **k: False)
     # The token-less API only answers loopback Host headers.
     return TestClient(create_app(Container()), base_url="http://127.0.0.1")
 
@@ -57,8 +57,9 @@ def test_runner_command_follows_the_engine():
     assert camoufox[0] == chrome[0] == sys.executable
     assert camoufox[1].endswith("runner.py")
     assert chrome[1:3] == ["-m", "chrome_engine.runner"]
-    # Same positional protocol for both runners.
-    assert chrome[3:] == ["b", "1.2.3.4:80", "macos", "", ""]
+    # Same positional protocol for both runners; chrome adds its build.
+    assert camoufox[2:] == ["a", "None", "windows", "", ""]
+    assert chrome[3:] == ["b", "1.2.3.4:80", "macos", "", "", "148.0.7778.215"]
 
 
 def test_api_creates_and_reports_the_engine(client):
@@ -122,31 +123,38 @@ def test_fingerprint_summary_reads_the_chrome_persona(tmp_path):
 def test_prefetch_skips_an_installed_engine(monkeypatch):
     from src.services.browser import chrome_prefetch
 
-    monkeypatch.setattr(chrome_prefetch, "is_installed", lambda: True)
+    monkeypatch.setattr(chrome_prefetch, "is_installed", lambda *a: True)
     assert chrome_prefetch.start() is False
 
 
-def test_prefetch_runs_once_at_a_time(monkeypatch):
+def test_prefetch_runs_once_per_build_and_reports_progress(monkeypatch):
     import threading
 
     from chrome_engine import fetch
     from src.services.browser import chrome_prefetch
 
     release = threading.Event()
-    calls = []
+    calls, done = [], threading.Event()
 
-    def fake_install():
-        calls.append(1)
+    def fake_install(version, progress):
+        calls.append(version)
+        progress(50, 100)
         release.wait(5)
 
-    monkeypatch.setattr(chrome_prefetch, "is_installed", lambda: False)
+    monkeypatch.setattr(chrome_prefetch, "is_installed", lambda *a: False)
     monkeypatch.setattr(fetch, "install", fake_install)
     logs = []
-    assert chrome_prefetch.start(logs.append) is True
-    assert chrome_prefetch.start(logs.append) is False
+    assert chrome_prefetch.start("139.0.7258.154", logs.append, on_done=done.set) is True
+    assert chrome_prefetch.start("139.0.7258.154", logs.append) is False
+    for _ in range(50):
+        if chrome_prefetch.installing().get("139.0.7258.154") == 50:
+            break
+        threading.Event().wait(0.02)
+    assert chrome_prefetch.installing() == {"139.0.7258.154": 50}
     release.set()
-    chrome_prefetch._thread.join(5)
-    assert calls == [1]
+    assert done.wait(5)
+    assert calls == ["139.0.7258.154"]
+    assert chrome_prefetch.installing() == {}
     assert len(logs) == 2  # downloading..., ready
 
 

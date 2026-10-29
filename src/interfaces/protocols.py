@@ -19,9 +19,12 @@ class IProfileManager(Protocol):
         locale: str | None = None,
         engine: str = "camoufox",
         uid: str | None = None,
+        chrome_version: str | None = None,
     ) -> bool: ...
 
     def set_label(self, name: str, number: object, remark: object) -> bool: ...
+
+    def set_chrome_version(self, name: str, version: str) -> bool: ...
 
     def update_profile(
         self,

@@ -7,6 +7,7 @@ import flet as ft
 from ...core.strings import get_string
 from ...interfaces.protocols import IProxyService
 from ...models.profile import NUMBER_MAX, REMARK_MAX, Profile
+from ...services.browser import chrome_prefetch
 from ...services.proxy.geo_check import GeoCheckResult, check_geo
 from ...utils.validation import (
     validate_locale,
@@ -22,8 +23,8 @@ from ..theme.styles import ACCENT_STYLE, DLG_FIELD_KWARGS, OUTLINE_STYLE
 def open_profile_dialog(
     page: ft.Page,
     proxy_service: IProxyService,
-    # name, proxy, os, timezone, locale, engine, number, remark
-    on_save: Callable[[str, str, str, str, str, str, str, str], str | None],
+    # name, proxy, os, timezone, locale, engine, number, remark, chrome build
+    on_save: Callable[[str, str, str, str, str, str, str, str, str], str | None],
     profile: Profile | None = None,
 ) -> None:
     is_edit = profile is not None
@@ -88,8 +89,15 @@ def open_profile_dialog(
         ),
     )
 
+    build_dropdown = _build_dropdown(profile)
+    build_field = _field(
+        get_string("chrome_build"), build_dropdown, get_string("chrome_build_hint")
+    )
+    build_field.visible = engine_dropdown.value == "chrome"
+
     def on_engine_change(_: ft.ControlEvent) -> None:
         engine_note.visible = engine_dropdown.value == "chrome" and not is_edit
+        build_field.visible = engine_dropdown.value == "chrome"
         page.update()
 
     engine_dropdown.on_select = on_engine_change
@@ -175,7 +183,8 @@ def open_profile_dialog(
 
         number = (number_field.value or "").strip()
         remark = (remark_field.value or "").strip()
-        error = on_save(name, proxy, os_type, timezone, locale, engine, number, remark)
+        build = (build_dropdown.value or "") if engine == "chrome" else ""
+        error = on_save(name, proxy, os_type, timezone, locale, engine, number, remark, build)
         if error:
             name_error.value = error
             name_error.visible = True
@@ -185,7 +194,8 @@ def open_profile_dialog(
 
     engine_dropdown.label = None
     os_dropdown.label = None
-    for dropdown in (engine_dropdown, os_dropdown):
+    build_dropdown.label = None
+    for dropdown in (engine_dropdown, os_dropdown, build_dropdown):
         # Text fields keep Material's 48px height so rows of fields and
         # dropdowns (which cannot go below 48px) line up.
         dropdown.text_size = 14
@@ -247,6 +257,7 @@ def open_profile_dialog(
                         ],
                     ),
                     engine_note,
+                    build_field,
                     _field(
                         get_string("proxy_optional"), proxy_field, get_string("proxy_format_hint")
                     ),
@@ -290,6 +301,40 @@ def open_profile_dialog(
 
 _DATA = ft.TextStyle(font_family=FONT_DATA, size=13)
 _WARN_TINT = COLORS["warn_tint"]
+
+
+def _build_dropdown(profile: Profile | None) -> ft.Dropdown:
+    """The Chrome builds this machine has a download for; an existing profile
+    only moves to a newer one (Chromium cannot read a newer build's data)."""
+    from chrome_engine import fetch, release
+
+    current = profile.chrome_version if profile is not None else None
+    chosen = current or release.DEFAULT_VERSION
+    try:
+        installed = set(fetch.installed_versions())
+    except Exception:  # unreadable cache dir: show them all as not installed
+        installed = set()
+    versions = [
+        v
+        for v in release.available(chrome_prefetch.host())
+        if current is None or release.key(v) >= release.key(current)
+    ]
+    if chosen not in versions:
+        versions.append(chosen)
+    not_installed = get_string("chrome_not_installed")
+    return ft.Dropdown(
+        value=chosen,
+        disabled=profile is not None and profile.engine != "chrome",
+        bgcolor=COLORS["input_bg"],
+        color=COLORS["text_main"],
+        border_color=COLORS["rule_strong"],
+        focused_border_color=COLORS["sidebar"],
+        border_radius=8,
+        options=[
+            ft.dropdown.Option(v, v if v in installed else f"{v} · {not_installed}")
+            for v in versions
+        ],
+    )
 
 
 def _field(label: str, control: ft.Control, hint: str | None = None) -> ft.Column:

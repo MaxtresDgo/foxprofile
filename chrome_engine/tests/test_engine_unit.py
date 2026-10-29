@@ -239,29 +239,26 @@ def test_start_twice_is_refused(tmp_path):
         asyncio.run(eng.start())
 
 
-def test_runner_installs_the_engine_on_first_launch(monkeypatch, capsys):
+def test_a_missing_build_is_named_not_downloaded(monkeypatch, tmp_path):
+    # The panels install a build before a profile opens; the engine never fetches one.
     import asyncio
 
-    from chrome_engine import fetch, runner
+    from chrome_engine import ChromeEngine, EngineNotInstalled, fetch
 
-    installed = []
-    monkeypatch.setattr(
-        fetch, "installed_executable", lambda *a, **k: installed[0] if installed else None
-    )
+    monkeypatch.setattr(fetch, "installed_executable", lambda *a, **k: None)
+    monkeypatch.setattr(fetch, "install", lambda *a, **k: pytest.fail("downloaded"))
+    eng = ChromeEngine(tmp_path, platform="linux", version="139.0.7258.154")
+    with pytest.raises(EngineNotInstalled, match="139.0.7258.154 is not installed"):
+        asyncio.run(eng.start())
 
-    def fake_install(progress=None):
-        for done in (0, 50, 100, 100, 100):
-            progress(done, 100)
-        installed.append("chrome")
-        return "chrome"
 
-    monkeypatch.setattr(fetch, "install", fake_install)
-    asyncio.run(runner.ensure_installed())
-    out = capsys.readouterr().out
-    assert "downloading it once" in out
-    assert out.count("Downloading Chrome engine: 100%") == 1
-    assert "Chrome engine installed" in out
+def test_an_older_build_refuses_newer_data(monkeypatch, tmp_path):
+    import asyncio
 
-    # Already installed: nothing is printed or downloaded.
-    asyncio.run(runner.ensure_installed())
-    assert capsys.readouterr().out == ""
+    from chrome_engine import ChromeEngine, EngineError, fetch
+
+    monkeypatch.setattr(fetch, "installed_executable", lambda *a, **k: tmp_path / "chrome")
+    (tmp_path / "Last Version").write_text("148.0.7778.215")
+    eng = ChromeEngine(tmp_path, platform="linux", version="139.0.7258.154")
+    with pytest.raises(EngineError, match="last opened by Chromium 148.0.7778.215"):
+        asyncio.run(eng.start())

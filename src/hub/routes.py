@@ -17,6 +17,9 @@ Agent protocol (all as the operator the agent belongs to):
 
 The poll also carries the agent's code id, its installer's requirements and PC
 name; the answer can be {"op": "update", "code": id} (see hub/agent_code.py).
+It also carries the PC's Chrome engine platform (`chrome_os`) and installed
+builds (`chrome_builds`, comma-separated; `chrome_error` = "<version> <error>"
+of its last failed install); {"op": "chrome_install", "version": v} asks for one.
 """
 
 from __future__ import annotations
@@ -435,6 +438,9 @@ async def poll(
     req: str = "",
     pc: str = "",
     ver: str = "",
+    chrome_os: str = "",
+    chrome_builds: str = "",
+    chrome_error: str = "",
 ) -> Response:
     user, bl = _user(request)["name"], _launcher(request)
     store = hub_store(request)
@@ -446,6 +452,11 @@ async def poll(
         "req": req,
         "pc": pc[:64],
         "version": ver[:32],
+        # Its Chrome engine builds (routes/chrome.py): platform and installed versions.
+        "os": chrome_os[:32],
+        "builds": [b for b in chrome_builds.split(",") if b][:64],
+        # "<version> <error>" of its last failed build install.
+        "build_errors": dict([chrome_error[:300].split(" ", 1)]) if " " in chrome_error else {},
     }
     bl.agents[user]["running"] = len(names)
     if code and req:

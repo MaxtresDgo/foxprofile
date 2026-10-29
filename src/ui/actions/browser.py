@@ -3,6 +3,7 @@ from collections.abc import Callable
 
 from ...core.strings import get_string
 from ...interfaces.protocols import IBrowserLauncher, IProfileManager
+from ...services.browser import chrome_prefetch
 from ...services.browser.launcher import ProfileBusyError
 from ..state import AppState
 
@@ -34,6 +35,11 @@ def launch_or_stop(
                 state.schedule_refresh()
 
         threading.Thread(target=do_stop, daemon=True).start()
+        return
+
+    # Bulk launches and "Open with" skip the disabled button: the build must be here.
+    if profile.engine == "chrome" and not chrome_prefetch.is_installed(profile.chrome_version):
+        log(get_string("err_chrome_build_missing", version=profile.chrome_version))
         return
 
     state.set_loading(name, True)

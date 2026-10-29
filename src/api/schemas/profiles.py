@@ -18,6 +18,11 @@ class ProfileCreate(BaseModel):
     )
     number: str | None = Field(None, max_length=20, description="Shown on the toolbar badge")
     remark: str | None = Field(None, max_length=60, description="Shown after the name in the tab")
+    chrome_version: str | None = Field(
+        None,
+        description="chrome only: the fingerprint-chromium build (GET /chrome/builds). "
+        "Unset = the default one",
+    )
 
 
 class ProfileUpdate(BaseModel):
@@ -31,6 +36,9 @@ class ProfileUpdate(BaseModel):
     engine: str | None = Field(None, description="Cannot be changed; only the current value")
     number: str | None = Field(None, max_length=20, description='"" removes it')
     remark: str | None = Field(None, max_length=60, description='"" removes it')
+    chrome_version: str | None = Field(
+        None, description="chrome only: a newer build; the profile must be stopped"
+    )
 
 
 class ProfileResponse(BaseModel):
@@ -42,6 +50,7 @@ class ProfileResponse(BaseModel):
     engine: str = "camoufox"
     number: str | None = None
     remark: str | None = None
+    chrome_version: str | None = None
     data_dir: str
     is_running: bool
 

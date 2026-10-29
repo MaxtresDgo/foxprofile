@@ -3,6 +3,7 @@ from .accounts import summary_router as accounts_summary_router
 from .adspower import router as adspower_router
 from .automation import router as automation_router
 from .browser import router as browser_router
+from .chrome import router as chrome_router
 from .extensions import router as extensions_router
 from .mcp_setup import router as mcp_setup_router
 from .page import router as page_router
@@ -17,6 +18,7 @@ __all__ = [
     "adspower_router",
     "automation_router",
     "browser_router",
+    "chrome_router",
     "extensions_router",
     "mcp_setup_router",
     "page_router",

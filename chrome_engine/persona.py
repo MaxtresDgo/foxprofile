@@ -249,11 +249,13 @@ def generate(
     locale: str | None = None,
     user_agent: str | None = None,
     screen: list[float] | None = None,
+    version: str | None = None,
 ) -> Persona:
     """A new persona. The same seed and platform always give the same persona.
 
     android: `user_agent` keeps the phone a profile had elsewhere; without one
-    it is a reduced Chrome-on-Android User-Agent of this engine's version."""
+    it is a reduced Chrome-on-Android User-Agent of the build `version` runs
+    (the default build if unset)."""
     if platform not in PLATFORMS:
         raise PersonaError(f"platform must be one of {', '.join(PLATFORMS)}")
     seed = seed if seed is not None else 1 + secrets.randbelow(SEED_MAX)
@@ -261,7 +263,8 @@ def generate(
     if platform == "android":
         from .release import DEFAULT_VERSION
 
-        user_agent = user_agent or _ANDROID_UA.format(major=DEFAULT_VERSION.split(".")[0])
+        major = (version or DEFAULT_VERSION).split(".")[0]
+        user_agent = user_agent or _ANDROID_UA.format(major=major)
         return Persona(
             seed=seed,
             platform=platform,
@@ -303,21 +306,44 @@ def save(profile_dir: str | Path, persona: Persona) -> None:
     tmp.replace(path)
 
 
-def load_or_create(profile_dir: str | Path, platform: str, **overrides: Any) -> Persona:
+def load_or_create(
+    profile_dir: str | Path, platform: str, version: str | None = None, **overrides: Any
+) -> Persona:
     """The profile's saved persona, generated on first use or when the OS changes.
 
+    `version`: the build it runs, for a new android persona's User-Agent.
     `overrides` (timezone, locale, brand, ...) are applied to the saved persona
     without regenerating it, so pinning a timezone keeps the same device. None
     leaves a field as saved; "" clears it (timezone / locale follow the IP again).
     """
     persona = load(profile_dir)
     if persona is None or persona.platform != platform:
-        persona = generate(platform)
+        persona = generate(platform, version=version)
     overrides = {k: (v or None) for k, v in overrides.items() if v is not None}
     if overrides:
         persona = replace(persona, **overrides)
     save(profile_dir, persona)
     return persona
+
+
+def retarget(profile_dir: str | Path, version: str) -> bool:
+    """After a profile moves to the build `version`: an android persona's
+    User-Agent says that Chrome (a reduced one keeps its zeros). Desktop personas
+    have no User-Agent of their own (the browser reports its version). True if
+    the saved persona changed."""
+    persona = load(profile_dir)
+    if persona is None or not persona.user_agent:
+        return False
+    match = _UA_CHROME.search(persona.user_agent)
+    if not match:
+        return False
+    reduced = match.groups()[1:] == ("0", "0", "0")
+    new = f"{version.split('.')[0]}.0.0.0" if reduced else version
+    user_agent = _UA_CHROME.sub(f"Chrome/{new}", persona.user_agent, count=1)
+    if user_agent == persona.user_agent:
+        return False
+    save(profile_dir, replace(persona, user_agent=user_agent))
+    return True
 
 
 def compatibility(host: str, platform: str) -> tuple[str, str]:

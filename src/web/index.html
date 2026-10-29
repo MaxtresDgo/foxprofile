@@ -267,6 +267,7 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .muted { color: var(--ink-3); }
 .direct { color: var(--ink-3); font-style: normal; }
 .actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.c-stamp .btn { padding: 0 10px; font-size: 12.5px; white-space: nowrap; }
 .actions .main { width: 96px; margin-right: 8px; height: 36px; }
 
 /* The entry stamp */
@@ -645,7 +646,8 @@ const I18N = {
     bad_token: "Token không đúng", create: "Tạo profile", edit_title: "Sửa profile", edit_sub: "Đang sửa {name}", create_sub: "Một profile là một danh tính: thiết bị, proxy và vị trí riêng.",
     name: "Tên profile", os: "Hệ điều hành", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (thử nghiệm)", engine_locked: "Engine không đổi được sau khi tạo.",
-    engine_note: "Engine Chromium đang thử nghiệm. Lần đầu dùng sẽ tự tải về máy chạy FoxProfile (~150 MB). Nên chọn đúng hệ điều hành của máy đó, chọn hệ khác sẽ lộ font. Không đổi được engine sau khi tạo.",
+    chrome_build: "Bản build Chrome", chrome_build_hint: "Sau này chỉ có thể chuyển sang bản build mới hơn.", not_installed: "chưa cài", build_missing: "Cài bản build Chrome {version} để mở profile này", build_unavailable: "Bản build Chrome {version} không có cho hệ điều hành của máy này", install_build: "Cài {version}", installing_build: "Đang cài {pct}%", install_started: "Đang cài bản build Chrome {version}…", install_failed: "Không cài được bản build Chrome {version}: {error}", act_installing_build: "Đang cài bản build Chrome {version}… {pct}%", build_confirm: "Chuyển {name} sang bản build Chrome {version}? Không thể quay lại bản cũ hơn.",
+    engine_note: "Engine Chromium đang thử nghiệm. Mỗi bản build (~150 MB) được cài trên máy chạy trình duyệt bằng nút Cài trong danh sách. Nên chọn đúng hệ điều hành của máy đó, chọn hệ khác sẽ lộ font. Không đổi được engine sau khi tạo.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, hoặc socks5://... Để trống = kết nối trực tiếp.",
     check_proxy: "Kiểm tra proxy", cancel: "Huỷ", save: "Lưu thay đổi", checking: "Đang kiểm tra...",
     confirm_delete: "Xoá profile “{name}”? Cookie và dữ liệu của profile sẽ mất vĩnh viễn.", confirm_title: "Xác nhận", stop_first: "Hãy dừng trình duyệt trước",
@@ -750,7 +752,8 @@ const I18N = {
     bad_token: "Invalid token", create: "Create profile", edit_title: "Edit profile", edit_sub: "Editing {name}", create_sub: "A profile is an identity: its own device, proxy and location.",
     name: "Profile name", os: "Operating system", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "The engine cannot be changed after creation.",
-    engine_note: "Experimental Chromium engine. It is downloaded automatically to the FoxProfile machine the first time (~150 MB). Pick that machine's OS: other OSes leak its fonts. The engine cannot be changed later.",
+    chrome_build: "Chrome build", chrome_build_hint: "Later it can only move to a newer build.", not_installed: "not installed", build_missing: "Install Chrome build {version} to open this profile", build_unavailable: "Chrome build {version} has no download for this PC\u2019s system", install_build: "Install {version}", installing_build: "Installing {pct}%", install_started: "Installing Chrome build {version}…", install_failed: "Could not install Chrome build {version}: {error}", act_installing_build: "Installing Chrome build {version}… {pct}%", build_confirm: "Move {name} to Chrome build {version}? It cannot go back to an older build.",
+    engine_note: "Experimental Chromium engine. Each build (~150 MB) is installed on the PC that runs the browser, with the Install button in the list. Pick that machine's OS: other OSes leak its fonts. The engine cannot be changed later.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, or socks5://... Blank = direct connection.",
     check_proxy: "Check proxy", cancel: "Cancel", save: "Save changes", checking: "Checking...",
     confirm_delete: "Delete profile “{name}”? Its cookies and data are removed permanently.", confirm_title: "Confirm", stop_first: "Stop the browser first",
@@ -855,7 +858,8 @@ const I18N = {
     bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
     name: "Nombre del profile", os: "Sistema operativo", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "El engine no se puede cambiar después de crearlo.",
-    engine_note: "Engine Chromium experimental. Se descarga automáticamente en la máquina de FoxProfile la primera vez (~150 MB). Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
+    chrome_build: "Build de Chrome", chrome_build_hint: "Más adelante solo podrá pasar a un build más nuevo.", not_installed: "no instalado", build_missing: "Instala el build de Chrome {version} para abrir este profile", build_unavailable: "El build de Chrome {version} no tiene descarga para el sistema de este PC", install_build: "Instalar {version}", installing_build: "Instalando {pct} %", install_started: "Instalando el build de Chrome {version}…", install_failed: "No se pudo instalar el build de Chrome {version}: {error}", act_installing_build: "Instalando el build de Chrome {version}… {pct} %", build_confirm: "¿Pasar {name} al build de Chrome {version}? No podrá volver a un build anterior.",
+    engine_note: "Engine Chromium experimental. Cada build (~150 MB) se instala en el PC que ejecuta el navegador, con el botón Instalar de la lista. Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass o socks5://... Vacío = conexión directa.",
     check_proxy: "Probar proxy", cancel: "Cancelar", save: "Guardar cambios", checking: "Comprobando...",
     confirm_delete: "¿Eliminar el profile “{name}”? Sus cookies y datos se borran para siempre.", confirm_title: "Confirmar", stop_first: "Primero detén el navegador",
@@ -938,6 +942,7 @@ const store = {
 let lang = store.get("foxprofile.lang") || "es";
 let token = store.get("foxprofile.token") || "";
 let profiles = [], running = new Set(), fingerprints = {};
+let builds = null;               // GET /chrome/builds: the browser PC's Chrome engine builds
 let snapshotsOn = false;         // /info: a snapshot bucket is set
 let hub = false, me = null;      // hub mode: browsers open on each operator's PC
 let filter = "all";
@@ -1052,11 +1057,17 @@ function refresh() {
 }
 async function refreshOnce() {
   try {
-    const [list, run, who, sync, accts] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
+    const [list, run, who, sync, accts, chrome] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
       hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync"),
       // A locked accounts store must not keep the profiles from showing.
-      api("GET", "/accounts").catch(() => ({}))]);
+      api("GET", "/accounts").catch(() => ({})), api("GET", "/chrome/builds").catch(() => null)]);
     profiles = list.profiles;
+    // A build install that just failed (here or on the agent) says why, once.
+    for (const b of (chrome && chrome.builds) || []) {
+      const was = buildInfo(b.version);
+      if (b.error && was && !was.error) toast(t("install_failed", { version: b.version, error: b.error }), true);
+    }
+    builds = chrome;
     syncs = sync.sessions;
     accountsOf = accts;
     if (hub) renderMe(who);
@@ -1109,7 +1120,7 @@ function render() {
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
   const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, [...running].sort(), [...busy], [...failed], [...selected].sort(),
-    [...justLanded], syncs, shown.map((p) => fingerprints[p.name] || null)]);
+    [...justLanded], syncs, builds, shown.map((p) => fingerprints[p.name] || null)]);
   if (key === lastRender) return;
   lastRender = key;
   hideAccountsPop();
@@ -1201,6 +1212,35 @@ function stamp(p) {
   return h("span", { class: "idle" }, t("idle"));
 }
 
+// Chrome engine builds (routes/chrome.py): a Chrome profile opens only once the PC
+// that runs its browser (this server, or on a hub your agent) has its build.
+const major = (v) => (v || "").split(".")[0];
+const vkey = (v) => v.split(".").map(Number);
+const newerOrSame = (a, b) => { const x = vkey(a), y = vkey(b); for (let i = 0; i < 4; i++) if (x[i] !== y[i]) return x[i] > y[i]; return true; };
+const buildInfo = (v) => (builds && builds.builds.find((b) => b.version === v)) || null;
+const installPct = (v) => { const i = builds && builds.installing.find((x) => x.version === v); return i ? i.pct : null; };
+// Why the profile cannot open right now, or null.
+function launchBlock(p) {
+  if (hub && me && !me.agent_online) return t("agent_off");
+  if (p.engine !== "chrome" || !builds) return null;
+  const b = buildInfo(p.chrome_version);
+  if (b && b.installed) return null;
+  return b && b.available ? t("build_missing", { version: major(p.chrome_version) }) : t("build_unavailable", { version: p.chrome_version });
+}
+function installButton(p) {
+  if (p.engine !== "chrome" || !builds || !builds.online) return null;
+  const b = buildInfo(p.chrome_version);
+  if (!b || b.installed || !b.available) return null;
+  const pct = installPct(b.version);
+  return h("button", { class: "btn btn-line", disabled: pct !== null, title: b.error || b.version, onclick: () => installBuild(b.version) },
+    pct === null ? t("install_build", { version: major(b.version) }) : t("installing_build", { pct: pct < 0 ? "…" : pct }));
+}
+async function installBuild(version) {
+  try { await api("POST", `/chrome/builds/${enc(version)}/install`); toast(t("install_started", { version })); }
+  catch (e) { toast(e.message, true); }
+  refresh();
+}
+
 // The OS badge shows a monochrome glyph; its name is the badge's label and tooltip.
 const OS_NAMES = { windows: "Windows", macos: "macOS", linux: "Linux", android: "Android" };
 function row(p) {
@@ -1208,17 +1248,18 @@ function row(p) {
   const fp = fingerprints[p.name];
   const isBusy = busy.has(p.name);
   const osName = OS_NAMES[p.os_type];
-  const engine = p.engine === "chrome" ? "Chrome" : "Camoufox";
+  const engine = p.engine === "chrome" ? `Chrome ${major(p.chrome_version)}` : "Camoufox";
+  const blocked = on ? null : launchBlock(p);
   const box = h("input", { type: "checkbox", "aria-label": t("select_row", { name: p.name }),
     onchange: (e) => { e.target.checked ? selected.add(p.name) : selected.delete(p.name); render(); } });
   box.checked = selected.has(p.name);
   const proxy = maskProxy(p.proxy);
-  const launch = h("button", { class: "btn btn-act" + (accountsFor(p.name).length ? "" : " main"), disabled: isBusy, onclick: () => toggle(p) }, icon("play", true), t("launch"));
+  const launch = h("button", { class: "btn btn-act" + (accountsFor(p.name).length ? "" : " main"), disabled: isBusy || !!blocked, title: blocked, onclick: () => toggle(p) }, icon("play", true), t("launch"));
   const main = on
     ? h("button", { class: "btn btn-ink main", disabled: isBusy, onclick: () => toggle(p) }, icon("stop", true), t("stop"))
     : accountsFor(p.name).length
       ? h("div", { class: "split main" }, launch,
-          h("button", { class: "btn btn-act caret", disabled: isBusy, title: t("open_with"), "aria-label": `${t("open_with")}: ${p.name}`,
+          h("button", { class: "btn btn-act caret", disabled: isBusy || !!blocked, title: blocked || t("open_with"), "aria-label": `${t("open_with")}: ${p.name}`,
             "aria-haspopup": "menu", onclick: (e) => openWithMenu(p, e.currentTarget) }, icon("down", true)))
       : launch;
   const iconBtn = (name, label, fn, cls = "", disabled = false) =>
@@ -1241,7 +1282,8 @@ function row(p) {
     h("div", { class: "col-geo stack", role: "cell" },
       h("span", { class: p.timezone ? "data" : "muted" }, p.timezone || t("follow_ip")),
       h("span", { class: "minor" + (p.locale ? " data" : "") }, p.locale || t("follow_ip"))),
-    h("div", { class: "c-stamp", role: "cell" }, stamp(p)),
+    // A missing Chrome build: its Install button stands where "stopped" would.
+    h("div", { class: "c-stamp", role: "cell" }, (!on && !isBusy && installButton(p)) || stamp(p)),
     h("div", { class: "actions", role: "cell" }, main,
       iconBtn("monitor", t("view"), () => openViewer(p.name), "", !on || isBusy),
       iconBtn("cookie", t("cookies"), () => openCookies(p), "", on),
@@ -1502,7 +1544,19 @@ function openEditor(p) {
       [["camoufox", t("engine_camoufox")], ["chrome", t("engine_chrome")]].map(([v, label]) =>
         h("option", { value: v, selected: (p ? p.engine : "camoufox") === v }, label)));
     const engineNote = h("div", { class: "note" }, icon("alert", true), h("span", {}, t("engine_note")));
-    const syncNote = () => { engineNote.style.display = !p && engine.value === "chrome" ? "" : "none"; };
+    // The Chrome build: the ones the browser PC has a download for; an existing
+    // profile only moves to a newer one (Chromium cannot read a newer build's data).
+    const current = p && p.engine === "chrome" ? p.chrome_version : null;
+    const fallback = current || (builds && builds.default) || "";
+    const choices = builds ? builds.builds.filter((b) => b.available && (!current || newerOrSame(b.version, current))) : [];
+    if (fallback && !choices.some((b) => b.version === fallback)) choices.push(buildInfo(fallback) || { version: fallback, installed: false });
+    const build = h("select", { id: "f-build", disabled: !!(p && running.has(p.name)) }, choices.map((b) =>
+      h("option", { value: b.version, selected: b.version === fallback }, b.installed ? b.version : `${b.version} · ${t("not_installed")}`)));
+    const buildField = field(t("chrome_build"), build, t("chrome_build_hint"));
+    const syncNote = () => {
+      engineNote.style.display = !p && engine.value === "chrome" ? "" : "none";
+      buildField.style.display = (p ? p.engine : engine.value) === "chrome" ? "" : "none";
+    };
     engine.onchange = syncNote; syncNote();
     const proxy = h("input", { id: "f-proxy", value: p && p.proxy ? p.proxy : "", placeholder: "socks5://user:pass@host:port", autocomplete: "off", class: "data" });
     const number = h("input", { id: "f-number", value: p && p.number ? p.number : "", maxlength: 20, autocomplete: "off", class: "data" });
@@ -1513,7 +1567,7 @@ function openEditor(p) {
     const geo = h("div");
     const owner = hub && me.role === "admin" ? h("select", { id: "f-owner" }) : null;
     // A new profile belongs to whoever creates it (routes/profiles.py).
-    const currentOwner = p ? me.owners[p.name] || "" : me.name;
+    const currentOwner = !hub ? "" : p ? me.owners[p.name] || "" : me.name;
     if (owner) {
       // The current owner is there from the start: saving before the list comes,
       // or when it fails, must not unassign the profile.
@@ -1557,6 +1611,13 @@ function openEditor(p) {
       const body = { name: name.value.trim(), os_type: os.value, proxy: proxy.value.trim() || null,
         timezone: tz.value.trim(), locale: loc.value.trim(), number: number.value.trim(), remark: remark.value.trim() };
       if (!p) body.engine = engine.value;
+      if ((p ? p.engine : engine.value) === "chrome" && build.value) {
+        if (current && build.value !== current && !(await confirmDialog(t("build_confirm", { name: p.name, version: build.value }), t("save")))) {
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
+        body.chrome_version = build.value;
+      }
       try {
         if (p) { await api("PATCH", `/profiles/${enc(p.name)}`, body); delete fingerprints[p.name]; toast(t("saved")); }
         else { await api("POST", "/profiles", body); toast(t("created", { name: body.name })); }
@@ -1574,6 +1635,7 @@ function openEditor(p) {
         owner || group ? h("div", { class: "field-row" }, owner ? field(t("owner"), owner) : null, group ? field(t("group"), group) : null) : null,
         h("div", { class: "field-row" }, field(t("engine"), engine, p ? t("engine_locked") : null), field(t("os"), os)),
         engineNote,
+        buildField,
         field(t("proxy_label"), proxy, t("proxy_hint")),
         h("div", { class: "inline-btns" }, check, checkIp),
         msg,
@@ -2015,6 +2077,7 @@ function renderMe(who) {
   const main = act && !me.agent_online ? "agent_preparing"
     : me.agent_online ? (me.agent_running ? "agent_on_n" : "agent_on") : connecting ? "agent_connecting" : "agent_off";
   const detail = !act ? null
+    : act.state === "downloading" && act.build ? t("act_installing_build", { version: act.build, pct: act.pct == null ? "…" : act.pct })
     : act.state === "downloading" ? t(act.pct == null ? "act_downloading" : "act_downloading_pct", { pct: act.pct })
     : t("act_" + act.state, { name: act.profile || "" });
   el.classList.toggle("on", me.agent_online && !act);
