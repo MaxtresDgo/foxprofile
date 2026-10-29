@@ -29,7 +29,7 @@ import zipfile
 from collections.abc import Callable
 from pathlib import Path
 
-from .release import Asset, Release, get_release, host_platform
+from .release import RELEASES, Asset, Release, get_release, host_platform
 
 MARKER = ".installed"
 # An agent running code the hub sent has it elsewhere (installer/agent_update_hook.py).
@@ -66,6 +66,11 @@ def installed_executable(version: str | None = None, home: Path | None = None) -
     if home is None:
         return _installed(version, BUNDLED_HOME) or _installed(version, engine_home())
     return _installed(version, home)
+
+
+def installed_versions(home: Path | None = None) -> list[str]:
+    """The pinned versions installed here (bundled or downloaded)."""
+    return [v for v in RELEASES if installed_executable(v, home)]
 
 
 def _installed(version: str | None, home: Path) -> Path | None:

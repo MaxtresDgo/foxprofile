@@ -5,7 +5,7 @@ import flet as ft
 from ...core.strings import get_string
 from ...services.profile.accounts import PLATFORM_LABELS
 from ..theme.colors import COLORS, FONT_SEMIBOLD
-from ..theme.styles import ACCENT_STYLE, INK_STYLE
+from ..theme.styles import ACCENT_STYLE, INK_STYLE, OUTLINE_STYLE
 
 _WIDTH, _HEIGHT = 112, 36
 _CARET = 28
@@ -18,9 +18,11 @@ def build_launch_button(
     on_launch: Callable,
     accounts: list[dict] | None = None,
     on_open_with: Callable[[str, dict], None] | None = None,
+    blocked: bool = False,
 ) -> ft.Control:
     """Create the context-aware Launch / Stop / Loading button. A stopped profile
-    with accounts gets a caret: "Open with" one of them (launch, then log in)."""
+    with accounts gets a caret: "Open with" one of them (launch, then log in).
+    `blocked`: its Chrome build is not installed, so it cannot open yet."""
     if is_loading:
         return ft.Button(
             content=ft.ProgressRing(width=16, height=16, stroke_width=2, color=COLORS["text_sub"]),
@@ -42,13 +44,14 @@ def build_launch_button(
             style=INK_STYLE,
             on_click=lambda _, n=name: on_launch(n),
         )
-    if not accounts or on_open_with is None:
+    if blocked or not accounts or on_open_with is None:
         return ft.Button(
             get_string("launch"),
             icon=ft.Icons.PLAY_ARROW_ROUNDED,
             width=_WIDTH,
             height=_HEIGHT,
             style=ACCENT_STYLE,
+            disabled=blocked,
             on_click=lambda _, n=name: on_launch(n),
         )
     left = ft.RoundedRectangleBorder(radius=ft.BorderRadius.only(top_left=8, bottom_left=8))
@@ -110,4 +113,23 @@ def build_launch_button(
                 ],
             ),
         ],
+    )
+
+
+def build_install_button(
+    version: str, pct: int | None, on_install: Callable[[str], None]
+) -> ft.Control:
+    """Install the Chrome build a profile needs; it shows the progress meanwhile."""
+    major = version.split(".")[0]
+    if pct is None:
+        label = get_string("chrome_install", version=major)
+    else:
+        label = get_string("chrome_installing", pct="…" if pct < 0 else pct)
+    return ft.OutlinedButton(
+        label,
+        height=_HEIGHT,
+        disabled=pct is not None,
+        tooltip=get_string("chrome_build_missing_tip", version=version),
+        style=OUTLINE_STYLE,
+        on_click=lambda _, v=version: on_install(v),
     )

@@ -28,6 +28,8 @@ def runner_command(profile: Profile) -> list[str]:
         profile.os_type,
         profile.timezone or "",
         profile.locale or "",
+        # chrome only: the build it runs (chrome_engine/runner.py).
+        *([profile.chrome_version or ""] if profile.engine == "chrome" else []),
     ]
 
 

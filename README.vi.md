@@ -52,7 +52,7 @@ FoxProfile quản lý các profile trình duyệt chống phát hiện: mỗi pr
 ## Tính năng
 
 - **Fingerprint cố định cho từng profile.** Lần mở đầu tiên sinh ra một thiết bị (màn hình, GPU, số nhân CPU, font, nhiễu canvas/audio) và lưu lại; các lần sau mở lại đúng thiết bị đó. Có thể chủ động tạo fingerprint mới.
-- **Hai engine.** Camoufox (Firefox, mặc định) hoặc Chrome (fingerprint-chromium, thử nghiệm), chọn khi tạo profile. Bản Chrome được tự tải về khi cần.
+- **Hai engine.** Camoufox (Firefox, mặc định) hoặc Chrome (fingerprint-chromium, thử nghiệm), chọn khi tạo profile. Mỗi profile Chrome chọn bản build Chromium của nó (tối đa 20 phiên bản được ghim) và chỉ chuyển được sang bản mới hơn.
 - **Giữ phiên làm việc.** Lịch sử, cookie và đăng nhập nằm trong thư mục của profile; các tab đang mở được mở lại ở lần khởi động sau.
 - **Mỗi profile một proxy riêng**, hỗ trợ HTTP/HTTPS/SOCKS4/SOCKS5 có hoặc không có mật khẩu, kể cả dạng `host:port:user:pass`, có nút kiểm tra proxy.
 - **Timezone và locale** tự khớp theo IP hoặc đặt cố định cho từng profile. Nút **Kiểm tra IP** đối chiếu IP ra với Cloudflare, ipinfo, ip-api và cảnh báo khi lệch quốc gia/timezone hoặc IP bị gắn datacenter.
@@ -203,7 +203,7 @@ Qua API: `POST /api/v1/automation/run` với `{"profiles": [...], "script": "...
 
 ## Engine Chrome (thử nghiệm)
 
-Ngoài Camoufox (Firefox), profile có thể chạy trên engine **Chrome**: một bản Chromium đã vá fingerprint ở tầng C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), giấy phép BSD-3). Chọn ở ô **Engine** khi tạo profile; không đổi được sau khi tạo. Bản trình duyệt (~140-190 MB tuỳ hệ điều hành, tải từ GitHub của fingerprint-chromium và kiểm tra SHA-256) được tự tải ở nền ngay khi tạo profile Chrome đầu tiên, hoặc lúc mở profile nếu chưa có; tiến độ hiện trong log. Muốn tải trước bằng tay: `python -m chrome_engine fetch`. Các bộ cài agent (MSI, pkg macOS) đã kèm sẵn.
+Ngoài Camoufox (Firefox), profile có thể chạy trên engine **Chrome**: một bản Chromium đã vá fingerprint ở tầng C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), giấy phép BSD-3). Chọn ở ô **Engine** khi tạo profile; không đổi được sau khi tạo. Mỗi profile Chrome chạy một **bản build Chrome**: FoxProfile ghim tối đa 20 phiên bản fingerprint-chromium (hiện từ 129 đến 150), vì có trang web chỉ chạy đúng trên một số phiên bản. Hộp thoại profile liệt kê các bản có cho hệ điều hành của máy chạy trình duyệt (ở chế độ hub là máy có agent của bạn); mặc định là 148. Một bản build (~130-410 MB tuỳ hệ điều hành và phiên bản, tải từ GitHub của fingerprint-chromium và kiểm tra SHA-256) phải được cài trước khi profile của nó mở được: nút Mở bị vô hiệu và nút **Cài** cạnh nó tải bản build và hiện tiến độ (trên máy cục bộ, tạo profile đã bắt đầu tải ở nền). Sau đó profile chỉ chuyển được sang bản **mới hơn**, khi đang dừng: Chromium không đọc được dữ liệu do phiên bản mới hơn ghi. Muốn tải bằng tay: `python -m chrome_engine fetch --version 139.0.7258.154`. Các bộ cài agent (MSI, pkg macOS) kèm sẵn bản mặc định.
 
 Nên chọn đúng hệ điều hành của máy đang chạy FoxProfile: persona khác hệ điều hành sẽ lộ font của máy, và persona Linux trên Windows/macOS bị từ chối vì WebGL lộ GPU thật. Hỗ trợ Windows x64, macOS Apple Silicon và Linux x64 (chưa kiểm chứng). Chi tiết và kết quả kiểm thử: [chrome_engine/README.md](chrome_engine/README.md).
 

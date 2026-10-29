@@ -17,6 +17,7 @@ from ..schemas.browser import (
     RunningBrowsersResponse,
 )
 from ..schemas.common import ErrorResponse, SuccessResponse
+from .chrome import require_build
 
 if TYPE_CHECKING:
     from ...core.events import EventBus
@@ -82,6 +83,7 @@ def launch_browser(
     profile = require_profile(name, pm)
     if bl.is_running(name):
         raise HTTPException(status_code=409, detail=get_string("err_already_running"))
+    require_build(request, bl, profile.chrome_version)
 
     def _on_ready() -> None:
         bus.emit()

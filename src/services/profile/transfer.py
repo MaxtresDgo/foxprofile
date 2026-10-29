@@ -149,6 +149,7 @@ def import_from_zip(
                 else "camoufox",
                 number=label_text(profile_data.get("number"), NUMBER_MAX),
                 remark=label_text(profile_data.get("remark"), REMARK_MAX),
+                chrome_version=profile_data.get("chrome_version"),
             )
 
             data_files = [f for f in zipf.namelist() if f.startswith("data/")]

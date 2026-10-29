@@ -6,6 +6,8 @@ import shutil
 import threading
 import time
 
+from chrome_engine.release import DEFAULT_VERSION
+
 from ...core.config import DATA_DIR, PROFILES_FILE
 from ...core.logging import get_logger
 from ...models.profile import ENGINES, NUMBER_MAX, REMARK_MAX, UID_RE, Profile, label_text
@@ -85,6 +87,7 @@ class ProfileManager:
                             "engine": _engine_or_default(p_data.get("engine")),
                             "number": label_text(p_data.get("number"), NUMBER_MAX),
                             "remark": label_text(p_data.get("remark"), REMARK_MAX),
+                            "chrome_version": p_data.get("chrome_version"),
                         }
                         uid = p_data.get("uid")
                         if isinstance(uid, str) and UID_RE.fullmatch(uid):
@@ -126,8 +129,10 @@ class ProfileManager:
         locale: str | None = None,
         engine: str = "camoufox",
         uid: str | None = None,
+        chrome_version: str | None = None,
     ) -> bool:
-        """`uid`: keep an earlier profile's (one put back from its snapshots)."""
+        """`uid`: keep an earlier profile's (one put back from its snapshots).
+        `chrome_version`: the build a chrome profile runs, the default one if unset."""
         with self._lock:
             if self._find_by_casefold(name) is not None:
                 return False
@@ -145,6 +150,7 @@ class ProfileManager:
                 timezone=timezone or None,
                 locale=locale or None,
                 engine=engine,
+                chrome_version=chrome_version or DEFAULT_VERSION,
             )
             if uid:
                 self.profiles[name].uid = uid
@@ -227,6 +233,16 @@ class ProfileManager:
                 return False
             profile.number = label_text(number, NUMBER_MAX)
             profile.remark = label_text(remark, REMARK_MAX)
+            self.save_profiles()
+            return True
+
+    def set_chrome_version(self, name: str, version: str) -> bool:
+        """Move a chrome profile to another build (routes/profiles.py checks it is newer)."""
+        with self._lock:
+            profile = self.profiles.get(name)
+            if profile is None or profile.engine != "chrome":
+                return False
+            profile.chrome_version = version
             self.save_profiles()
             return True
 

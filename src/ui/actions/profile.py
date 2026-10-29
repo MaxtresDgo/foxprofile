@@ -46,11 +46,19 @@ def edit_profile(
         _engine: str,
         number: str,
         remark: str,
+        build: str,
     ) -> str | None:
         if new_name != original and bl.is_running(original):
             return get_string("stop_before_rename")
+        new_build = build or profile.chrome_version
+        if new_build != profile.chrome_version:
+            problem = chrome_prefetch.upgrade_problem(profile, new_build, bl.is_running(original))
+            if problem:
+                return problem[1]
         if pm.update_profile(original, new_name, new_proxy, new_os, timezone, locale):
             pm.set_label(new_name, number, remark)
+            if new_build != pm.profiles[new_name].chrome_version:
+                chrome_prefetch.move_to(pm, new_name, new_build)
             log(get_string("updated_profile", old=original, new=new_name))
             refresh()
             return None
@@ -75,15 +83,20 @@ def add_profile(
         engine: str,
         number: str,
         remark: str,
+        build: str,
     ) -> str | None:
         if engine == "chrome" and (reason := chrome_prefetch.unsupported_reason()):
             return get_string("chrome_engine_unsupported", reason=reason)
-        if pm.add_profile(name, proxy, os_type, timezone, locale, engine):
+        if engine == "chrome" and build and (problem := chrome_prefetch.version_problem(build)):
+            return problem
+        if pm.add_profile(
+            name, proxy, os_type, timezone, locale, engine, chrome_version=build or None
+        ):
             if number or remark:
                 pm.set_label(name, number, remark)
             log(get_string("created_profile", name=name))
             if engine == "chrome":
-                chrome_prefetch.start(log)
+                chrome_prefetch.start(pm.profiles[name].chrome_version, log)
             refresh()
             return None
         return get_string("profile_exists")

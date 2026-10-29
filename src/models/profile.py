@@ -2,11 +2,14 @@ import re
 import uuid
 from dataclasses import asdict, dataclass, field
 
+from chrome_engine.release import LEGACY_VERSION
+
 # Browser engines a profile can run on. A profile keeps its engine for life:
 # the two keep incompatible browser data in the same directory.
 ENGINES = ("camoufox", "chrome")
 
 UID_RE = re.compile(r"[0-9a-f]{32}")
+CHROME_VERSION_RE = re.compile(r"\d+(\.\d+){3}")
 
 
 def new_uid() -> str:
@@ -41,6 +44,18 @@ class Profile:
     remark: str | None = None
     # Fixed for life, unlike the name: what the profile's snapshots are filed under.
     uid: str = field(default_factory=new_uid)
+    # chrome only: the fingerprint-chromium build it runs (chrome_engine/release.py).
+    # It only ever moves to a newer one: Chromium cannot open data a newer build wrote.
+    chrome_version: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.engine != "chrome":
+            self.chrome_version = None
+        elif not (
+            isinstance(self.chrome_version, str)
+            and CHROME_VERSION_RE.fullmatch(self.chrome_version)
+        ):
+            self.chrome_version = LEGACY_VERSION
 
     def to_dict(self) -> dict:
         return asdict(self)
