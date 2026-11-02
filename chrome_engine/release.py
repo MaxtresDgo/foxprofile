@@ -38,6 +38,8 @@ class Asset:
 class Release:
     version: str
     assets: dict[str, Asset]
+    # Upstream's release day, YYYYMMDD: the panels name a build "Chrome 150 (20261002)".
+    date: str = ""
 
     def asset_for(self, host: str) -> Asset:
         try:
@@ -69,10 +71,11 @@ def _asset(version: str, name: str, sha256: str, size: int) -> Asset:
 _File = tuple[str, str, int] | None
 
 
-def _release(version: str, windows: _File, linux: _File, macos: _File) -> Release:
+def _release(version: str, date: str, windows: _File, linux: _File, macos: _File) -> Release:
     files = {"windows-x64": windows, "linux-x64": linux, "macos": macos}
     return Release(
         version=version,
+        date=date,
         assets={host: _asset(version, *f) for host, f in files.items() if f},
     )
 
@@ -85,6 +88,7 @@ RELEASES: dict[str, Release] = {
     for r in (
         _release(
             "150.0.7871.186",
+            date="20261002",
             windows=(
                 "ungoogled-chromium_150.0.7871.186-1.1_windows_x64.zip",
                 "4d549c326e51ebbabf562fd365eb5380d9d4a81200da2c60f075c688d9a77e03",
@@ -99,6 +103,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "148.0.7778.215",
+            date="20260621",
             windows=(
                 "ungoogled-chromium_148.0.7778.215-1.1_windows_x64.zip",
                 "9ef3f471b7a6641b4224532522b29141ce3746e27d55788d88e2fd951f362579",
@@ -117,6 +122,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "144.0.7559.132",
+            date="20260227",
             windows=(
                 "ungoogled-chromium_144.0.7559.132-1.1_windows_x64.zip",
                 "ab409667ca7ec3d67a060f1ffea8bd3a450b71ed54d17b361024986e7edd0996",
@@ -131,6 +137,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "142.0.7444.175",
+            date="20251223",
             windows=(
                 "ungoogled-chromium_142.0.7444.175-1.1_windows_x64.zip",
                 "c99406fe2822cd6b7281b8eb54469bb59b2f1ec13e8d4d0f1f16e871fa25e7ab",
@@ -149,6 +156,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "139.0.7258.154",
+            date="20250914",
             windows=(
                 "ungoogled-chromium_139.0.7258.154-1.1_windows_x64.zip",
                 "d3991ba80f165936c3a01f2bfbfcbe5d6134fc0c5f2ef317ff3aedfa6b20d7c2",
@@ -168,6 +176,7 @@ RELEASES: dict[str, Release] = {
         # Its linux archive upstream is a 32-byte stub.
         _release(
             "138.0.7204.183",
+            date="20250811",
             windows=(
                 "ungoogled-chromium_138.0.7204.183-1.1_windows_x64.zip",
                 "4979a5fad4bbf936096eb7b192486c55de85bd248410fc84f12b18fe82d54ce3",
@@ -178,6 +187,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "136.0.7103.113",
+            date="20250601",
             windows=(
                 "ungoogled-chromium_136.0.7103.113-1.1_windows_x64.zip",
                 "2313c38e1e2d0bca4ed2fc9e4f78c2299601e6f38f9c223cf15bfbeb86f57145",
@@ -196,6 +206,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "135.0.7049.95",
+            date="20250511",
             windows=(
                 "ungoogled-chromium_135.0.7049.95-1.1_windows_x64.zip",
                 "7bdb7184e4166337f020fc85e856155b35b8792d7d56d7b704455f18e43ecca1",
@@ -214,6 +225,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "134.0.6998.165",
+            date="20250429",
             windows=(
                 "ungoogled-chromium_134.0.6998.165-1.1_windows_x64.zip",
                 "4326fa47fb98d21022558789f19966718d805261a40217da88c18a2cb3246b02",
@@ -228,6 +240,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "133.0.6943.126",
+            date="20250418",
             windows=(
                 "ungoogled-chromium_133.0.6943.126-1.1_windows_x64.zip",
                 "d7fa957b8797e40b651a56afff532e03e30ddd100e8e23ee2ac46dca1350f0b1",
@@ -243,6 +256,7 @@ RELEASES: dict[str, Release] = {
         # Its macOS build is 132.0.6834.110: upstream never published a .159 one.
         _release(
             "132.0.6834.159",
+            date="20250220",
             windows=(
                 "ungoogled-chromium_132.0.6834.159-1.1_windows_x64.zip",
                 "99cdcfab8320154efb392dab07cb6eefd3bd995a04e604861fe90a527753732e",
@@ -261,6 +275,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "131.0.6778.264",
+            date="20250117",
             windows=None,
             linux=(
                 "ungoogled-chromium_131.0.6778.264-1_linux.tar.xz",
@@ -271,6 +286,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "130.0.6723.116",
+            date="20241214",
             windows=(
                 "ungoogled-chromium_130.0.6723.116-1.1_windows_x64.zip",
                 "2f685ecb9c1b92f649e1cd7194f0adaa69512f6d14c7eb1be51f5cb91014f680",
@@ -285,6 +301,7 @@ RELEASES: dict[str, Release] = {
         ),
         _release(
             "129.0.6668.100",
+            date="20241209",
             windows=(
                 "ungoogled-chromium_129.0.6668.100-1.1_windows_x64.zip",
                 "5f905fee43ef517c562638a7f24cf0b2348d6056d1f73fc42edb2b08ef71d1a0",
@@ -314,6 +331,12 @@ LEGACY_VERSION = "148.0.7778.215"
 def key(version: str) -> tuple[int, ...]:
     """Sortable form of a version: key("139.0.7258.154") < key("148.0.7778.215")."""
     return tuple(int(part) for part in version.split("."))
+
+
+def label(version: str) -> str:
+    """How the panels name a build: "Chrome 150 (20261002)"."""
+    r = RELEASES.get(version)
+    return f"Chrome {version.split('.')[0]} ({r.date})" if r and r.date else version
 
 
 def available(host: str | None) -> list[str]:

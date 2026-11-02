@@ -203,6 +203,7 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent-row .sub, .inst-row .sub { grid-column: 1; font-size: 12.5px; color: var(--ink-3); overflow-wrap: anywhere; }
 .agent-row .acts, .inst-row .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
 .agent-row .err { color: var(--err); } .agent-row .ok { color: var(--ok); }
+.inst-row .ok { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); }
 .ext-add { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 .ext-add input[type=text] { flex: 1 1 220px; min-width: 0; }
 .picks { margin-top: 14px; }
@@ -537,6 +538,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
       <button class="rail-link hidden" id="agents-btn"><svg class="i"><use href="#i-monitor"/></svg><span data-t="agents_button"></span></button>
       <button class="rail-link hidden" id="backups-btn"><svg class="i"><use href="#i-history"/></svg><span data-t="backups"></span></button>
       <button class="rail-link" id="ext-btn"><svg class="i"><use href="#i-puzzle"/></svg><span data-t="ext_button"></span></button>
+      <button class="rail-link" id="builds-btn"><svg class="i"><use href="#i-globe"/></svg><span data-t="builds_button"></span></button>
       <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
       <button class="rail-link" id="ads-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="ads_button"></span></button>
       <a class="rail-link" href="/docs" target="_blank" rel="noopener"><svg class="i"><use href="#i-docs"/></svg><span data-t="api_docs"></span></a>
@@ -646,7 +648,8 @@ const I18N = {
     bad_token: "Token không đúng", create: "Tạo profile", edit_title: "Sửa profile", edit_sub: "Đang sửa {name}", create_sub: "Một profile là một danh tính: thiết bị, proxy và vị trí riêng.",
     name: "Tên profile", os: "Hệ điều hành", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (thử nghiệm)", engine_locked: "Engine không đổi được sau khi tạo.",
-    chrome_build: "Bản build Chrome", chrome_build_hint: "Sau này chỉ có thể chuyển sang bản build mới hơn.", not_installed: "chưa cài", build_missing: "Cài bản build Chrome {version} để mở profile này", build_unavailable: "Bản build Chrome {version} không có cho hệ điều hành của máy này", install_build: "Cài {version}", installing_build: "Đang cài {pct}%", install_started: "Đang cài bản build Chrome {version}…", install_failed: "Không cài được bản build Chrome {version}: {error}", act_installing_build: "Đang cài bản build Chrome {version}… {pct}%", build_confirm: "Chuyển {name} sang bản build Chrome {version}? Không thể quay lại bản cũ hơn.",
+    builds_button: "Trình duyệt", builds_title: "Trình duyệt (engine Chrome)", builds_hint: "Các phiên bản fingerprint-chromium cho profile engine Chrome. Chúng được tải về máy chạy trình duyệt (ở hub là máy của agent); profile chỉ mở được khi phiên bản của nó đã có ở đó.", build_download: "Tải về", build_installed: "Đã cài", build_default: "mặc định", builds_none: "Không có trình duyệt nào cho hệ điều hành của máy này",
+    chrome_build: "Bản build Chrome", chrome_build_hint: "Bản build cũ hơn sẽ đặt lại dữ liệu trình duyệt; cookie, fingerprint và các tab được giữ.", build_downgrade_confirm: "Chuyển {name} về {version} sẽ đặt lại dữ liệu trình duyệt: lịch sử, local storage (các trang như WhatsApp Web sẽ yêu cầu đăng nhập lại), mật khẩu đã lưu trong trình duyệt và dữ liệu extension. Fingerprint, proxy, các tab và cookie được giữ nguyên.", build_downgrade_go: "Đặt lại và chuyển", chrome_downgraded: "{name} đã chuyển về {version}: dữ liệu trình duyệt được đặt lại, cookie được giữ", not_installed: "chưa cài", build_missing: "Cài bản build Chrome {version} để mở profile này", build_unavailable: "Bản build Chrome {version} không có cho hệ điều hành của máy này", install_build: "Cài {version}", installing_build: "Đang cài {pct}%", install_started: "Đang cài bản build Chrome {version}…", install_failed: "Không cài được bản build Chrome {version}: {error}", act_installing_build: "Đang cài bản build Chrome {version}… {pct}%", build_confirm: "Chuyển {name} sang bản build Chrome {version}? Không thể quay lại bản cũ hơn.",
     engine_note: "Engine Chromium đang thử nghiệm. Mỗi bản build (~150 MB) được cài trên máy chạy trình duyệt bằng nút Cài trong danh sách. Nên chọn đúng hệ điều hành của máy đó, chọn hệ khác sẽ lộ font. Không đổi được engine sau khi tạo.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, hoặc socks5://... Để trống = kết nối trực tiếp.",
     check_proxy: "Kiểm tra proxy", cancel: "Huỷ", save: "Lưu thay đổi", checking: "Đang kiểm tra...",
@@ -752,7 +755,8 @@ const I18N = {
     bad_token: "Invalid token", create: "Create profile", edit_title: "Edit profile", edit_sub: "Editing {name}", create_sub: "A profile is an identity: its own device, proxy and location.",
     name: "Profile name", os: "Operating system", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "The engine cannot be changed after creation.",
-    chrome_build: "Chrome build", chrome_build_hint: "Later it can only move to a newer build.", not_installed: "not installed", build_missing: "Install Chrome build {version} to open this profile", build_unavailable: "Chrome build {version} has no download for this PC\u2019s system", install_build: "Install {version}", installing_build: "Installing {pct}%", install_started: "Installing Chrome build {version}…", install_failed: "Could not install Chrome build {version}: {error}", act_installing_build: "Installing Chrome build {version}… {pct}%", build_confirm: "Move {name} to Chrome build {version}? It cannot go back to an older build.",
+    builds_button: "Browsers", builds_title: "Browsers (Chrome engine)", builds_hint: "fingerprint-chromium versions for Chrome engine profiles. They download to the PC that runs the browsers (on a hub, your agent's); a profile only opens once its version is there.", build_download: "Download", build_installed: "Installed", build_default: "default", builds_none: "No browser available for this PC's system",
+    chrome_build: "Chrome build", chrome_build_hint: "An older build resets the browser data; cookies, fingerprint and tabs are kept.", build_downgrade_confirm: "Moving {name} back to {version} resets its browser data: history, local storage (sites such as WhatsApp Web ask you to sign in again), passwords saved in the browser and extension data. The fingerprint, proxy, tabs and cookies are kept.", build_downgrade_go: "Reset and switch", chrome_downgraded: "{name} moved back to {version}: browser data reset, cookies kept", not_installed: "not installed", build_missing: "Install Chrome build {version} to open this profile", build_unavailable: "Chrome build {version} has no download for this PC\u2019s system", install_build: "Install {version}", installing_build: "Installing {pct}%", install_started: "Installing Chrome build {version}…", install_failed: "Could not install Chrome build {version}: {error}", act_installing_build: "Installing Chrome build {version}… {pct}%", build_confirm: "Move {name} to Chrome build {version}? It cannot go back to an older build.",
     engine_note: "Experimental Chromium engine. Each build (~150 MB) is installed on the PC that runs the browser, with the Install button in the list. Pick that machine's OS: other OSes leak its fonts. The engine cannot be changed later.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, or socks5://... Blank = direct connection.",
     check_proxy: "Check proxy", cancel: "Cancel", save: "Save changes", checking: "Checking...",
@@ -858,7 +862,8 @@ const I18N = {
     bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
     name: "Nombre del profile", os: "Sistema operativo", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "El engine no se puede cambiar después de crearlo.",
-    chrome_build: "Build de Chrome", chrome_build_hint: "Más adelante solo podrá pasar a un build más nuevo.", not_installed: "no instalado", build_missing: "Instala el build de Chrome {version} para abrir este profile", build_unavailable: "El build de Chrome {version} no tiene descarga para el sistema de este PC", install_build: "Instalar {version}", installing_build: "Instalando {pct} %", install_started: "Instalando el build de Chrome {version}…", install_failed: "No se pudo instalar el build de Chrome {version}: {error}", act_installing_build: "Instalando el build de Chrome {version}… {pct} %", build_confirm: "¿Pasar {name} al build de Chrome {version}? No podrá volver a un build anterior.",
+    builds_button: "Navegadores", builds_title: "Navegadores (engine Chrome)", builds_hint: "Versiones de fingerprint-chromium para los profiles con engine Chrome. Se descargan en la PC que abre los navegadores (en el hub, la de tu agente); un profile solo abre si su versión ya está ahí.", build_download: "Descargar", build_installed: "Instalado", build_default: "predeterminado", builds_none: "No hay navegadores para el sistema de este PC",
+    chrome_build: "Build de Chrome", chrome_build_hint: "Un build más viejo reinicia los datos del navegador; se conservan las cookies, el fingerprint y las pestañas.", build_downgrade_confirm: "Pasar {name} a {version} reinicia los datos de su navegador: historial, almacenamiento local (sitios como WhatsApp Web piden volver a entrar), contraseñas guardadas en el navegador y datos de las extensiones. Se conservan el fingerprint, el proxy, las pestañas y las cookies.", build_downgrade_go: "Reiniciar y pasar", chrome_downgraded: "{name} pasó a {version}: datos del navegador reiniciados, cookies conservadas", not_installed: "no instalado", build_missing: "Instala el build de Chrome {version} para abrir este profile", build_unavailable: "El build de Chrome {version} no tiene descarga para el sistema de este PC", install_build: "Instalar {version}", installing_build: "Instalando {pct} %", install_started: "Instalando el build de Chrome {version}…", install_failed: "No se pudo instalar el build de Chrome {version}: {error}", act_installing_build: "Instalando el build de Chrome {version}… {pct} %", build_confirm: "¿Pasar {name} al build de Chrome {version}? No podrá volver a un build anterior.",
     engine_note: "Engine Chromium experimental. Cada build (~150 MB) se instala en el PC que ejecuta el navegador, con el botón Instalar de la lista. Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass o socks5://... Vacío = conexión directa.",
     check_proxy: "Probar proxy", cancel: "Cancelar", save: "Guardar cambios", checking: "Comprobando...",
@@ -1068,6 +1073,7 @@ async function refreshOnce() {
       if (b.error && was && !was.error) toast(t("install_failed", { version: b.version, error: b.error }), true);
     }
     builds = chrome;
+    if (drawBuilds) drawBuilds();
     syncs = sync.sessions;
     accountsOf = accts;
     if (hub) renderMe(who);
@@ -1234,6 +1240,36 @@ function installButton(p) {
   const pct = installPct(b.version);
   return h("button", { class: "btn btn-line", disabled: pct !== null, title: b.error || b.version, onclick: () => installBuild(b.version) },
     pct === null ? t("install_build", { version: major(b.version) }) : t("installing_build", { pct: pct < 0 ? "…" : pct }));
+}
+const buildLabel = (b) => (b.date ? `Chrome ${major(b.version)} (${b.date})` : b.version);
+// Settings › Browsers: the builds the browser PC can run, to download ahead of
+// the profiles that need them (like AdsPower's browser list).
+// ponytail: refreshOnce keeps redrawing a closed dialog's detached list until the next one opens; it is a few rows.
+let drawBuilds = null;
+function openBuilds() {
+  modal((close) => {
+    const list = h("div");
+    drawBuilds = () => {
+      const shown = builds ? builds.builds.filter((b) => b.available) : [];
+      if (!shown.length) return list.replaceChildren(h("p", { class: "muted" }, t(builds && !builds.online ? "agent_off" : "builds_none")));
+      list.replaceChildren(...shown.map((b) => {
+        const pct = installPct(b.version);
+        const act = b.installed ? h("span", { class: "ok" }, icon("check", true), t("build_installed"))
+          : pct !== null ? h("button", { type: "button", class: "btn btn-line", disabled: true }, t("installing_build", { pct: pct < 0 ? "…" : pct }))
+          : h("button", { type: "button", class: "btn btn-line", disabled: !builds.online, title: builds.online ? "" : t("agent_off"),
+              onclick: () => installBuild(b.version) }, icon("download", true), t("build_download"));
+        return h("div", { class: "inst-row" }, h("b", {}, buildLabel(b)),
+          h("div", { class: "sub" }, [b.version, b.version === builds.default && t("build_default"), b.error].filter(Boolean).join(" · ")),
+          h("div", { class: "acts" }, act));
+      }));
+    };
+    drawBuilds();
+    refresh();
+    return h("div", {},
+      modalHead(t("builds_title"), null, close),
+      h("div", { class: "modal-body" }, h("p", { class: "muted" }, t("builds_hint")), list),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
 }
 async function installBuild(version) {
   try { await api("POST", `/chrome/builds/${enc(version)}/install`); toast(t("install_started", { version })); }
@@ -1544,14 +1580,14 @@ function openEditor(p) {
       [["camoufox", t("engine_camoufox")], ["chrome", t("engine_chrome")]].map(([v, label]) =>
         h("option", { value: v, selected: (p ? p.engine : "camoufox") === v }, label)));
     const engineNote = h("div", { class: "note" }, icon("alert", true), h("span", {}, t("engine_note")));
-    // The Chrome build: the ones the browser PC has a download for; an existing
-    // profile only moves to a newer one (Chromium cannot read a newer build's data).
+    // The Chrome build: the ones the browser PC has a download for. An older one
+    // resets the browser data (Chromium cannot read a newer build's data): see submit.
     const current = p && p.engine === "chrome" ? p.chrome_version : null;
     const fallback = current || (builds && builds.default) || "";
-    const choices = builds ? builds.builds.filter((b) => b.available && (!current || newerOrSame(b.version, current))) : [];
+    const choices = builds ? builds.builds.filter((b) => b.available) : [];
     if (fallback && !choices.some((b) => b.version === fallback)) choices.push(buildInfo(fallback) || { version: fallback, installed: false });
     const build = h("select", { id: "f-build", disabled: !!(p && running.has(p.name)) }, choices.map((b) =>
-      h("option", { value: b.version, selected: b.version === fallback }, b.installed ? b.version : `${b.version} · ${t("not_installed")}`)));
+      h("option", { value: b.version, selected: b.version === fallback }, b.installed ? buildLabel(b) : `${buildLabel(b)} · ${t("not_installed")}`)));
     const buildField = field(t("chrome_build"), build, t("chrome_build_hint"));
     const syncNote = () => {
       engineNote.style.display = !p && engine.value === "chrome" ? "" : "none";
@@ -1611,15 +1647,25 @@ function openEditor(p) {
       const body = { name: name.value.trim(), os_type: os.value, proxy: proxy.value.trim() || null,
         timezone: tz.value.trim(), locale: loc.value.trim(), number: number.value.trim(), remark: remark.value.trim() };
       if (!p) body.engine = engine.value;
+      // An older build has its own route: it resets the browser data, keeping the cookies.
+      let downgrade = null;
       if ((p ? p.engine : engine.value) === "chrome" && build.value) {
-        if (current && build.value !== current && !(await confirmDialog(t("build_confirm", { name: p.name, version: build.value }), t("save")))) {
+        const older = !!current && !newerOrSame(build.value, current);
+        const label = buildLabel(buildInfo(build.value) || { version: build.value });
+        const ask = older ? t("build_downgrade_confirm", { name: p.name, version: label }) : t("build_confirm", { name: p.name, version: build.value });
+        if (current && build.value !== current && !(await confirmDialog(ask, t(older ? "build_downgrade_go" : "save"), older))) {
           if (submitBtn) submitBtn.disabled = false;
           return;
         }
-        body.chrome_version = build.value;
+        if (older) downgrade = label;
+        else body.chrome_version = build.value;
       }
       try {
-        if (p) { await api("PATCH", `/profiles/${enc(p.name)}`, body); delete fingerprints[p.name]; toast(t("saved")); }
+        if (downgrade) {
+          say("info", t("working"));
+          await api("POST", `/profiles/${enc(p.name)}/chrome-downgrade`, { version: build.value });
+        }
+        if (p) { await api("PATCH", `/profiles/${enc(p.name)}`, body); delete fingerprints[p.name]; toast(downgrade ? t("chrome_downgraded", { name: body.name, version: downgrade }) : t("saved")); }
         else { await api("POST", "/profiles", body); toast(t("created", { name: body.name })); }
         if (owner && owner.value !== currentOwner) await api("PUT", `/hub/owners/${enc(body.name)}`, { user: owner.value || null });
         if (group && group.value !== currentGroup) await api("PUT", `/hub/profile-group/${enc(body.name)}`, { group: group.value || null });
@@ -2882,6 +2928,7 @@ $("users-btn").onclick = openUsers;
 $("groups-btn").onclick = openGroups;
 $("agents-btn").onclick = openAgents;
 $("ext-btn").onclick = openExtensions;
+$("builds-btn").onclick = openBuilds;
 $("backups-btn").onclick = () => showPage("backups-page");
 $("backups-q").oninput = drawBackups;
 $("backups-group").onchange = drawBackups;

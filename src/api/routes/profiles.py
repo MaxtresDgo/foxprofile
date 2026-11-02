@@ -24,6 +24,7 @@ from ..dependencies import get_browser_launcher, get_event_bus, get_profile_mana
 from ..helpers import build_profile_response, profile_response, require_profile
 from ..schemas.common import ErrorResponse, SuccessResponse
 from ..schemas.profiles import (
+    ChromeDowngrade,
     CookieImportRequest,
     CookieImportResponse,
     DataDirResponse,
@@ -235,6 +236,42 @@ def update_profile(
     logger.info("API updated profile: %s -> %s", name, new_name)
     bus.emit()
     return build_profile_response(new_name, pm, bl)
+
+
+@router.post(
+    "/{name}/chrome-downgrade",
+    response_model=ProfileResponse,
+    responses={
+        400: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
+    },
+)
+def chrome_downgrade(
+    name: str,
+    body: ChromeDowngrade,
+    request: Request,
+    pm: IProfileManager = Depends(get_profile_manager),
+    bl: IBrowserLauncher = Depends(get_browser_launcher),
+    bus: EventBus = Depends(get_event_bus),
+) -> ProfileResponse:
+    """Move a stopped Chrome profile back to an older build. Its browser data is
+    reset; the cookies, fingerprint and saved tabs carry over (chrome_prefetch.downgrade)."""
+    profile = require_profile(name, pm)
+    here = hub_store(request) is None
+    problem = chrome_prefetch.downgrade_problem(profile, body.version, bl.is_running(name), here)
+    if problem:
+        raise HTTPException(status_code=problem[0], detail=problem[1])
+    try:
+        with bl.exclusive(name):
+            chrome_prefetch.downgrade(pm, name, body.version, here)
+    except ProfileBusyError as e:
+        raise HTTPException(status_code=409, detail=get_string("err_busy_other")) from e
+    except chrome_prefetch.DowngradeError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    logger.info("API moved %s back to Chrome %s", name, body.version)
+    bus.emit()
+    return build_profile_response(name, pm, bl)
 
 
 @router.delete(

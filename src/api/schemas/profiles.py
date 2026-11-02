@@ -37,8 +37,14 @@ class ProfileUpdate(BaseModel):
     number: str | None = Field(None, max_length=20, description='"" removes it')
     remark: str | None = Field(None, max_length=60, description='"" removes it')
     chrome_version: str | None = Field(
-        None, description="chrome only: a newer build; the profile must be stopped"
+        None,
+        description="chrome only: a newer build; the profile must be stopped. "
+        "An older one: POST /profiles/{name}/chrome-downgrade",
     )
+
+
+class ChromeDowngrade(BaseModel):
+    version: str = Field(description="An older build (GET /chrome/builds)")
 
 
 class ProfileResponse(BaseModel):

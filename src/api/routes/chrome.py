@@ -62,6 +62,8 @@ def list_builds(request: Request, bl: IBrowserLauncher = Depends(get_browser_lau
         "builds": [
             {
                 "version": v,
+                # Upstream's release day, YYYYMMDD: "Chrome 150 (20261002)" in the panels.
+                "date": release.RELEASES[v].date,
                 "platforms": sorted(release.RELEASES[v].assets),
                 "available": state["platform"] in release.RELEASES[v].assets,
                 "installed": v in state["installed"],

@@ -86,6 +86,95 @@ def move_to(pm, name: str, version: str) -> None:
     personas.retarget(pathlib.Path(DATA_DIR) / name, version)
 
 
+def downgrade_problem(
+    profile: Profile, version: str, running: bool, here: bool = True
+) -> tuple[int, str] | None:
+    """(HTTP status, message) when `profile` cannot go back to the older build `version`."""
+    from chrome_engine import release
+
+    if profile.engine != "chrome":
+        return 400, get_string("err_chrome_version_engine")
+    if problem := version_problem(version, here):
+        return 400, problem
+    if release.key(version) >= release.key(profile.chrome_version or release.LEGACY_VERSION):
+        return 400, get_string("err_chrome_not_older", version=profile.chrome_version)
+    if running:
+        return 409, get_string("err_chrome_version_running")
+    return None
+
+
+class DowngradeError(Exception):
+    """Why a downgrade did not happen; the profile is left as it was."""
+
+
+def downgrade(pm, name: str, version: str, here: bool = True) -> None:
+    """Move a stopped Chrome profile back to the older build `version` (checked with
+    downgrade_problem). Chromium cannot read a newer build's data, so that data is
+    dropped: Fox's own files (persona, tabs) stay and the cookies carry over.
+
+    `here`: this machine runs the browsers, so the cookies move now, and a failure
+    puts everything back. On a hub the agent loads the cookies it packed on the
+    profile's last close (agent._restore_cookies) the next time it opens it.
+    A snapshot (if they are on) is taken first, so it can be undone."""
+    import json
+    import shutil
+    import tempfile
+
+    from ..profile import snapshots
+    from ..profile.transfer import COOKIES_GZ, COOKIES_SHA
+    from . import cookies
+    from .fingerprint import CHROME_PERSONA_FILE
+    from .session import TABS_FILE
+
+    profile = pm.profiles[name]
+    old = profile.chrome_version
+    folder = pathlib.Path(DATA_DIR) / name
+    keep = {CHROME_PERSONA_FILE, TABS_FILE, COOKIES_GZ, COOKIES_SHA}
+    chromium = [p for p in folder.iterdir() if p.name not in keep] if folder.is_dir() else []
+    if here and not is_installed(version):
+        raise DowngradeError(get_string("err_chrome_build_missing", version=version))
+    if not chromium:  # never opened: nothing to drop or carry over
+        move_to(pm, name, version)
+        return
+    text = None
+    if here:
+        try:
+            text, _ = cookies.export_cookies(name, profile.os_type, "json", "chrome", old)
+        except cookies.CookieError as e:
+            raise DowngradeError(get_string("err_chrome_downgrade_cookies", error=e)) from e
+    elif not (folder / COOKIES_GZ).exists():
+        raise DowngradeError(get_string("err_chrome_downgrade_unpacked"))
+    if snapshots.enabled():
+        try:
+            snapshots.create(profile, str(folder))
+        except Exception as e:
+            raise DowngradeError(get_string("err_snapshot_store", error=e)) from e
+
+    # Set aside, not deleted, until the cookies are in: a failure puts it back.
+    aside = pathlib.Path(tempfile.mkdtemp(prefix=".downgrade-", dir=folder.parent))
+    for p in chromium:
+        p.rename(aside / p.name)
+    move_to(pm, name, version)
+    try:
+        if text and json.loads(text):
+            cookies.import_cookies(name, profile.os_type, text, "chrome", version)
+    except Exception as e:
+        for p in folder.iterdir():
+            if p.name in keep:
+                continue
+            if p.is_dir():  # what the older build just wrote
+                shutil.rmtree(p)
+            else:
+                p.unlink()
+        for p in aside.iterdir():
+            p.rename(folder / p.name)
+        aside.rmdir()
+        move_to(pm, name, old)
+        raise DowngradeError(get_string("err_chrome_downgrade_cookies", error=e)) from e
+    shutil.rmtree(aside, ignore_errors=True)
+    logger.info("%s moved back from Chrome %s to %s", name, old, version)
+
+
 def is_installed(version: str | None = None) -> bool:
     from chrome_engine import fetch
 

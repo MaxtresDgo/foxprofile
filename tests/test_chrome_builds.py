@@ -14,8 +14,9 @@ from src.api.app import create_app
 from src.core.container import Container
 from src.hub import platform_auth
 from src.hub.store import HubStore
-from src.services.browser import chrome_prefetch
+from src.services.browser import chrome_prefetch, cookies
 from src.services.profile.manager import ProfileManager
+from src.services.profile.transfer import pack_cookies
 
 OLD, NEW = "139.0.7258.154", "148.0.7778.215"
 SECRET = "s" * 32
@@ -27,6 +28,7 @@ def test_pins_stay_within_the_limit_and_are_complete():
     assert release.LEGACY_VERSION in release.RELEASES
     for version, rel in release.RELEASES.items():
         assert rel.assets, version
+        assert re.fullmatch(r"20\d{6}", rel.date), version
         for asset in rel.assets.values():
             assert re.fullmatch(r"[0-9a-f]{64}", asset.sha256), asset.url
             assert asset.size > 50_000_000, asset.url
@@ -40,6 +42,8 @@ def test_versions_sort_numerically():
     assert mac == sorted(mac, key=release.key, reverse=True)
     assert all("macos" in release.RELEASES[v].assets for v in mac)
     assert release.available(None) == []
+    assert release.label("150.0.7871.186") == "Chrome 150 (20261002)"
+    assert release.label("1.2.3.4") == "1.2.3.4"
 
 
 def test_installed_versions_reads_the_markers(tmp_path):
@@ -142,6 +146,7 @@ def test_launch_waits_for_the_build_and_install_starts_it(local, monkeypatch):
     old = next(b for b in builds["builds"] if b["version"] == OLD)
     assert old == {
         "version": OLD,
+        "date": "20250914",
         "platforms": sorted(release.RELEASES[OLD].assets),
         "available": True,
         "installed": False,
@@ -207,6 +212,108 @@ def test_hub_asks_the_agent_which_builds_it_has(hub):
     bl.agents["ana"]["builds"] = [OLD, NEW]
     assert client.post("/api/v1/browser/c1/launch?wait=false", headers=ana).status_code == 202
     assert bl.next_command("ana")["op"] == "launch"
+
+
+def _opened_with(folder, version):
+    """A Chrome profile folder as a build leaves it, with Fox's own files."""
+    (folder / "Default").mkdir(parents=True)
+    (folder / "Default" / "Cookies").write_text("store")
+    (folder / "Last Version").write_text(version)
+    personas.save(folder, personas.generate("macos", seed=7))
+    (folder / "tabs.json").write_text("[]")
+
+
+FOX_FILES = ["chrome_persona.json", "tabs.json"]
+
+
+@pytest.fixture
+def downgradable(local, tmp_path, monkeypatch):
+    """c1 on NEW, opened once; both builds installed; the cookie tools recorded."""
+    client, _, _ = local
+    client.post("/api/v1/profiles", json={"name": "c1", "engine": "chrome", "chrome_version": NEW})
+    folder = tmp_path / "camoufox_data" / "c1"
+    _opened_with(folder, NEW)
+    monkeypatch.setattr(chrome_prefetch, "is_installed", lambda version=None: True)
+    calls = []
+    monkeypatch.setattr(
+        cookies,
+        "export_cookies",
+        lambda name, os_type, fmt, engine, v: calls.append(("export", v)) or ('[{"n": 1}]', 1),
+    )
+    monkeypatch.setattr(
+        cookies,
+        "import_cookies",
+        lambda name, os_type, text, engine, v: calls.append(("import", v, text)) or 1,
+    )
+    return client, folder, calls
+
+
+def test_a_profile_goes_back_to_an_older_build_keeping_its_cookies(downgradable):
+    client, folder, calls = downgradable
+    r = client.post("/api/v1/profiles/c1/chrome-downgrade", json={"version": OLD})
+    assert r.status_code == 200 and r.json()["chrome_version"] == OLD
+    # Exported with the build that wrote them, imported with the older one.
+    assert calls == [("export", NEW), ("import", OLD, '[{"n": 1}]')]
+    assert sorted(p.name for p in folder.iterdir()) == FOX_FILES
+    assert not list(folder.parent.glob(".downgrade-*"))
+    # Only to an older build; a newer one goes through PATCH.
+    assert (
+        client.post("/api/v1/profiles/c1/chrome-downgrade", json={"version": NEW}).status_code
+        == 400
+    )
+    assert (
+        client.post("/api/v1/profiles/c1/chrome-downgrade", json={"version": OLD}).status_code
+        == 400
+    )
+
+
+def test_a_failed_downgrade_leaves_the_profile_as_it_was(downgradable, monkeypatch):
+    client, folder, _ = downgradable
+
+    def broken(name, os_type, text, engine, v):
+        (folder / "Last Version").write_text(v)  # the older build had started writing
+        raise cookies.CookieError("boom")
+
+    monkeypatch.setattr(cookies, "import_cookies", broken)
+    r = client.post("/api/v1/profiles/c1/chrome-downgrade", json={"version": OLD})
+    assert r.status_code == 409 and "boom" in r.json()["detail"]
+    assert client.get("/api/v1/profiles/c1").json()["chrome_version"] == NEW
+    assert (folder / "Last Version").read_text() == NEW
+    assert (folder / "Default" / "Cookies").read_text() == "store"
+    assert not list(folder.parent.glob(".downgrade-*"))
+
+    # Cookies that cannot be read: nothing is touched.
+    def unreadable(*a):
+        raise cookies.CookieError("locked")
+
+    monkeypatch.setattr(cookies, "export_cookies", unreadable)
+    assert (
+        client.post("/api/v1/profiles/c1/chrome-downgrade", json={"version": OLD}).status_code
+        == 409
+    )
+    assert (folder / "Default" / "Cookies").exists()
+
+
+def test_hub_downgrade_leaves_the_packed_cookies_to_the_agent(hub, tmp_path):
+    client, _, ana = hub
+    client.post(
+        "/api/v1/profiles",
+        json={"name": "c1", "engine": "chrome", "chrome_version": NEW},
+        headers=ana,
+    )
+    folder = tmp_path / "camoufox_data" / "c1"
+    _opened_with(folder, NEW)
+    # No cookies packed on a close yet: they would be lost.
+    r = client.post("/api/v1/profiles/c1/chrome-downgrade", json={"version": OLD}, headers=ana)
+    assert r.status_code == 409 and (folder / "Last Version").exists()
+
+    pack_cookies(str(folder), '[{"n": 1}]')
+    r = client.post("/api/v1/profiles/c1/chrome-downgrade", json={"version": OLD}, headers=ana)
+    assert r.status_code == 200 and r.json()["chrome_version"] == OLD
+    # agent._restore_cookies loads them into the older build at the next open.
+    assert sorted(p.name for p in folder.iterdir()) == sorted(
+        [*FOX_FILES, "cookies.json.gz", "cookies.json.gz.sha256"]
+    )
 
 
 def test_hub_poll_records_the_agents_builds(hub):
