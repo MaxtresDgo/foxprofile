@@ -69,24 +69,9 @@ def open_profile_dialog(
         disabled=is_edit,
     )
     engine_dropdown.expand = 3
-    engine_note = ft.Container(
+    engine_note = _note(
+        ft.Text(get_string("engine_chrome_note")),
         visible=engine_dropdown.value == "chrome" and not is_edit,
-        padding=ft.Padding.symmetric(horizontal=12, vertical=10),
-        border_radius=8,
-        bgcolor=_WARN_TINT,
-        content=ft.Row(
-            spacing=8,
-            vertical_alignment=ft.CrossAxisAlignment.START,
-            controls=[
-                ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, size=16, color=COLORS["warning"]),
-                ft.Text(
-                    get_string("engine_chrome_note"),
-                    size=12.5,
-                    color=COLORS["warn_text"],
-                    expand=True,
-                ),
-            ],
-        ),
     )
 
     build_dropdown = _build_dropdown(profile)
@@ -94,6 +79,22 @@ def open_profile_dialog(
         get_string("chrome_build"), build_dropdown, get_string("chrome_build_hint")
     )
     build_field.visible = engine_dropdown.value == "chrome"
+    # Picking an older build says what saving drops (chrome_prefetch.downgrade).
+    downgrade_text = ft.Text()
+    downgrade_note = _note(downgrade_text, visible=False)
+
+    def on_build_change(_: ft.ControlEvent) -> None:
+        from chrome_engine import release
+
+        v, current = build_dropdown.value, profile.chrome_version if profile else None
+        downgrade_note.visible = bool(v and current) and release.key(v) < release.key(current)
+        if downgrade_note.visible:
+            downgrade_text.value = get_string(
+                "build_downgrade_confirm", name=profile.name, version=release.label(v)
+            )
+        page.update()
+
+    build_dropdown.on_select = on_build_change
 
     def on_engine_change(_: ft.ControlEvent) -> None:
         engine_note.visible = engine_dropdown.value == "chrome" and not is_edit
@@ -258,6 +259,7 @@ def open_profile_dialog(
                     ),
                     engine_note,
                     build_field,
+                    downgrade_note,
                     _field(
                         get_string("proxy_optional"), proxy_field, get_string("proxy_format_hint")
                     ),
@@ -303,9 +305,28 @@ _DATA = ft.TextStyle(font_family=FONT_DATA, size=13)
 _WARN_TINT = COLORS["warn_tint"]
 
 
+def _note(text: ft.Text, visible: bool) -> ft.Container:
+    """A warning box under a field."""
+    text.size, text.color, text.expand = 12.5, COLORS["warn_text"], True
+    return ft.Container(
+        visible=visible,
+        padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+        border_radius=8,
+        bgcolor=_WARN_TINT,
+        content=ft.Row(
+            spacing=8,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+            controls=[
+                ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, size=16, color=COLORS["warning"]),
+                text,
+            ],
+        ),
+    )
+
+
 def _build_dropdown(profile: Profile | None) -> ft.Dropdown:
-    """The Chrome builds this machine has a download for; an existing profile
-    only moves to a newer one (Chromium cannot read a newer build's data)."""
+    """The Chrome builds this machine has a download for; an older one than the
+    profile's resets its browser data (Chromium cannot read a newer build's data)."""
     from chrome_engine import fetch, release
 
     current = profile.chrome_version if profile is not None else None
@@ -314,11 +335,7 @@ def _build_dropdown(profile: Profile | None) -> ft.Dropdown:
         installed = set(fetch.installed_versions())
     except Exception:  # unreadable cache dir: show them all as not installed
         installed = set()
-    versions = [
-        v
-        for v in release.available(chrome_prefetch.host())
-        if current is None or release.key(v) >= release.key(current)
-    ]
+    versions = release.available(chrome_prefetch.host())
     if chosen not in versions:
         versions.append(chosen)
     not_installed = get_string("chrome_not_installed")
@@ -331,7 +348,10 @@ def _build_dropdown(profile: Profile | None) -> ft.Dropdown:
         focused_border_color=COLORS["sidebar"],
         border_radius=8,
         options=[
-            ft.dropdown.Option(v, v if v in installed else f"{v} · {not_installed}")
+            ft.dropdown.Option(
+                v,
+                release.label(v) if v in installed else f"{release.label(v)} · {not_installed}",
+            )
             for v in versions
         ],
     )

@@ -65,6 +65,7 @@ def build_sidebar(
     on_export: Callable,
     on_adspower: Callable,
     on_extensions: Callable,
+    on_builds: Callable,
     on_toggle_log: Callable,
     on_mcp: Callable,
     on_fullscreen_log: Callable,
@@ -158,6 +159,15 @@ def build_sidebar(
                     height=36,
                     style=RAIL_STYLE,
                     on_click=on_extensions,
+                ),
+                ft.Container(height=8),
+                ft.OutlinedButton(
+                    get_string("builds_button"),
+                    icon=ft.Icons.PUBLIC,
+                    width=208,
+                    height=36,
+                    style=RAIL_STYLE,
+                    on_click=on_builds,
                 ),
                 ft.Container(height=22),
                 ft.Container(

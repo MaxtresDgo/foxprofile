@@ -128,6 +128,7 @@ class App:
             on_export=lambda _: self.h.on_export_open(),
             on_adspower=lambda _: self.h.on_adspower(),
             on_extensions=lambda _: self.h.on_extensions(),
+            on_builds=lambda _: self.h.on_builds(),
             on_mcp=lambda _: open_mcp_guide(self.page, self.clipboard),
             on_toggle_log=lambda _: self.h.toggle_log(),
             on_fullscreen_log=lambda _: self.h.open_log_fullscreen(),

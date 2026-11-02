@@ -28,6 +28,7 @@ from .actions.transfer import export_profile, import_profile
 from .dialogs import (
     open_accounts_dialog,
     open_adspower_dialog,
+    open_builds_dialog,
     open_bulk_edit_dialog,
     open_extensions_dialog,
     open_log_dialog,
@@ -155,6 +156,11 @@ class AppHandlers:
         page, refs = self._get_page(), self._get_refs()
         assert page is not None and refs is not None
         open_extensions_dialog(page, refs.file_picker, self._pm, self._log)
+
+    def on_builds(self) -> None:
+        page = self._get_page()
+        assert page is not None
+        open_builds_dialog(page, self.on_install_build)
 
     def on_export_open(self) -> None:
         page = self._get_page()
