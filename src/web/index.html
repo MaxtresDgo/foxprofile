@@ -1652,10 +1652,13 @@ function openEditor(p) {
       if ((p ? p.engine : engine.value) === "chrome" && build.value) {
         const older = !!current && !newerOrSame(build.value, current);
         const label = buildLabel(buildInfo(build.value) || { version: build.value });
-        const ask = older ? t("build_downgrade_confirm", { name: p.name, version: label }) : t("build_confirm", { name: p.name, version: build.value });
-        if (current && build.value !== current && !(await confirmDialog(ask, t(older ? "build_downgrade_go" : "save"), older))) {
-          if (submitBtn) submitBtn.disabled = false;
-          return;
+        // Only an existing profile (p) changing its build asks first.
+        if (current && build.value !== current) {
+          const ask = older ? t("build_downgrade_confirm", { name: p.name, version: label }) : t("build_confirm", { name: p.name, version: build.value });
+          if (!(await confirmDialog(ask, t(older ? "build_downgrade_go" : "save"), older))) {
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+          }
         }
         if (older) downgrade = label;
         else body.chrome_version = build.value;
