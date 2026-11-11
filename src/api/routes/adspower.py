@@ -92,6 +92,7 @@ def _join_group(request: Request, hub, name: str, group: str, warnings: list[str
     if not group:
         return None
     user, target = request.state.user, group_name_for(group)
+    target = hub.find_group(target) or target  # "Grupo-299" joins an existing "grupo-299"
     if target not in hub.groups:
         if user["role"] != "admin":
             warnings.append(get_string("adspower_group_missing", group=target))
