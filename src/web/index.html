@@ -1113,9 +1113,11 @@ const FILTERS = [
   ["direct", "f_direct", (p) => !p.proxy],
   ["chrome", "f_chrome", (p) => p.engine === "chrome"],
 ];
+// Group names sort like people read them: Grupo-2 before Grupo-10, case aside.
+const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 // Hub groups the user can see; the picked one scopes the list and the filter counts.
 function groupNames() {
-  return hub && me ? [...new Set([...Object.keys(me.my_groups), ...Object.values(me.groups)])].sort() : [];
+  return hub && me ? [...new Set([...Object.keys(me.my_groups), ...Object.values(me.groups)])].sort(natural) : [];
 }
 const inGroup = (p, g) => g === null || !me || (me.groups[p.name] || "") === g;
 function visible() {
@@ -2054,7 +2056,7 @@ function drawBackups() {
   // One section per group: named groups, then no group, then the orphans.
   const rank = (g) => (g === null ? 2 : g === "" ? 1 : 0);
   const sections = new Map();
-  for (const r of [...shown].sort((a, b) => rank(a.group) - rank(b.group) || (a.group || "").localeCompare(b.group || "")
+  for (const r of [...shown].sort((a, b) => rank(a.group) - rank(b.group) || natural(a.group || "", b.group || "")
     || a.name.localeCompare(b.name, undefined, { numeric: true })))
     (sections.get(r.group) || sections.set(r.group, []).get(r.group)).push(r);
   const heads = hub || sections.size > 1;
@@ -2448,7 +2450,7 @@ function openAdsPower() {
         byGroup.get(p.group).rows.push(r);
       }
       // By name, "no group" last.
-      groups = [...byGroup.entries()].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b)).map(([, g]) => g);
+      groups = [...byGroup.entries()].sort(([a], [b]) => (!a) - (!b) || natural(a, b)).map(([, g]) => g);
       list.replaceChildren(...groups.map(buildGroup));
       list.classList.toggle("hidden", !groups.length);
       allRow.classList.toggle("hidden", !groups.length);
@@ -2521,11 +2523,12 @@ function openGroups() {
     load();
     return h("div", {},
       modalHead(t("groups"), t("group_hint"), close),
-      h("div", { class: "modal-body" }, list,
-        admin ? h("form", { style: "display:flex;gap:8px;margin-top:14px", onsubmit: (e) => {
+      // New group first: with hundreds of groups the end of the list is far away.
+      h("div", { class: "modal-body" },
+        admin ? h("form", { style: "display:flex;gap:8px;margin:8px 0 4px", onsubmit: (e) => {
           e.preventDefault(); call("POST", "/hub/groups", { name: name.value.trim() }).then((ok) => { if (ok) name.value = ""; });
         } }, name, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_group"))) : null,
-        msg),
+        msg, h("div", { style: "margin-top:18px" }, list)),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
 }
@@ -2606,7 +2609,7 @@ async function editExtension(x, reload) {
   const engine = engineLabel(x.engine);
   modal((close) => {
     const all = h("input", { type: "checkbox", checked: x.global });
-    const inGroups = hub ? pickList(t("ext_scope_groups"), [...new Set([...groups, ...x.groups])].sort(), x.groups, t("ext_no_groups")) : null;
+    const inGroups = hub ? pickList(t("ext_scope_groups"), [...new Set([...groups, ...x.groups])].sort(natural), x.groups, t("ext_no_groups")) : null;
     const own = pickList(t("ext_scope_profiles"), names, x.profiles, t("ext_no_profiles", { engine }));
     const excluded = pickList(t("ext_scope_excluded"), names, x.excluded, t("ext_no_profiles", { engine }));
     const msg = h("div", { class: "msg", role: "status" });

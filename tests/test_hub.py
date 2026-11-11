@@ -647,6 +647,16 @@ def test_a_dropped_agent_poll_leaves_commands_for_the_next_one(hub):
     assert bl.next_command("ana") == {"op": "launch", "name": "shop-01"}
 
 
+def test_groups_list_in_natural_order(hub):
+    client, _, admin = hub
+    for name in ("Grupo-10", "grupo-2", "Grupo-100", "Grupo-1", "Emergencia"):
+        assert (
+            client.post("/api/v1/hub/groups", json={"name": name}, headers=admin).status_code == 201
+        )
+    names = [g["name"] for g in client.get("/api/v1/hub/groups", headers=admin).json()]
+    assert names == ["Emergencia", "Grupo-1", "grupo-2", "Grupo-10", "Grupo-100"]
+
+
 def test_groups_share_profiles_and_leads_manage_their_own(hub):
     client, container, admin = hub
     api = "/api/v1/hub"

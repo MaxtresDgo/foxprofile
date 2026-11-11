@@ -25,6 +25,13 @@ ROLES = ("admin", "operator")
 GROUP_ROLES = ("member", "lead")
 SESSION_TTL = 12 * 3600
 _NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+
+def _natural(name: str) -> list:
+    """Sort key: Grupo-2 before Grupo-10, case aside (split alternates text, number)."""
+    return [int(s) if i % 2 else s for i, s in enumerate(re.split(r"(\d+)", name.casefold()))]
+
+
 KEY_PREFIX = "fpk_"
 KEY_FIELDS = ("key", "agent_key", "army_key")
 
@@ -270,6 +277,6 @@ class HubStore:
                     "my_role": "lead" if user["role"] == "admin" else members.get(user["name"]),
                     "profiles": counts.get(g, 0),
                 }
-                for g, members in sorted(self.groups.items())
+                for g, members in sorted(self.groups.items(), key=lambda kv: _natural(kv[0]))
                 if user["role"] == "admin" or user["name"] in members
             ]
