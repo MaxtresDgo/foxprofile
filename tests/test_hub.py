@@ -749,3 +749,36 @@ def test_only_admins_see_the_whole_snapshot_bucket(hub, s3):
     ana = _login(client, "ana", "anaanaanaana")
     assert client.get("/api/v1/snapshots", headers=ana).status_code == 403
     assert client.get("/api/v1/snapshots", headers=admin).json() == {"profiles": []}
+
+
+def test_admins_keep_saved_proxies_and_see_which_profiles_use_them(hub):
+    client, _, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    api = "/api/v1/proxy/saved"
+    shop1 = {"name": "shop-01", "proxy": "203.0.113.5:8080:user:pass"}
+    client.post("/api/v1/profiles", json=shop1, headers=admin)
+    client.post(
+        "/api/v1/profiles", json={"name": "shop-02", "proxy": "198.51.100.9:3128"}, headers=admin
+    )
+    assert client.get(api, headers=ana).status_code == 403
+
+    r = client.post(
+        api, json={"proxy": "http://user:pass@203.0.113.5:8080", "note": "MX"}, headers=admin
+    )
+    assert r.status_code == 201
+    sid = r.json()["id"]
+    # The same proxy written the other way is a duplicate; a malformed one is refused.
+    assert client.post(api, json={"proxy": shop1["proxy"]}, headers=admin).status_code == 409
+    assert client.post(api, json={"proxy": "not a proxy"}, headers=admin).status_code == 400
+
+    def rows():
+        return [(r["id"], r["note"], r["profiles"]) for r in client.get(api, headers=admin).json()]
+
+    # Saved ones first; the proxies profiles use without being saved follow.
+    assert rows() == [(sid, "MX", ["shop-01"]), (None, "", ["shop-02"])]
+    r = client.put(f"{api}/{sid}", json={"proxy": "198.51.100.9:3128", "note": "US"}, headers=admin)
+    assert r.status_code == 200
+    assert rows() == [(sid, "US", ["shop-02"]), (None, "", ["shop-01"])]
+    assert client.delete(f"{api}/{sid}", headers=admin).status_code == 200
+    assert client.delete(f"{api}/{sid}", headers=admin).status_code == 404
+    assert [r[2] for r in rows()] == [["shop-01"], ["shop-02"]]

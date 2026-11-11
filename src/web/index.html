@@ -545,6 +545,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
       <button class="rail-link hidden" id="groups-btn"><svg class="i"><use href="#i-users"/></svg><span data-t="groups"></span></button>
       <button class="rail-link hidden" id="agents-btn"><svg class="i"><use href="#i-monitor"/></svg><span data-t="agents_button"></span></button>
       <button class="rail-link hidden" id="backups-btn"><svg class="i"><use href="#i-history"/></svg><span data-t="backups"></span></button>
+      <button class="rail-link" id="proxies-btn"><svg class="i"><use href="#i-plug"/></svg><span data-t="proxies_button"></span></button>
       <button class="rail-link" id="ext-btn"><svg class="i"><use href="#i-puzzle"/></svg><span data-t="ext_button"></span></button>
       <button class="rail-link" id="builds-btn"><svg class="i"><use href="#i-globe"/></svg><span data-t="builds_button"></span></button>
       <button class="rail-link" id="mcp-btn"><svg class="i"><use href="#i-bot"/></svg><span data-t="mcp_button"></span></button>
@@ -656,6 +657,7 @@ const I18N = {
     bad_token: "Token không đúng", create: "Tạo profile", edit_title: "Sửa profile", edit_sub: "Đang sửa {name}", create_sub: "Một profile là một danh tính: thiết bị, proxy và vị trí riêng.",
     name: "Tên profile", os: "Hệ điều hành", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (thử nghiệm)", engine_locked: "Engine không đổi được sau khi tạo.",
+    proxies_button: "Proxy", proxies_title: "Proxy đã lưu", proxies_hint: "Danh sách proxy dùng chung, cùng các proxy mà profile đang dùng.", proxy_note: "Ghi chú (tuỳ chọn)", proxy_add: "Lưu proxy", proxy_search: "Tìm proxy, ghi chú hoặc profile", proxy_none: "Chưa có proxy nào.", proxy_no_match: "Không có proxy nào khớp", proxy_from_profiles: "từ profile, chưa lưu", proxy_used: "{n} profile: {names}", proxy_unused: "chưa dùng", proxy_confirm_delete: "Xoá {proxy} khỏi danh sách đã lưu? Các profile đang dùng không thay đổi.",
     builds_button: "Trình duyệt", builds_title: "Trình duyệt (engine Chrome)", builds_hint: "Các phiên bản fingerprint-chromium cho profile engine Chrome. Chúng được tải về máy chạy trình duyệt (ở hub là máy của agent); profile chỉ mở được khi phiên bản của nó đã có ở đó.", build_download: "Tải về", build_installed: "Đã cài", build_default: "mặc định", builds_none: "Không có trình duyệt nào cho hệ điều hành của máy này",
     chrome_build: "Bản build Chrome", chrome_build_hint: "Bản build cũ hơn sẽ đặt lại dữ liệu trình duyệt; cookie, fingerprint và các tab được giữ.", build_downgrade_confirm: "Chuyển {name} về {version} sẽ đặt lại dữ liệu trình duyệt: lịch sử, local storage (các trang như WhatsApp Web sẽ yêu cầu đăng nhập lại), mật khẩu đã lưu trong trình duyệt và dữ liệu extension. Fingerprint, proxy, các tab và cookie được giữ nguyên.", build_downgrade_go: "Đặt lại và chuyển", chrome_downgraded: "{name} đã chuyển về {version}: dữ liệu trình duyệt được đặt lại, cookie được giữ", not_installed: "chưa cài", build_missing: "Cài bản build Chrome {version} để mở profile này", build_unavailable: "Bản build Chrome {version} không có cho hệ điều hành của máy này", install_build: "Cài {version}", installing_build: "Đang cài {pct}%", install_started: "Đang cài bản build Chrome {version}…", install_failed: "Không cài được bản build Chrome {version}: {error}", act_installing_build: "Đang cài bản build Chrome {version}… {pct}%", build_confirm: "Chuyển {name} sang bản build Chrome {version}? Không thể quay lại bản cũ hơn.",
     engine_note: "Engine Chromium đang thử nghiệm. Mỗi bản build (~150 MB) được cài trên máy chạy trình duyệt bằng nút Cài trong danh sách. Nên chọn đúng hệ điều hành của máy đó, chọn hệ khác sẽ lộ font. Không đổi được engine sau khi tạo.",
@@ -763,6 +765,7 @@ const I18N = {
     bad_token: "Invalid token", create: "Create profile", edit_title: "Edit profile", edit_sub: "Editing {name}", create_sub: "A profile is an identity: its own device, proxy and location.",
     name: "Profile name", os: "Operating system", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "The engine cannot be changed after creation.",
+    proxies_button: "Proxies", proxies_title: "Saved proxies", proxies_hint: "A shared list of proxies, plus the ones profiles already use.", proxy_note: "Note (optional)", proxy_add: "Save proxy", proxy_search: "Search proxy, note or profile", proxy_none: "No proxies yet.", proxy_no_match: "No proxy matches", proxy_from_profiles: "from profiles, not saved", proxy_used: "{n} profiles: {names}", proxy_unused: "unused", proxy_confirm_delete: "Remove {proxy} from the saved list? Profiles that use it keep it.",
     builds_button: "Browsers", builds_title: "Browsers (Chrome engine)", builds_hint: "fingerprint-chromium versions for Chrome engine profiles. They download to the PC that runs the browsers (on a hub, your agent's); a profile only opens once its version is there.", build_download: "Download", build_installed: "Installed", build_default: "default", builds_none: "No browser available for this PC's system",
     chrome_build: "Chrome build", chrome_build_hint: "An older build resets the browser data; cookies, fingerprint and tabs are kept.", build_downgrade_confirm: "Moving {name} back to {version} resets its browser data: history, local storage (sites such as WhatsApp Web ask you to sign in again), passwords saved in the browser and extension data. The fingerprint, proxy, tabs and cookies are kept.", build_downgrade_go: "Reset and switch", chrome_downgraded: "{name} moved back to {version}: browser data reset, cookies kept", not_installed: "not installed", build_missing: "Install Chrome build {version} to open this profile", build_unavailable: "Chrome build {version} has no download for this PC\u2019s system", install_build: "Install {version}", installing_build: "Installing {pct}%", install_started: "Installing Chrome build {version}…", install_failed: "Could not install Chrome build {version}: {error}", act_installing_build: "Installing Chrome build {version}… {pct}%", build_confirm: "Move {name} to Chrome build {version}? It cannot go back to an older build.",
     engine_note: "Experimental Chromium engine. Each build (~150 MB) is installed on the PC that runs the browser, with the Install button in the list. Pick that machine's OS: other OSes leak its fonts. The engine cannot be changed later.",
@@ -870,6 +873,7 @@ const I18N = {
     bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
     name: "Nombre del profile", os: "Sistema operativo", engine: "Engine",
     engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "El engine no se puede cambiar después de crearlo.",
+    proxies_button: "Proxies", proxies_title: "Proxies guardados", proxies_hint: "La lista compartida de proxies, junto con los que ya usan los profiles.", proxy_note: "Nota (opcional)", proxy_add: "Guardar proxy", proxy_search: "Buscar proxy, nota o profile", proxy_none: "Todavía no hay proxies.", proxy_no_match: "Ningún proxy coincide", proxy_from_profiles: "de los profiles, sin guardar", proxy_used: "{n} profiles: {names}", proxy_unused: "sin usar", proxy_confirm_delete: "¿Quitar {proxy} de los guardados? Los profiles que lo usan lo conservan.",
     builds_button: "Navegadores", builds_title: "Navegadores (engine Chrome)", builds_hint: "Versiones de fingerprint-chromium para los profiles con engine Chrome. Se descargan en la PC que abre los navegadores (en el hub, la de tu agente); un profile solo abre si su versión ya está ahí.", build_download: "Descargar", build_installed: "Instalado", build_default: "predeterminado", builds_none: "No hay navegadores para el sistema de este PC",
     chrome_build: "Build de Chrome", chrome_build_hint: "Un build más viejo reinicia los datos del navegador; se conservan las cookies, el fingerprint y las pestañas.", build_downgrade_confirm: "Pasar {name} a {version} reinicia los datos de su navegador: historial, almacenamiento local (sitios como WhatsApp Web piden volver a entrar), contraseñas guardadas en el navegador y datos de las extensiones. Se conservan el fingerprint, el proxy, las pestañas y las cookies.", build_downgrade_go: "Reiniciar y pasar", chrome_downgraded: "{name} pasó a {version}: datos del navegador reiniciados, cookies conservadas", not_installed: "no instalado", build_missing: "Instala el build de Chrome {version} para abrir este profile", build_unavailable: "El build de Chrome {version} no tiene descarga para el sistema de este PC", install_build: "Instalar {version}", installing_build: "Instalando {pct} %", install_started: "Instalando el build de Chrome {version}…", install_failed: "No se pudo instalar el build de Chrome {version}: {error}", act_installing_build: "Instalando el build de Chrome {version}… {pct} %", build_confirm: "¿Pasar {name} al build de Chrome {version}? No podrá volver a un build anterior.",
     engine_note: "Engine Chromium experimental. Cada build (~150 MB) se instala en el PC que ejecuta el navegador, con el botón Instalar de la lista. Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
@@ -2150,6 +2154,7 @@ function renderMe(who) {
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
   $("ext-btn").classList.toggle("hidden", me.role !== "admin");
+  $("proxies-btn").classList.toggle("hidden", me.role !== "admin");
   $("backups-btn").classList.toggle("hidden", !snapshotsOn || me.role !== "admin");
 }
 function showSettings(on) {
@@ -2529,6 +2534,63 @@ function openGroups() {
           e.preventDefault(); call("POST", "/hub/groups", { name: name.value.trim() }).then((ok) => { if (ok) name.value = ""; });
         } }, name, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_group"))) : null,
         msg, h("div", { style: "margin-top:18px" }, list)),
+      h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
+  }, { wide: true });
+}
+
+// --- Saved proxies ----------------------------------------------------------------
+// The shared list admins keep, plus the proxies profiles already use (id null: they
+// cannot be edited here), each with the profiles that use it.
+function openProxies() {
+  modal((close) => {
+    let rows = [], editing = null;
+    const list = h("div");
+    const msg = h("div", { class: "msg", role: "status" });
+    const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
+    const proxy = h("input", { class: "data", placeholder: "host:port:user:pass", autocomplete: "off", required: true, style: "flex:2 1 240px" });
+    const note = h("input", { placeholder: t("proxy_note"), autocomplete: "off", maxlength: 100, style: "flex:1 1 150px" });
+    const label = h("span", {}, t("proxy_add"));
+    const cancel = h("button", { type: "button", class: "btn btn-line hidden", onclick: () => reset() }, t("cancel"));
+    const q = h("input", { type: "search", placeholder: t("proxy_search"), autocomplete: "off", "aria-label": t("proxy_search"), oninput: () => draw() });
+    const reset = () => { editing = null; proxy.value = note.value = ""; label.textContent = t("proxy_add"); cancel.classList.add("hidden"); };
+    const call = (method, path, body) => api(method, path, body)
+      .then(() => { msg.textContent = ""; load(); return true; }, (e) => { fail(e); return false; });
+    const load = async () => {
+      try { rows = await api("GET", "/proxy/saved"); } catch (e) { return fail(e); }
+      draw();
+    };
+    const draw = () => {
+      const s = q.value.trim().toLowerCase();
+      const shown = rows.filter((r) => !s || [r.proxy, r.note, ...r.profiles].some((v) => v.toLowerCase().includes(s)));
+      if (!shown.length) return list.replaceChildren(h("p", { class: "muted" }, t(rows.length ? "proxy_no_match" : "proxy_none")));
+      list.replaceChildren(...shown.map((r) => {
+        const names = r.profiles.slice(0, 3).join(", ") + (r.profiles.length > 3 ? "…" : "");
+        const used = r.profiles.length ? t("proxy_used", { n: r.profiles.length, names }) : t("proxy_unused");
+        const btn = (name, title, fn, cls = "") =>
+          h("button", { type: "button", class: "icon-btn " + cls, title, "aria-label": `${title}: ${r.proxy}`, onclick: fn }, icon(name));
+        return h("div", { class: "inst-row" }, h("b", { class: "data", style: "overflow-wrap:anywhere" }, r.proxy),
+          h("div", { class: "sub", title: r.profiles.join("\n") }, [r.note, !r.id && t("proxy_from_profiles"), used].filter(Boolean).join(" · ")),
+          h("div", { class: "acts" },
+            btn("copy", t("account_copy"), async () => { if (await copyText(r.proxy)) toast(t("mcp_copied")); }),
+            r.id ? btn("edit", t("edit"), () => {
+              editing = r.id; proxy.value = r.proxy; note.value = r.note; label.textContent = t("save");
+              cancel.classList.remove("hidden"); proxy.focus();
+            }) : null,
+            r.id ? btn("trash", t("delete"), async () => {
+              if (await confirmDialog(t("proxy_confirm_delete", { proxy: r.proxy }), t("delete"), true)) call("DELETE", `/proxy/saved/${enc(r.id)}`);
+            }, "danger") : null));
+      }));
+    };
+    load();
+    return h("div", {},
+      modalHead(t("proxies_title"), t("proxies_hint"), close),
+      h("div", { class: "modal-body" },
+        h("form", { style: "display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px", onsubmit: (e) => {
+          e.preventDefault();
+          call(editing ? "PUT" : "POST", editing ? `/proxy/saved/${enc(editing)}` : "/proxy/saved", { proxy: proxy.value.trim(), note: note.value.trim() })
+            .then((ok) => { if (ok) reset(); });
+        } }, proxy, note, h("button", { class: "btn btn-act" }, icon("plus", true), label), cancel),
+        msg, h("div", { style: "margin-top:14px" }, q), list),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
 }
@@ -2942,6 +3004,7 @@ $("users-btn").onclick = openUsers;
 $("groups-btn").onclick = openGroups;
 $("agents-btn").onclick = openAgents;
 $("ext-btn").onclick = openExtensions;
+$("proxies-btn").onclick = openProxies;
 $("builds-btn").onclick = openBuilds;
 $("backups-btn").onclick = () => showPage("backups-page");
 $("backups-q").oninput = drawBackups;
