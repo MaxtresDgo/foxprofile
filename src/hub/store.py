@@ -210,11 +210,16 @@ class HubStore:
     def is_lead(self, user: dict, group: str) -> bool:
         return user["role"] == "admin" or self.groups.get(group, {}).get(user["name"]) == "lead"
 
+    def find_group(self, name: str) -> str | None:
+        """The existing group named `name` ignoring case, like profile names."""
+        key = name.casefold()
+        return next((g for g in self.groups if g.casefold() == key), None)
+
     def add_group(self, name: str) -> None:
         if not _NAME.match(name):
             raise HubError(get_string("err_group_name"))
         with self._lock:
-            if name in self.groups:
+            if self.find_group(name) is not None:
                 raise HubError(get_string("err_group_exists"))
             self.groups[name] = {}
             self._save()

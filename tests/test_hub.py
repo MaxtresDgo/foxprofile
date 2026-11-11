@@ -661,6 +661,10 @@ def test_groups_share_profiles_and_leads_manage_their_own(hub):
     assert client.post(f"{api}/groups", json={"name": "sales"}, headers=ana).status_code == 403
     assert client.post(f"{api}/groups", json={"name": "sales"}, headers=admin).status_code == 201
     assert client.post(f"{api}/groups", json={"name": "sales"}, headers=admin).status_code == 400
+    assert client.post(f"{api}/groups", json={"name": "SALES"}, headers=admin).status_code == 400
+    assert (
+        client.post("/api/v1/profiles", json={"name": "SHOP-01"}, headers=admin).status_code == 409
+    )
     assert client.put(f"{api}/groups/sales/members/ana", headers=ana).status_code == 403
     r = client.put(f"{api}/groups/sales/members/ana", json={"role": "lead"}, headers=admin)
     assert r.status_code == 200

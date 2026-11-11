@@ -415,17 +415,25 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   .col-geo { display: none; }
   .geo-inline { display: block; }
 }
+/* Cards: name over device, the proxy beside them, and on the right the status
+   over Abrir with the icon buttons under it (216px = six icon buttons). */
 @container sheet (max-width: 880px) {
   .row.head-row { display: none; }
-  .row.body { grid-template-columns: 24px 1fr auto; grid-template-areas: "sel name stamp" "sel device device" "sel proxy proxy" "acts acts acts"; row-gap: 6px; padding: 12px; }
-  .row.body > .c-sel { grid-area: sel; align-self: start; padding-top: 3px; }
+  .row.body { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 216px; grid-template-areas: "sel name proxy stamp" "sel device proxy acts"; align-items: start; gap: 6px 12px; padding: 10px 12px; }
+  .row.body > .c-sel { grid-area: sel; padding-top: 3px; }
   .row.body > .c-name { grid-area: name; }
   .row.body > .c-device { grid-area: device; }
   .row.body > .c-proxy { grid-area: proxy; }
   .row.body > .col-geo { display: none; }
-  .row.body > .c-stamp { grid-area: stamp; }
-  .row.body > .actions { grid-area: acts; justify-content: flex-start; }
-  .actions .main { flex: 1; max-width: 200px; }
+  .row.body > .c-stamp { grid-area: stamp; justify-self: end; }
+  .row.body > .actions { grid-area: acts; flex-wrap: wrap; row-gap: 4px; }
+  .actions .main { flex: 1 0 100%; margin-right: 0; }
+}
+/* Phones: the right column no longer fits; device beside proxy, actions on one line below. */
+@container sheet (max-width: 520px) {
+  .row.body { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "sel name stamp" "sel device proxy" "acts acts acts"; }
+  .row.body > .actions { flex-wrap: nowrap; justify-content: flex-start; }
+  .actions .main { flex: 1 1 0; max-width: 200px; margin-right: 8px; }
 }
 @media (max-width: 860px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
