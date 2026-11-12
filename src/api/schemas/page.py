@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class NavigateRequest(BaseModel):
@@ -57,3 +57,17 @@ class EvaluateRequest(BaseModel):
 
 class TabNewRequest(BaseModel):
     url: str | None = None
+
+
+class ArrangeRequest(BaseModel):
+    index: int = Field(ge=0, lt=50, description="This window's cell, counted from 0")
+    count: int = Field(ge=1, le=50, description="How many windows share the screen")
+    columns: int | None = Field(
+        None, ge=1, le=50, description="Windows per row; by default as many as rows"
+    )
+
+    @model_validator(mode="after")
+    def _index_in_grid(self) -> "ArrangeRequest":
+        if self.index >= self.count:
+            raise ValueError("index must be below count")
+        return self

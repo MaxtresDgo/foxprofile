@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
+from ...core.strings import get_string
 from ...services.browser.launcher import BrowserControlError
 from ..dependencies import get_browser_launcher, get_profile_manager
 from ..helpers import require_profile
 from ..schemas.page import (
+    ArrangeRequest,
     ClickAtRequest,
     ClickRequest,
     EvaluateRequest,
@@ -119,18 +121,50 @@ def screenshot(
     name: str,
     full_page: bool = False,
     format: str = Query("png", pattern="^(png|json)$"),
+    quality: int | None = Query(
+        None, ge=20, le=90, description="A JPEG of the viewport of this quality instead of a PNG"
+    ),
+    width: int | None = Query(
+        None, ge=80, le=4096, description="With quality: shrink the JPEG to this width (Chrome)"
+    ),
     pm=_PM,
     bl=_BL,
 ) -> Any:
-    """PNG of the active tab; `format=json` returns it base64-encoded with url and title."""
-    result = _run(name, pm, bl, "screenshot", {"full_page": full_page})
+    """PNG of the active tab; `format=json` returns it base64-encoded with url and title.
+
+    With `quality` it is a JPEG of the viewport (the panel's wall), at most `width`
+    pixels wide; `X-Viewport-Width`/`-Height` give the page's size in CSS pixels,
+    the coordinates `click-at` takes."""
+    params: dict[str, Any] = {"full_page": full_page}
+    # Only when asked: an agent still on older code rejects unknown parameters.
+    if quality is not None:
+        params["quality"] = quality
+        if width is not None:
+            params["width"] = width
+    result = _run(name, pm, bl, "screenshot", params)
     if format == "json":
         return result
+    headers = {"Cache-Control": "no-store"}
+    if "jpeg_base64" not in result:
+        return Response(
+            base64.b64decode(result["png_base64"]), media_type="image/png", headers=headers
+        )
+    view = result.get("viewport")
+    if view:
+        headers["X-Viewport-Width"] = str(view["width"])
+        headers["X-Viewport-Height"] = str(view["height"])
     return Response(
-        base64.b64decode(result["png_base64"]),
-        media_type="image/png",
-        headers={"Cache-Control": "no-store"},
+        base64.b64decode(result["jpeg_base64"]), media_type="image/jpeg", headers=headers
     )
+
+
+@router.get("/live")
+def live(name: str, pm=_PM, bl=_BL) -> dict:
+    """Where to watch the active tab live: a WebSocket on 127.0.0.1 of the PC
+    running the browser (`ws://127.0.0.1:{port}/live?t={token}`), so only a panel
+    on that PC can use it. `{"available": false}` for Camoufox; the panel then
+    takes screenshots instead."""
+    return _run(name, pm, bl, "live_ticket")
 
 
 @router.post("/evaluate")
@@ -157,3 +191,13 @@ def tab_select(name: str, index: int, pm=_PM, bl=_BL) -> dict:
 @router.delete("/tabs/{index}")
 def tab_close(name: str, index: int, pm=_PM, bl=_BL) -> dict:
     return _run(name, pm, bl, "tab_close", {"index": index})
+
+
+@router.post("/arrange")
+def arrange(name: str, body: ArrangeRequest, pm=_PM, bl=_BL) -> dict:
+    """Tile this browser's window: cell `index` of `count` on the screen of the PC
+    running it (call it for each window). Chrome engine only. A phone keeps its
+    size and stands in a row with the other phones."""
+    if require_profile(name, pm).engine != "chrome":
+        raise HTTPException(status_code=400, detail=get_string("err_arrange_chrome_only"))
+    return _run(name, pm, bl, "arrange", body.model_dump(exclude_none=True))
