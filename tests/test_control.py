@@ -148,6 +148,34 @@ def _with_locators(ctx):
     return log
 
 
+def test_human_type_empties_the_field_then_types_key_by_key(monkeypatch):
+    monkeypatch.setattr("src.services.browser.control.KEY_PAUSE", (0, 0))
+    ctx = FakeContext()
+    log = []
+
+    class Field:
+        @property
+        def first(self):
+            return self
+
+        async def fill(self, text, timeout=None):
+            log.append(("fill", text))
+
+        async def press(self, key):
+            log.append(("press", key))
+
+    class Keyboard:
+        async def type(self, key):
+            log.append(("key", key))
+
+    page = ctx.pages[0]
+    page.locator = lambda selector: Field()
+    page.keyboard = Keyboard()
+    params = {"selector": "#u", "text": "pw", "submit": True, "human": True}
+    run(PageController(ctx).dispatch("type", params))
+    assert log == [("fill", ""), ("key", "p"), ("key", "w"), ("press", "Enter")]
+
+
 def test_select_picks_an_option():
     ctx = FakeContext()
     log = _with_locators(ctx)

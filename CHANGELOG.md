@@ -43,6 +43,7 @@
 - Chế độ hub: "Check proxy" và "Check IP" chạy trên máy của người dùng qua agent (nơi trình duyệt dùng proxy), nên kiểm tra được cả proxy chỉ truy cập được từ máy đó, ví dụ địa chỉ Tailscale.
 
 ### Thay đổi
+- Đăng nhập bằng tài khoản đã lưu (nút Đăng nhập, "Mở với tài khoản") gõ tên đăng nhập, mật khẩu và mã 2FA từng phím với khoảng nghỉ ngẫu nhiên như người thật, thay vì dán cả giá trị một lần. API: trường mới `human` (mặc định `false`) trong `POST /browser/{name}/page/type`.
 - Web panel (hub): nhóm được sắp theo thứ tự tự nhiên, không phân biệt hoa thường (Grupo-2 trước Grupo-10), cả trong `GET /hub/groups`; ô tạo nhóm nằm ở đầu hộp thoại Nhóm. Từ chối tạo nhóm chỉ khác chữ hoa/thường với nhóm đã có (nhập từ AdsPower dùng nhóm đã có).
 - Profile Android (engine Chrome, có cửa sổ): khi mở, cửa sổ được chỉnh cho vùng trang đúng bằng viewport của điện thoại và đặt giữa màn hình (`Browser.setContentsSize` của CDP; bản build cũ không có lệnh này giữ kích thước lúc mở). Chromium giữ cửa sổ có tab rộng ít nhất 500 px và nằm trong màn hình, nên điện thoại hẹp hơn để lại khoảng trống bên phải và điện thoại cao hơn màn hình bị cắt phía dưới.
 - Cột trạng thái: con dấu của profile đang mở chỉ ghi "Đang dùng" trên một dòng (không còn tràn ra khỏi cột); giờ mở và, ở chế độ hub, người đang giữ profile hiện khi rê chuột lên (app desktop và web panel).

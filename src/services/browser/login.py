@@ -115,8 +115,9 @@ def visible(selector: str) -> str:
 
 
 def _type(bl: Any, profile: str, selector: str, text: str, submit: bool) -> None:
+    # Key by key like a person: a whole value pasted in at once is what bots do.
     params = TypeRequest(
-        selector=visible(selector), text=text, submit=submit, timeout=FIELD_TIMEOUT
+        selector=visible(selector), text=text, submit=submit, timeout=FIELD_TIMEOUT, human=True
     )
     bl.control(profile, "type", params.model_dump())
 

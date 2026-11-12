@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import math
+import random
 import re
 import secrets
 from typing import Any
@@ -25,6 +26,9 @@ ALLOWED_SCHEMES = ("http", "https", "about")
 MAX_FULL_PAGE_HEIGHT = 16_384
 MAX_TEXT = 40_000
 TOKEN_HEADER = "X-Control-Token"
+# Seconds between keys when typing like a person (4-14 keys a second).
+# ponytail: a flat random range; a per-key rhythm model if sites flag it.
+KEY_PAUSE = (0.07, 0.25)
 
 
 class ControlError(Exception):
@@ -218,14 +222,23 @@ class PageController:
         submit: bool = False,
         clear: bool = True,
         timeout: int = 10_000,
+        human: bool = False,
     ) -> dict[str, Any]:
         page = await self._page()
         field = page.locator(selector).first
-        if clear:
+        if human:
+            # Waits for the field, empties and focuses it; then key by key.
+            await field.fill("", timeout=timeout)
+            for key in text:
+                await asyncio.sleep(random.uniform(*KEY_PAUSE))
+                await page.keyboard.type(key)
+        elif clear:
             await field.fill(text, timeout=timeout)
         else:
             await field.press_sequentially(text, timeout=timeout)
         if submit:
+            if human:
+                await asyncio.sleep(random.uniform(*KEY_PAUSE) * 3)
             await field.press("Enter")
         return await self._describe(page)
 
