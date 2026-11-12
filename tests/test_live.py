@@ -189,3 +189,48 @@ def test_back_waits_for_the_content_not_the_load_event():
     ctx = Context()
     asyncio.run(control.PageController(ctx).back())
     assert ctx.pages[0].back_kwargs == {"wait_until": "domcontentloaded"}
+
+
+class HoldMouse(FakeMouse):
+    def __init__(self, log):
+        super().__init__()
+        self.log = log
+
+    async def move(self, x, y):
+        self.log.append(("move", x, y))
+
+    async def down(self):
+        self.log.append(("down",))
+
+    async def up(self):
+        self.log.append(("up",))
+
+
+def _hold_context(log):
+    ctx = FakeContext()
+    ctx.pages[0].mouse = HoldMouse(log)
+    return ctx
+
+
+def test_long_press_with_the_mouse():
+    """A held mouse hovers there (Facebook's reactions on desktop), never clicks."""
+    log = []
+    ctx = _hold_context(log)
+    asyncio.run(control.PageController(ctx).click_at(30, 40, hold=50))
+    assert log == [("move", 30, 40)]
+    assert ctx.pages[0].mouse.clicks == []
+
+
+def test_long_press_with_a_finger():
+    """A phone long-presses through Chromium's tap gesture: no click after it."""
+    ctx = FakeContext()
+    asyncio.run(control.PageController(ctx, touch=True).click_at(30, 40, hold=50))
+    taps = [p for m, p in ctx.log if m == "Input.synthesizeTapGesture"]
+    assert taps == [{"x": 30, "y": 40, "duration": 50, "gestureSourceType": "touch"}]
+    assert ctx.log[-1] == ("detach", None)
+
+
+@pytest.mark.parametrize("hold", [-1, control.MAX_HOLD_MS + 1])
+def test_long_press_is_bounded(hold):
+    with pytest.raises(control.ControlError):
+        asyncio.run(control.PageController(FakeContext()).click_at(1, 1, hold=hold))

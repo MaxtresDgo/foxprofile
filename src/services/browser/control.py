@@ -46,6 +46,7 @@ def jpeg_width(data: bytes) -> int | None:
 
 
 MAX_ARRANGE = 50
+MAX_HOLD_MS = 3000  # the longest press click_at holds
 MIN_SHOT_WIDTH, MAX_SHOT_WIDTH = 80, 4096
 # The viewport in CSS pixels and where it is on the page (for a CDP clip).
 _VIEWPORT_JS = """() => ({
@@ -242,10 +243,33 @@ class PageController:
             await page.keyboard.press(key)
         return await self._describe(page)
 
-    async def click_at(self, x: float, y: float) -> dict[str, Any]:
-        """Click viewport coordinates, as seen on a screenshot of the active tab."""
+    async def click_at(self, x: float, y: float, hold: int = 0) -> dict[str, Any]:
+        """Click viewport coordinates, as seen on a screenshot of the active tab.
+
+        `hold` (ms) makes it a long press, such as the one that opens Facebook's
+        reactions instead of a plain Like. A phone holds its finger there and,
+        like a real one, sends no click after it; a mouse hovers there that long
+        without clicking (desktop sites open such menus on hover)."""
+        hold = int(hold)
+        if not 0 <= hold <= MAX_HOLD_MS:
+            raise ControlError(f"hold must be between 0 and {MAX_HOLD_MS} ms")
         page = await self._page()
-        await (page.touchscreen.tap if self._touch else page.mouse.click)(x, y)
+        if not hold:
+            await (page.touchscreen.tap if self._touch else page.mouse.click)(x, y)
+        elif self._touch:
+            # Playwright's touchscreen only taps. Chromium's own tap gesture with
+            # a duration is a long press: touchstart, touchend, and no click.
+            session = await self._context.new_cdp_session(page)
+            try:
+                await session.send(
+                    "Input.synthesizeTapGesture",
+                    {"x": x, "y": y, "duration": hold, "gestureSourceType": "touch"},
+                )
+            finally:
+                await session.detach()
+        else:
+            await page.mouse.move(x, y)
+            await asyncio.sleep(hold / 1000)
         return await self._describe(page)
 
     async def keyboard_type(self, text: str) -> dict[str, Any]:
