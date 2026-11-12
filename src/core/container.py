@@ -58,7 +58,18 @@ class Container:
         launcher = BrowserLauncher()
         launcher.extensions = lambda p: store.dirs(store.for_profile(p.name, p.engine))
         launcher.details = lambda p: self._details(p, None)
+        launcher.report = self._report
         return launcher
+
+    def _report(self, profile, body) -> dict:
+        from ..services.profile.reports import submit_report
+
+        pm = self.profile_manager
+        with pm._lock:
+            current = pm.profiles.get(profile.name)
+            if current is None or current.uid != profile.uid:
+                raise ValueError("Profile changed")
+            return submit_report(pm, profile.name, body, "")
 
     def _details(self, profile, group: str | None) -> dict:
         """The start page's group and accounts (no secrets); a locked store shows none."""
