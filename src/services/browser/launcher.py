@@ -287,6 +287,12 @@ class BrowserLauncher:
                 self._controls.pop(n, None)
             return set(self._active_sessions.keys())
 
+    def session_pids(self) -> dict[str, int]:
+        """Each running profile's runner process: the agent's browser wall finds
+        the browser windows below it (src/agent_wall.py)."""
+        with self._lock:
+            return {n: p.pid for n, p in self._active_sessions.items() if p.poll() is None}
+
     def running_count(self) -> int:
         return len(self.running_profile_names())
 

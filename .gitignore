@@ -180,6 +180,7 @@ camoufox_data/
 profiles.json
 account_reports.json
 logs/
+/extensions/
 
 # Tooling artefacts
 uv.lock

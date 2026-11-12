@@ -1,4 +1,4 @@
-"""The panel's browser wall: small JPEG screenshots of the viewport."""
+"""Small JPEG screenshots of the viewport (screenshot?quality&width)."""
 
 import asyncio
 import base64

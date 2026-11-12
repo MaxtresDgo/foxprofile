@@ -837,6 +837,97 @@ def open_logs() -> None:
     subprocess.Popen([sys.executable, "-m", "src.agent_logs", path, current_language()], env=env)
 
 
+class BrowserWall:
+    """The browser wall (src/agent_wall.py, Windows only), one window at a time.
+
+    Its stdin gets the browsers the agent runs, as they open and close
+    ({"browsers": {name: runner pid}}), and the answers to its page actions.
+    Its stdout asks for them: {"id", "name", "action", "params"}, run here
+    through the launcher's control channel, so typing, clicks and links reach
+    the browser without going through the hub."""
+
+    # What a tile can do: look, click, scroll, type, load pages and switch tabs.
+    ACTIONS = frozenset(
+        {"viewport", "tabs", "tab_new", "tab_select", "navigate", "back", "reload",
+         "click_at", "wheel", "keyboard_type", "press"}
+    )  # fmt: skip
+
+    def __init__(self, launcher) -> None:
+        self.bl = launcher
+        self.proc: subprocess.Popen | None = None
+        self.lock = threading.Lock()  # self.proc
+        self.write_lock = threading.Lock()  # lines to its stdin
+
+    @staticmethod
+    def supported() -> bool:
+        return os.name == "nt" and importlib.util.find_spec("tkinter") is not None
+
+    def open(self) -> None:
+        with self.lock:
+            if self.proc is not None and self.proc.poll() is None:
+                self._send(self.proc, {"show": True})
+                return
+            env = {**os.environ, "PYTHONPATH": str(pathlib.Path(__file__).resolve().parent.parent)}
+            self.proc = subprocess.Popen(
+                [sys.executable, "-m", "src.agent_wall", current_language()],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                env=env,
+                text=True,
+                encoding="utf-8",
+            )
+            proc = self.proc
+        threading.Thread(target=self._feed, args=(proc,), daemon=True).start()
+        threading.Thread(target=self._serve, args=(proc,), daemon=True).start()
+
+    def close(self) -> None:
+        with self.lock:
+            if self.proc is not None and self.proc.poll() is None:
+                with contextlib.suppress(OSError, ValueError):
+                    self.proc.stdin.close()  # the end of stdin closes the window
+
+    def _send(self, proc: subprocess.Popen, msg: dict) -> bool:
+        with self.write_lock:
+            try:
+                proc.stdin.write(json.dumps(msg) + "\n")
+                proc.stdin.flush()
+                return True
+            except (OSError, ValueError):  # the window was closed
+                return False
+
+    def _feed(self, proc: subprocess.Popen) -> None:
+        sent = None
+        while proc.poll() is None:
+            pids = self.bl.session_pids()
+            if pids != sent:
+                if not self._send(proc, {"browsers": pids}):
+                    return
+                sent = pids
+            time.sleep(1)
+
+    def _serve(self, proc: subprocess.Popen) -> None:
+        for line in proc.stdout:
+            try:
+                ask = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(ask, dict) and "id" in ask:
+                threading.Thread(target=self._run, args=(proc, ask), daemon=True).start()
+
+    def _run(self, proc: subprocess.Popen, ask: dict) -> None:
+        answer: dict = {"reply": ask["id"]}
+        action, params = ask.get("action"), ask.get("params") or {}
+        if action not in self.ACTIONS or not isinstance(params, dict):
+            answer.update(ok=False, error=f"Unknown action '{action}'")
+        else:
+            try:
+                result = self.bl.control(str(ask.get("name")), action, params, timeout=30)
+                answer.update(ok=True, result=result)
+            except BrowserControlError as e:
+                answer.update(ok=False, error=str(e))
+        self._send(proc, answer)
+
+
 def camoufox_installed() -> bool:
     from camoufox.pkgman import installed_verstr
 
@@ -898,6 +989,7 @@ class App:
         )
         self.client.on_unauthorized = self._unauthorized
         self.agent = Agent(self.client, self.set_status, self.notify)
+        self.wall = BrowserWall(self.agent.bl)
         # Run from source: no update hook would load the hub's code, so an
         # update would only restart into the same code, again and again.
         self.agent.follow_updates = (agent_code.INSTALLED / "BUILD").exists()
@@ -1044,6 +1136,11 @@ class App:
                 enabled=lambda _: bool(self.client.url),
             ),
             *(
+                [item(lambda _: get_string("agent_menu_wall"), self.wall.open)]
+                if BrowserWall.supported()
+                else []
+            ),
+            *(
                 [
                     item(
                         lambda _: get_string("agent_menu_change_hub"),
@@ -1069,6 +1166,7 @@ class App:
         say(get_string("agent_stopping"))
         if self.signin is not None:
             self.signin.close()
+        self.wall.close()
         self.agent.bl.shutdown_all()
         if self.icon is not None:
             self.icon.stop()
