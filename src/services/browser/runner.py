@@ -208,6 +208,11 @@ async def run_browser(
         "persistent_context": True,
         **geo_overrides(timezone, locale),
     }
+    if sys.platform == "win32" and not HEADLESS:
+        # Keep drawing a window others cover: the agent's browser wall shows it live.
+        launch_config["firefox_user_prefs"] = {
+            "widget.windows.window_occlusion_tracking.enabled": False
+        }
 
     tag = label.current(profile_name, proxy_str, os_type)
     addons = extension_dirs()

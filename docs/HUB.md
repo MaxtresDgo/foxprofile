@@ -199,6 +199,7 @@ Menú del icono:
 - el estado: *Conectado como ana · hub*, *Inicia sesión para conectar*, *Sin conexión con el hub*…
 - **Iniciar sesión… / Cambiar cuenta…**: repite el inicio de sesión en el navegador. Al cambiar de cuenta, los navegadores abiertos se cierran y se suben antes.
 - **Abrir panel**
+- **Muro de navegadores** (solo Windows): abre una ventana con todos los navegadores abiertos en esa PC, lado a lado. Cada cuadro tiene el nombre del perfil, sus pestañas (cambiar, **+** para una nueva), barra de dirección, atrás y recargar, y la página en vivo: es la ventana real en miniatura, dibujada por el propio Windows (como la vista previa de la barra de tareas), sin capturas ni retraso, también con video, y casi sin consumo. Se trabaja dentro del cuadro: clic, **mantener presionado** (en perfiles de celular abre las reacciones de Facebook), rueda o arrastrar para desplazarse, escribir (acentos, ñ, @), Enter, flechas, Ctrl+A, Ctrl+V. **Tamaño − / +** achica o agranda los cuadros; **⤢** trae al frente la ventana real (para menús de Chrome o extensiones). Un navegador minimizado lo indica y un clic lo vuelve a mostrar. Se actualiza solo al abrir o cerrar perfiles.
 - **Ver logs**: abre una ventana que muestra el log del agente y sigue las líneas nuevas (se puede seleccionar y copiar).
 - **Salir**: cierra los navegadores; lo que quede sin subir se sube al volver a abrir el agente.
 
