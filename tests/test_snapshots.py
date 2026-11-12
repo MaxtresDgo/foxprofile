@@ -30,14 +30,22 @@ def client(tmp_path, monkeypatch):
     return client, container
 
 
-def test_only_the_newest_are_kept(s3, tmp_path):
+def test_one_per_day_for_the_last_days(s3, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "SNAPSHOTS_KEEP", 3)
     archive = tmp_path / "a.zip"
     archive.write_bytes(b"zip")
     profile = Profile(name="p1")
-    for _ in range(7):
-        snapshots.upload(profile, str(archive))
+    # Opened and closed many times a day: each close replaces that day's.
+    for day in (20, 21, 22, 23):
+        for minute in (10, 11, 12):
+            snapshots.upload(profile, str(archive), f"202610{day}-12{minute}00-000")
     ids = [s["id"] for s in snapshots.list_snapshots(profile.uid)]
-    assert ids == [f"20261027-1200{n:02d}-000" for n in (6, 5, 4, 3, 2)]
+    assert ids == [f"202610{d}-121200-000" for d in (23, 22, 21)]
+    # A busy day never pushes the days before it out.
+    for minute in range(20, 40):
+        snapshots.upload(profile, str(archive), f"20261023-12{minute}00-000")
+    ids = [s["id"] for s in snapshots.list_snapshots(profile.uid)]
+    assert ids == ["20261023-123900-000", "20261022-121200-000", "20261021-121200-000"]
     assert snapshots.list_snapshots(Profile(name="p2").uid) == []
 
 
@@ -68,9 +76,9 @@ def test_save_and_restore_through_the_api(s3, client):
     (data / "cookies.sqlite").write_bytes(b"corrupt")
     assert client.post(f"{base}/{good}/restore").status_code == 200
     assert (data / "cookies.sqlite").read_bytes() == b"good"
-    # The state it replaced became a snapshot: the restore can be undone.
+    # The state it replaced became today's snapshot: the restore can be undone.
     listed = client.get(base).json()["snapshots"]
-    assert len(listed) == 2 and listed[0]["id"] != good
+    assert len(listed) == 1 and listed[0]["id"] != good
     uid = container.profile_manager.profiles["p1"].uid
     undo = zipfile.ZipFile(io.BytesIO(s3.objects[snapshots._key(uid, listed[0]["id"])]))
     assert undo.read("data/cookies.sqlite") == b"corrupt"

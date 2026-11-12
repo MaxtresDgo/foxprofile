@@ -23,6 +23,7 @@ from src.core.strings import get_string
 from src.hub import platform_auth
 from src.hub.store import HubStore
 from src.services.browser.launcher import BrowserControlError
+from src.services.profile import snapshots
 from src.services.profile.transfer import COOKIES_GZ, COOKIES_SHA, pack_cookies, read_cookies
 
 SECRET = "s" * 32
@@ -721,8 +722,11 @@ def test_groups_share_profiles_and_leads_manage_their_own(hub):
     assert HubStore("old.json", SECRET).profile_groups == {}
 
 
-def test_each_sync_saves_the_uploaded_version_as_a_snapshot(hub, s3):
+def test_each_sync_saves_the_uploaded_version_as_a_snapshot(hub, s3, monkeypatch):
     client, _, _ = hub
+    # One snapshot per day: the two syncs land on different days.
+    days = iter(["20261026-120000-000", "20261027-120000-000", "20261027-130000-000"])
+    monkeypatch.setattr(snapshots, "new_id", lambda: next(days))
     ana = _login(client, "ana", "anaanaanaana")
     client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
     for session in (b"one", b"two"):
