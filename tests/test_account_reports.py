@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from src.api import app as app_module
 from src.api import auth
 from src.api.app import create_app
+from src.core import config
 from src.core.container import Container
 from src.services.profile.reports import ReportConflict, ReportStore
 from tests import test_hub
@@ -60,7 +61,7 @@ def test_report_api_validates_account_and_follows_profile_identity(client):
     assert client.get("/api/v1/account-reports").json() == []
 
 
-def test_hub_reports_respect_visibility_and_agent_lease(hub):
+def test_hub_reports_respect_visibility_and_agent_lease(hub, monkeypatch):
     client, container, admin = hub
     ana = _login(client, "ana", "anaanaanaana")
     bob = _login(client, "bob", "bobbobbobbob")
@@ -84,6 +85,16 @@ def test_hub_reports_respect_visibility_and_agent_lease(hub):
     assert client.post(review, headers=admin).status_code == 409
     container.browser_launcher.release("shop", "ana")
     assert client.post(base, json=payload("c"), headers=agent).status_code == 403
+    # Army's key lists and reviews in the user's name, but never submits.
+    monkeypatch.setattr(config, "ARMY_SECRET", "a" * 32)
+    army_key = client.post("/api/v1/hub/me/army-key", headers=ana).json()["key"]
+    army = {"Authorization": "Bearer " + army_key}
+    pending = client.get("/api/v1/account-reports?pending=true", headers=army).json()
+    assert [r["id"] for r in pending] == ["b" * 32]
+    assert (
+        client.post(base + "/" + "b" * 32 + "/review", headers=army).json()["reviewed_by"] == "ana"
+    )
+    assert client.post(base, json=payload("d"), headers=army).status_code == 403
 
 
 def test_extension_bridge_agent_hub_round_trip(hub, monkeypatch):

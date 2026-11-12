@@ -9,7 +9,7 @@ from ...services.profile.reports import ReportConflict, ReportInput, submit_repo
 from ..auth import _presented_token, can_see, hub_store
 from ..dependencies import get_profile_manager
 from ..helpers import require_profile
-from .accounts import _locked, _no_personal_key
+from .accounts import _locked, _no_personal_key_but_army
 
 router = APIRouter(tags=["account-reports"])
 
@@ -40,7 +40,10 @@ def _actor(request: Request) -> str:
 
 
 @router.get(
-    "/account-reports", response_model=list[ListedReport], dependencies=[Depends(_no_personal_key)]
+    "/account-reports",
+    response_model=list[ListedReport],
+    # Army's panel shows and reviews them in its users' name; other personal keys cannot.
+    dependencies=[Depends(_no_personal_key_but_army)],
 )
 def list_reports(
     request: Request, pending: bool = False, pm=Depends(get_profile_manager)
@@ -81,7 +84,7 @@ def create_report(
 @router.post(
     "/profiles/{name}/account-reports/{report_id}/review",
     response_model=ReportResponse,
-    dependencies=[Depends(_no_personal_key)],
+    dependencies=[Depends(_no_personal_key_but_army)],
 )
 def review_report(
     name: str, report_id: str, request: Request, pm=Depends(get_profile_manager)
