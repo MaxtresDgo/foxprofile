@@ -180,3 +180,37 @@ def test_failed_save_does_not_acknowledge_or_change_memory(tmp_path, monkeypatch
             "",
         )
     assert store.list("uid") == []
+
+
+def test_saved_reports_and_reviews_tell_army(client, monkeypatch):
+    import hmac
+    import json
+    import time
+
+    from src.hub import army_events
+
+    client, _ = client
+    sent = []
+    monkeypatch.setattr(config, "ARMY_SECRET", "s" * 32)
+    monkeypatch.setattr(config, "ARMY_WEBHOOK_URLS", ["https://army.test/perfiles/fox/eventos"])
+    monkeypatch.setattr(
+        army_events, "_post", lambda url, body: sent.append((url, json.loads(body)))
+    )
+
+    def wait_for(n):
+        deadline = time.time() + 2
+        while len(sent) < n and time.time() < deadline:
+            time.sleep(0.01)
+        return len(sent)
+
+    base = "/api/v1/profiles/p1/account-reports"
+    assert client.post(base, json=payload(note="x" * 1001)).status_code == 422
+    assert client.post(base, json=payload()).status_code == 200
+    assert wait_for(1) == 1
+    url, body = sent[0]
+    assert url == "https://army.test/perfiles/fox/eventos" and body["evento"] == "account_reports"
+    assert hmac.compare_digest(body["firma"], army_events.signature("account_reports", body["at"]))
+    # No report data leaves the hub: Army refetches with each user's own key.
+    assert set(body) == {"evento", "at", "firma"}
+    assert client.post(base + "/" + "a" * 32 + "/review").status_code == 200
+    assert wait_for(2) == 2

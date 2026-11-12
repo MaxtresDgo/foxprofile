@@ -78,6 +78,10 @@ AUTH_ACCESS_PERMISSION = _env("AUTH_ACCESS_PERMISSION", "foxprofile:access")
 # which signs the user in and names where the panel POSTs their key. Only a holder
 # of the secret can name that address. Empty = linking off.
 ARMY_SECRET = _env("ARMY_SECRET", "")
+# Army backends told when account reports change (hub/army_events.py), e.g.
+# https://api.army.example/perfiles/fox/eventos. Comma separated, one per Army
+# environment linked to this hub; signed with ARMY_SECRET. Empty = Army only polls.
+ARMY_WEBHOOK_URLS = [u.strip() for u in _env("ARMY_WEBHOOK_URLS", "").split(",") if u.strip()]
 # Agent side: where the hub is and which operator this PC belongs to.
 HUB_URL = _env("HUB_URL", "").rstrip("/")
 # Agent installers in a private S3 bucket (RustFS, MinIO, AWS) instead of next to

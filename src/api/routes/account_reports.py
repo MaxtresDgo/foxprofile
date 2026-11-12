@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from ...hub import army_events
 from ...hub.store import KEY_PREFIX
 from ...services.profile.accounts import AccountsLocked
 from ...services.profile.reports import ReportConflict, ReportInput, submit_report
@@ -70,7 +71,7 @@ def create_report(
         if request.app.state.container.browser_launcher.holder(name) != _actor(request):
             raise HTTPException(403, "The agent does not hold this profile")
     try:
-        return submit_report(pm, name, body, _actor(request))
+        receipt = submit_report(pm, name, body, _actor(request))
     except AccountsLocked as e:
         raise _locked() from e
     except ReportConflict as e:
@@ -79,6 +80,8 @@ def create_report(
         raise HTTPException(400, str(e)) from e
     except OSError as e:
         raise HTTPException(503, "Could not save the account report") from e
+    army_events.notify("account_reports")
+    return receipt
 
 
 @router.post(
@@ -91,8 +94,10 @@ def review_report(
 ) -> dict:
     profile = require_profile(name, pm)
     try:
-        return pm.reports.review(profile.uid, report_id, _actor(request))
+        report = pm.reports.review(profile.uid, report_id, _actor(request))
     except ReportConflict as e:
         raise HTTPException(409, str(e)) from e
     except OSError as e:
         raise HTTPException(503, "Could not save the review") from e
+    army_events.notify("account_reports")
+    return report
