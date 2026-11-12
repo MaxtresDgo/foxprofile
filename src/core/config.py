@@ -102,8 +102,8 @@ S3_PREFIX = f"fox-profiles/{S3_ENV}/installers/"
 # Profile snapshots (services/profile/snapshots.py): each synced or saved version of
 # a profile as a ZIP in a bucket, such as a NAS running RustFS. Opt-in: the bucket
 # must be named here (cookies go into it); endpoint, keys and region fall back to
-# S3_*. SNAPSHOTS=0 turns them off too.
-SNAPSHOTS_KEEP = int(_env("SNAPSHOTS", "5"))
+# S3_*. One per day (its last), for the last SNAPSHOTS days. SNAPSHOTS=0 turns them off too.
+SNAPSHOTS_KEEP = int(_env("SNAPSHOTS", "3"))
 SNAPSHOT_S3_ENDPOINT = _env("SNAPSHOT_S3_ENDPOINT", "").rstrip("/") or S3_ENDPOINT
 SNAPSHOT_S3_BUCKET = _env("SNAPSHOT_S3_BUCKET", "")
 SNAPSHOT_S3_ACCESS_KEY = _env("SNAPSHOT_S3_ACCESS_KEY", "") or S3_ACCESS_KEY

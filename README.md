@@ -275,7 +275,7 @@ Everything is optional. To override defaults, copy `.env.example` to `.env`.
 | `FOXPROFILE_DATA_DIR` | `camoufox_data` | Data directory, one subdirectory per profile |
 | `FOXPROFILE_EXTENSIONS_FILE` | `extensions.json` | Browser extensions and where each applies |
 | `FOXPROFILE_EXTENSIONS_DIR` | `extensions` | The extensions' files, and their unpacked copies |
-| `FOXPROFILE_SNAPSHOTS` | `5` | Snapshots kept per profile in the snapshot bucket (`0` turns them off) |
+| `FOXPROFILE_SNAPSHOTS` | `3` | Days of snapshots kept per profile in the snapshot bucket, one per day (each new one replaces that day's); `0` turns them off |
 | `FOXPROFILE_SNAPSHOT_S3_BUCKET` | *(empty: off)* | S3 bucket (a NAS running RustFS, MinIO, AWS) for profile snapshots; `FOXPROFILE_SNAPSHOT_S3_ENDPOINT`, `_ACCESS_KEY`, `_SECRET_KEY`, `_REGION` default to their `FOXPROFILE_S3_*` values; needs `boto3` (`requirements-hub.txt`). See [docs/HUB.md](docs/HUB.md) |
 | `FOXPROFILE_LOG_DIR` | `logs` | Log directory |
 | `FOXPROFILE_LOG_LEVEL` | `INFO` | Log level |
