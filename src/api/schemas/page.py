@@ -37,6 +37,9 @@ class SelectRequest(BaseModel):
 class ClickAtRequest(BaseModel):
     x: float = Field(ge=0, description="Viewport X in CSS pixels, as on a screenshot")
     y: float = Field(ge=0, description="Viewport Y in CSS pixels, as on a screenshot")
+    hold: int = Field(
+        default=0, ge=0, le=3000, description="Milliseconds to hold the press (long press)"
+    )
 
 
 class KeyboardTypeRequest(BaseModel):

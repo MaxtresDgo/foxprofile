@@ -2997,7 +2997,7 @@ document.querySelectorAll("[data-key]").forEach((b) => { b.onclick = () => act("
 // as the page changes, never through the hub, and input over the same socket.
 // It falls back to screenshots whenever that socket is not open.
 const WALL_MAX = 20, WALL_PARALLEL = 4, WALL_SHOT_MS = 1000, WALL_IDLE_MS = 2500, WALL_TABS_MS = 4000;
-const WALL_LIVE_FPS = 15, WALL_LIVE_IDLE_FPS = 4;
+const WALL_LIVE_FPS = 15, WALL_LIVE_IDLE_FPS = 4, WALL_HOLD_MS = 400, WALL_HOLD_MAX_MS = 3000;
 let wall = null;
 const wallPath = (name, path) => `/browser/${enc(name)}/page/${path}`;
 
@@ -3075,11 +3075,27 @@ function wallTile(name) {
   });
   kb.addEventListener("blur", () => wallFlush(tile));
   const screen = h("div", { class: "tile-screen" }, img, msg, kb);
-  img.addEventListener("click", (e) => {
+  // A press held past WALL_HOLD_MS is sent as a long press of that length (hold),
+  // e.g. Facebook's reactions; a short one is a plain click.
+  img.draggable = false;
+  img.addEventListener("contextmenu", (e) => e.preventDefault());
+  img.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
     kb.focus({ preventScroll: true });
+    img.setPointerCapture(e.pointerId);
+    tile.down = { x: e.clientX, y: e.clientY, at: Date.now() };
+  });
+  img.addEventListener("pointercancel", () => { tile.down = null; });
+  img.addEventListener("pointerup", () => {
+    const down = tile.down; tile.down = null;
+    if (!down) return;
     const r = img.getBoundingClientRect();
     const vw = tile.vw || img.naturalWidth, vh = tile.vh || img.naturalHeight;
-    run("click_at", { x: (e.clientX - r.left) * (vw / r.width), y: (e.clientY - r.top) * (vh / r.height) });
+    const held = Date.now() - down.at;
+    const params = { x: Math.max(0, (down.x - r.left) * (vw / r.width)), y: Math.max(0, (down.y - r.top) * (vh / r.height)) };
+    if (held >= WALL_HOLD_MS) params.hold = Math.min(held, WALL_HOLD_MAX_MS);
+    run("click_at", params);
   });
   // Wheel: scroll the page, batched so a fling is one request.
   img.addEventListener("wheel", (e) => {
