@@ -132,7 +132,7 @@ def screenshot(
 ) -> Any:
     """PNG of the active tab; `format=json` returns it base64-encoded with url and title.
 
-    With `quality` it is a JPEG of the viewport (the panel's wall), at most `width`
+    With `quality` it is a JPEG of the viewport (a preview), at most `width`
     pixels wide; `X-Viewport-Width`/`-Height` give the page's size in CSS pixels,
     the coordinates `click-at` takes."""
     params: dict[str, Any] = {"full_page": full_page}
@@ -156,15 +156,6 @@ def screenshot(
     return Response(
         base64.b64decode(result["jpeg_base64"]), media_type="image/jpeg", headers=headers
     )
-
-
-@router.get("/live")
-def live(name: str, pm=_PM, bl=_BL) -> dict:
-    """Where to watch the active tab live: a WebSocket on 127.0.0.1 of the PC
-    running the browser (`ws://127.0.0.1:{port}/live?t={token}`), so only a panel
-    on that PC can use it. `{"available": false}` for Camoufox; the panel then
-    takes screenshots instead."""
-    return _run(name, pm, bl, "live_ticket")
 
 
 @router.post("/evaluate")

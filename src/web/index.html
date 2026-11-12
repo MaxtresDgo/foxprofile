@@ -403,43 +403,6 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 .screen-wrap img { max-width: 100%; border-radius: 8px; background: #fff; cursor: crosshair; box-shadow: 0 10px 30px -10px rgba(16,38,34,.35); }
 .viewer-type { display: flex; gap: 8px; padding: 10px 14px; background: var(--paper); border-top: 1px solid var(--rule); }
 .viewer-type .btn { height: 40px; }
-/* Wall: a grid of compact viewers, one per running profile (openWall). */
-.wall { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; background: var(--paper-sunk); }
-.wall-count { color: var(--cover-muted); font-size: 12.5px; }
-.wall-grid { --tile-w: 300px; flex: 1; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--tile-w), 100%), 1fr)); gap: 12px; padding: 14px; align-content: start; align-items: start; }
-.wall-cols { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--cover-muted); font-size: 12.5px; }
-.wall-cols span { margin-right: 4px; }
-.wall-cols button { min-width: 32px; height: 30px; padding: 0 9px; border: 1px solid var(--cover-line); border-radius: 7px; background: transparent; color: var(--cover-ink); font-size: 12.5px; cursor: pointer; }
-.wall-cols button:hover { background: var(--cover-deep); }
-.wall-cols button:disabled { opacity: .4; cursor: default; background: transparent; }
-.wall-cols + .wall-cols { margin-left: 12px; }
-.wall-cols button.active { background: var(--cover-ink); border-color: var(--cover-ink); color: var(--cover); font-weight: 600; }
-.tile.wide { grid-column: 1 / -1; }
-.wall-target { align-self: center; max-width: 260px; color: var(--ink-2); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wall-type-off input, .wall-type-off .btn { opacity: .45; pointer-events: none; }
-/* clip, not hidden: a scroll container lets the grid size its row below the tile, and the next row overlaps it. */
-.tile { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-raised); overflow: clip; }
-.tile.on { border-color: var(--focus); box-shadow: 0 0 0 3px var(--focus-ring); }
-.tile.gone .tile-screen { opacity: .5; }
-.tile-head { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; }
-.tile-live { display: none; margin-right: 4px; color: var(--ink-3); font-size: 11.5px; }
-.tile.live .tile-live { display: inline; }
-.tile-head b { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile .icon-btn { width: 28px; height: 28px; }
-.tile-tabs { display: flex; align-items: end; gap: 3px; padding: 0 8px; overflow-x: auto; border-bottom: 1px solid var(--rule); scrollbar-width: none; }
-.tile-tabs button { flex: 0 1 auto; min-width: 0; max-width: 140px; height: 26px; padding: 0 9px; border: 1px solid var(--rule); border-bottom: 0; border-radius: 6px 6px 0 0; background: var(--paper-sunk); color: var(--ink-2); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.tile-tabs button.active { background: var(--paper); color: var(--ink); font-weight: 600; }
-.tile-tabs .tile-newtab { flex: none; width: 26px; padding: 0; border-color: transparent; background: transparent; display: grid; place-items: center; }
-.tile-nav { display: flex; align-items: center; gap: 2px; padding: 5px 8px; background: var(--paper); border-bottom: 1px solid var(--rule); }
-.tile-nav input { flex: 1; min-width: 0; height: 28px; padding: 0 9px; font-family: var(--data); font-size: 12px; }
-/* The page at the tile's width, as tall as its shape needs (a phone capped to the screen). */
-.tile-screen { position: relative; min-height: 180px; display: flex; justify-content: center; background: var(--paper-sunk); }
-.tile-screen:focus-within { box-shadow: inset 0 0 0 2px var(--focus); }
-.tile-kb { position: absolute; left: 0; top: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; resize: none; pointer-events: none; }
-.tile-screen img { display: block; width: auto; height: auto; max-width: 100%; max-height: 80vh; background: #fff; cursor: crosshair; }
-.tile-screen img:not([src]) { display: none; }
-.tile-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--ink-3); font-size: 12.5px; }
-.tile-msg:empty { display: none; }
 
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
@@ -502,7 +465,6 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5Z"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
   <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M9.5 4.5a2 2 0 1 1 4 0V6H18a1 1 0 0 1 1 1v3.5h-1.5a2 2 0 1 0 0 4H19V19a1 1 0 0 1-1 1h-3.5v-1.5a2 2 0 1 0-4 0V20H6a1 1 0 0 1-1-1v-4.5h1.5a2 2 0 1 0 0-4H5V7a1 1 0 0 1 1-1h3.5Z"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
   <symbol id="i-windows" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
@@ -660,33 +622,6 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
   </form>
 </div>
 
-<!-- Wall: up to 20 running browsers side by side, each a compact viewer (openWall). -->
-<div id="wall" class="wall hidden" role="dialog" aria-modal="true" aria-labelledby="wall-h">
-  <div class="viewer-bar">
-    <button class="icon-btn" id="wall-close" data-title="close"><svg class="i"><use href="#i-x"/></svg></button>
-    <b id="wall-h" data-t="wall"></b>
-    <span class="wall-count" id="wall-count"></span>
-    <div class="wall-cols" role="group" aria-labelledby="wall-cols-h">
-      <span id="wall-cols-h" data-t="wall_columns"></span>
-      <button type="button" data-wall-cols="auto" data-t="wall_auto"></button><button type="button" data-wall-cols="1">1</button><button type="button" data-wall-cols="2">2</button><button type="button" data-wall-cols="3">3</button><button type="button" data-wall-cols="4">4</button>
-    </div>
-    <div class="wall-cols" role="group" aria-labelledby="wall-size-h">
-      <span id="wall-size-h" data-t="wall_size"></span>
-      <button type="button" id="wall-smaller" data-title="wall_smaller"><svg class="i"><use href="#i-minus"/></svg></button><button type="button" id="wall-bigger" data-title="wall_bigger"><svg class="i"><use href="#i-plus"/></svg></button>
-    </div>
-  </div>
-  <div class="wall-grid" id="wall-grid"></div>
-  <form class="viewer-type" id="wall-type">
-    <span class="wall-target" id="wall-target" role="status"></span>
-    <input id="wall-text" autocomplete="off">
-    <button class="btn btn-ink" type="submit" data-t="type"></button>
-    <button class="btn btn-line" type="button" data-wall-key="Enter">Enter</button>
-    <button class="btn btn-line" type="button" data-wall-key="Tab">Tab</button>
-    <button class="btn btn-line" type="button" data-wall-key="Escape">Esc</button>
-    <button class="btn btn-line" type="button" data-wall-key="Backspace">Backspace</button>
-  </form>
-</div>
-
 <div id="modal-root"></div>
 <div id="acct-pop" class="acct-pop hidden" role="tooltip"></div>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
@@ -713,7 +648,7 @@ const I18N = {
     direct: "Trực tiếp", follow_ip: "Theo IP", no_fp_short: "chưa có fingerprint", no_proxy_short: "không proxy", selected: "Đã chọn {n}", bulk_launch: "Mở", bulk_stop: "Dừng", bulk_delete: "Xoá", clear_sel: "Bỏ chọn",
     run_steps: "Chạy bước", run_steps_title: "Chạy các bước", run_steps_sub: "Trên {n} profile đang chạy", run: "Chạy", running_steps: "Đang chạy...",
     run_steps_hint: "Mỗi dòng một bước: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Dòng bắt đầu bằng // là chú thích.",
-    steps_done: "Xong: {ok} thành công, {failed} lỗi", need_running: "Hãy mở các profile đã chọn trước", arrange: "Sắp xếp cửa sổ", arranged: "Đã sắp xếp {n} cửa sổ", arrange_skipped: "bỏ qua {n} (không phải Chrome)", arrange_chrome_only: "Chỉ sắp xếp được cửa sổ của engine Chrome", wall: "Bảng trình duyệt", wall_open: "Xem trên bảng", wall_count: "{n} trình duyệt", wall_limit: "Chỉ hiện {max} trình duyệt đầu tiên", wall_pick: "Bấm vào một trình duyệt rồi gõ thẳng vào đó, hoặc gõ ở đây", wall_type_here: "Màn hình của {name}: bấm vào rồi gõ", wall_type_to: "Đang gõ vào {name}", wall_remove: "Bỏ khỏi bảng", wall_columns: "Cột", wall_auto: "Tự động", wall_expand: "Phóng to", wall_shrink: "Thu nhỏ", wall_size: "Kích thước", wall_smaller: "Nhỏ hơn", wall_bigger: "Lớn hơn", wall_live: "Trực tiếp", wall_live_lost: "Mất kết nối trực tiếp",
+    steps_done: "Xong: {ok} thành công, {failed} lỗi", need_running: "Hãy mở các profile đã chọn trước", arrange: "Sắp xếp cửa sổ", arranged: "Đã sắp xếp {n} cửa sổ", arrange_skipped: "bỏ qua {n} (không phải Chrome)", arrange_chrome_only: "Chỉ sắp xếp được cửa sổ của engine Chrome",
     sync: "Đồng bộ", sync_title: "Đồng bộ cửa sổ", sync_leader: "Profile chính", sync_start: "Bắt đầu đồng bộ",
     sync_hint: "Click, gõ phím, chọn và Enter/Tab/Escape ở profile chính được lặp lại ở tab đang mở của các profile khác khi chúng ở cùng trang web.",
     sync_need_two: "Chọn ít nhất hai profile đang chạy", syncing: "Đang đồng bộ {leader} → {n} profile", sync_stop: "Dừng đồng bộ",
@@ -821,7 +756,7 @@ const I18N = {
     direct: "Direct", follow_ip: "Follows IP", no_fp_short: "no fingerprint yet", no_proxy_short: "no proxy", selected: "{n} selected", bulk_launch: "Launch", bulk_stop: "Stop", bulk_delete: "Delete", clear_sel: "Clear",
     run_steps: "Run steps", run_steps_title: "Run steps", run_steps_sub: "On {n} running profile(s)", run: "Run", running_steps: "Running...",
     run_steps_hint: "One step per line: navigate <url> · click <selector> · type <selector> | <text> · select <selector> | <value> · press <key> · wait <selector> · sleep <ms>. Lines starting with // are comments.",
-    steps_done: "Steps finished: {ok} OK, {failed} failed", need_running: "Launch the selected profiles first", arrange: "Arrange windows", arranged: "{n} window(s) arranged", arrange_skipped: "{n} skipped (not Chrome)", arrange_chrome_only: "Arranging windows only works with the Chrome engine", wall: "Browser wall", wall_open: "Show on wall", wall_count: "{n} browser(s)", wall_limit: "Showing the first {max} browsers", wall_pick: "Click a browser and type straight into it, or type here", wall_type_here: "{name}'s screen: click it, then type", wall_type_to: "Typing in {name}", wall_remove: "Remove from wall", wall_columns: "Columns", wall_auto: "Auto", wall_expand: "Expand", wall_shrink: "Shrink", wall_size: "Size", wall_smaller: "Smaller", wall_bigger: "Bigger", wall_live: "Live", wall_live_lost: "Live connection lost",
+    steps_done: "Steps finished: {ok} OK, {failed} failed", need_running: "Launch the selected profiles first", arrange: "Arrange windows", arranged: "{n} window(s) arranged", arrange_skipped: "{n} skipped (not Chrome)", arrange_chrome_only: "Arranging windows only works with the Chrome engine",
     sync: "Sync", sync_title: "Sync windows", sync_leader: "Leader", sync_start: "Start sync",
     sync_hint: "Clicks, typing, selects and Enter/Tab/Escape in the leader are repeated in the other profiles' active tab while they are on the same site.",
     sync_need_two: "Select at least two running profiles", syncing: "Syncing {leader} → {n} profile(s)", sync_stop: "Stop sync",
@@ -929,7 +864,7 @@ const I18N = {
     direct: "Directo", follow_ip: "Según la IP", no_fp_short: "sin fingerprint aún", no_proxy_short: "sin proxy", selected: "{n} seleccionados", bulk_launch: "Abrir", bulk_stop: "Detener", bulk_delete: "Eliminar", clear_sel: "Limpiar",
     run_steps: "Ejecutar pasos", run_steps_title: "Ejecutar pasos", run_steps_sub: "En {n} profile(s) en ejecución", run: "Ejecutar", running_steps: "Ejecutando...",
     run_steps_hint: "Un paso por línea: navigate <url> · click <selector> · type <selector> | <texto> · select <selector> | <valor> · press <tecla> · wait <selector> · sleep <ms>. Las líneas que empiezan con // son comentarios.",
-    steps_done: "Pasos terminados: {ok} OK, {failed} fallidos", need_running: "Primero abre los profiles seleccionados", arrange: "Acomodar ventanas", arranged: "{n} ventana(s) acomodadas", arrange_skipped: "{n} omitidas (no son Chrome)", arrange_chrome_only: "Acomodar ventanas solo funciona con el engine Chrome", wall: "Muro de navegadores", wall_open: "Ver en muro", wall_count: "{n} navegador(es)", wall_limit: "Se muestran los primeros {max} navegadores", wall_pick: "Haz clic en un navegador y escribe directo en él, o escribe aquí", wall_type_here: "Pantalla de {name}: haz clic y escribe", wall_type_to: "Escribiendo en {name}", wall_remove: "Quitar del muro", wall_columns: "Columnas", wall_auto: "Auto", wall_expand: "Ampliar", wall_shrink: "Reducir", wall_size: "Tamaño", wall_smaller: "Más chico", wall_bigger: "Más grande", wall_live: "En vivo", wall_live_lost: "Se perdió la conexión en vivo",
+    steps_done: "Pasos terminados: {ok} OK, {failed} fallidos", need_running: "Primero abre los profiles seleccionados", arrange: "Acomodar ventanas", arranged: "{n} ventana(s) acomodadas", arrange_skipped: "{n} omitidas (no son Chrome)", arrange_chrome_only: "Acomodar ventanas solo funciona con el engine Chrome",
     sync: "Sincronizar", sync_title: "Sincronizar ventanas", sync_leader: "Principal", sync_start: "Iniciar sincronización",
     sync_hint: "Los clics, lo que se escribe, los select y Enter/Tab/Escape en el profile principal se repiten en la pestaña activa de los demás profiles mientras estén en el mismo sitio.",
     sync_need_two: "Selecciona al menos dos profiles en ejecución", syncing: "Sincronizando {leader} → {n} profile(s)", sync_stop: "Detener sincronización",
@@ -1427,7 +1362,6 @@ function bulkBar() {
     h("button", { class: "btn btn-line", onclick: openRunSteps }, icon("steps", true), t("run_steps")),
     h("button", { class: "btn btn-line", onclick: openSync }, icon("sync", true), t("sync")),
     h("button", { class: "btn btn-line", onclick: arrangeWindows }, icon("grid", true), t("arrange")),
-    h("button", { class: "btn btn-line", onclick: openWall }, icon("monitor", true), t("wall_open")),
     h("button", { class: "btn btn-line", onclick: () => bulk("delete") }, icon("trash", true), t("bulk_delete")),
     chips,
     h("button", { class: "btn btn-ghost", style: "margin-left:auto", onclick: () => { selected.clear(); render(); } }, t("clear_sel")));
@@ -2908,362 +2842,10 @@ $("v-type").onsubmit = (e) => {
 };
 document.querySelectorAll("[data-key]").forEach((b) => { b.onclick = () => act("POST", page("press"), { key: b.dataset.key }); });
 
-// --- Wall: the selected running browsers side by side ---------------------------
-// Each tile is a compact viewer: tab strip, address bar and the active tab as a
-// JPEG only as wide as the tile shows it (screenshot?quality&width); its
-// X-Viewport-* headers map a click back to the page's CSS pixels for click-at.
-// Only tiles on screen refresh: the picked one every WALL_SHOT_MS, the others
-// every WALL_IDLE_MS. At most WALL_PARALLEL screenshots are in flight: in hub mode
-// each one is a round trip to the agent.
-// Live: where the browser runs on this PC (Chrome engine), a tile instead opens a
-// WebSocket straight to it on 127.0.0.1 (GET .../page/live, screencast.py): frames
-// as the page changes, never through the hub, and input over the same socket.
-// It falls back to screenshots whenever that socket is not open.
-const WALL_MAX = 20, WALL_PARALLEL = 4, WALL_SHOT_MS = 1000, WALL_IDLE_MS = 2500, WALL_TABS_MS = 4000;
-const WALL_LIVE_FPS = 15, WALL_LIVE_IDLE_FPS = 4, WALL_HOLD_MS = 400, WALL_HOLD_MAX_MS = 3000;
-let wall = null;
-const wallPath = (name, path) => `/browser/${enc(name)}/page/${path}`;
-
-function openWall() {
-  const names = profiles.filter((p) => selected.has(p.name) && running.has(p.name)).map((p) => p.name);
-  if (!names.length) return toast(t("need_running"), true);
-  if (names.length > WALL_MAX) toast(t("wall_limit", { max: WALL_MAX }));
-  wall = { tiles: new Map(), picked: null, inFlight: 0, timer: null };
-  wall.seen = new IntersectionObserver((entries) => {
-    for (const e of entries) { const tile = wall && wall.tiles.get(e.target.getAttribute("aria-label")); if (tile) tile.visible = e.isIntersecting; }
-  }, { root: $("wall-grid") });
-  $("wall-grid").replaceChildren(...names.slice(0, WALL_MAX).map(wallTile));
-  for (const tile of wall.tiles.values()) { wall.seen.observe(tile.el); wallLive(tile); }
-  $("wall").classList.remove("hidden");
-  wallCount();
-  wallPick(null);
-  wall.timer = setInterval(wallTick, 200);
-  wallTick();
-}
-function closeWall({ quiet = false } = {}) {
-  if (!wall) return;
-  clearInterval(wall.timer);
-  wall.seen.disconnect();
-  for (const tile of wall.tiles.values()) { tile.gone = true; if (tile.ws) tile.ws.close(); if (tile.shot) URL.revokeObjectURL(tile.shot); }
-  wall = null;
-  $("wall-grid").replaceChildren();
-  $("wall").classList.add("hidden");
-  if (!quiet) refresh();
-}
-function wallCount() { $("wall-count").textContent = t("wall_count", { n: wall.tiles.size }); }
-// The tile that the bottom bar types into.
-function wallPick(name) {
-  wall.picked = name;
-  for (const tile of wall.tiles.values()) tile.el.classList.toggle("on", tile.name === name);
-  $("wall-target").textContent = name ? t("wall_type_to", { name }) : t("wall_pick");
-  $("wall-type").classList.toggle("wall-type-off", !name);
-}
-function wallRemove(name) {
-  const tile = wall.tiles.get(name);
-  if (!tile) return;
-  tile.gone = true;
-  if (tile.ws) tile.ws.close();
-  if (tile.shot) URL.revokeObjectURL(tile.shot);
-  wall.seen.unobserve(tile.el);
-  tile.el.remove();
-  wall.tiles.delete(name);
-  if (!wall.tiles.size) return closeWall();
-  if (wall.picked === name) wallPick(null);
-  wallCount();
-}
-function wallTile(name) {
-  const img = h("img", { alt: name, draggable: "false" });
-  const msg = h("div", { class: "tile-msg" }, "…");
-  const url = h("input", { placeholder: "https://", spellcheck: "false", "aria-label": `URL · ${name}` });
-  const tabs = h("div", { class: "tile-tabs" });
-  const tile = { name, img, msg, url, tabs, shot: null, shotAt: 0, tabsAt: 0, busy: false, gone: false, visible: true, vw: 0, vh: 0, wheel: 0, wheelTimer: null,
-    ws: null, liveSent: "", pending: new Map(), seq: 0, tabsBusy: false,
-    typed: "", typeTimer: null, keyChain: Promise.resolve() };
-  const run = (action, params) => wallAct(tile, action, params);
-  const btn = (name_, label, fn) => h("button", { type: "button", class: "icon-btn", title: label, "aria-label": label, onclick: fn }, icon(name_, true));
-  // Once clicked, the keyboard goes to the browser through a hidden textarea: the
-  // OS composes accents, ñ, AltGr characters and IME text in it (wallKey, input).
-  const kb = h("textarea", { class: "tile-kb", "aria-label": t("wall_type_here", { name }), autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
-  kb.addEventListener("keydown", (e) => wallKey(tile, e));
-  kb.addEventListener("input", (e) => {
-    if (e.isComposing) return;
-    if (e.inputType === "insertText" || e.inputType === "insertCompositionText") { if (e.data) wallType(tile, e.data); }
-    kb.value = "";
-  });
-  kb.addEventListener("compositionend", (e) => { if (e.data) wallType(tile, e.data); kb.value = ""; });
-  kb.addEventListener("paste", (e) => {
-    e.preventDefault();
-    const text = e.clipboardData && e.clipboardData.getData("text");
-    if (text) wallType(tile, text);
-  });
-  kb.addEventListener("blur", () => wallFlush(tile));
-  const screen = h("div", { class: "tile-screen" }, img, msg, kb);
-  // A press held past WALL_HOLD_MS is sent as a long press of that length (hold),
-  // e.g. Facebook's reactions; a short one is a plain click.
-  img.draggable = false;
-  img.addEventListener("contextmenu", (e) => e.preventDefault());
-  img.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    kb.focus({ preventScroll: true });
-    img.setPointerCapture(e.pointerId);
-    tile.down = { x: e.clientX, y: e.clientY, at: Date.now() };
-  });
-  img.addEventListener("pointercancel", () => { tile.down = null; });
-  img.addEventListener("pointerup", () => {
-    const down = tile.down; tile.down = null;
-    if (!down) return;
-    const r = img.getBoundingClientRect();
-    const vw = tile.vw || img.naturalWidth, vh = tile.vh || img.naturalHeight;
-    const held = Date.now() - down.at;
-    const params = { x: Math.max(0, (down.x - r.left) * (vw / r.width)), y: Math.max(0, (down.y - r.top) * (vh / r.height)) };
-    if (held >= WALL_HOLD_MS) params.hold = Math.min(held, WALL_HOLD_MAX_MS);
-    run("click_at", params);
-  });
-  // Wheel: scroll the page, batched so a fling is one request.
-  img.addEventListener("wheel", (e) => {
-    e.preventDefault();
-    tile.wheel += e.deltaY;
-    tile.wheelTimer ??= setTimeout(() => {
-      const dy = Math.round(tile.wheel);
-      tile.wheel = 0; tile.wheelTimer = null;
-      if (dy) run("scroll", { dy });
-    }, 150);
-  });
-  // Expand: the tile takes the whole row, the others follow below.
-  const grow = btn("expand", t("wall_expand"), (e) => {
-    e.stopPropagation();
-    const wide = tile.el.classList.toggle("wide");
-    grow.replaceChildren(icon(wide ? "shrink" : "expand", true));
-    grow.title = t(wide ? "wall_shrink" : "wall_expand");
-    grow.setAttribute("aria-label", grow.title);
-    if (wide) tile.el.scrollIntoView({ block: "nearest" });
-  });
-  tile.el = h("section", { class: "tile", "aria-label": name, onclick: () => wallPick(name) },
-    h("div", { class: "tile-head" }, h("b", { title: name }, name), h("span", { class: "tile-live" }, t("wall_live")), grow,
-      btn("x", t("wall_remove"), (e) => { e.stopPropagation(); wallRemove(name); })),
-    tabs,
-    h("form", { class: "tile-nav", onsubmit: (e) => { e.preventDefault(); const v = url.value.trim(); if (v) run("navigate", { url: v, wait_until: "domcontentloaded" }); } },
-      btn("back", t("back"), () => run("back")),
-      btn("reload", t("reload"), () => run("press", { key: "F5" })),
-      url),
-    screen);
-  wall.tiles.set(name, tile);
-  return tile.el;
-}
-// Screenshots go to the tiles on screen that waited longest, WALL_PARALLEL at a time.
-function wallTick() {
-  if (!wall) return;
-  for (const tile of wall.tiles.values()) if (tile.ws) wallLiveTick(tile);
-  if (document.hidden) return;
-  const now = Date.now();
-  const due = [...wall.tiles.values()]
-    .filter((x) => !x.ws && !x.busy && !x.gone && x.visible && now - x.shotAt >= (x.name === wall.picked ? WALL_SHOT_MS : WALL_IDLE_MS))
-    .sort((a, b) => a.shotAt - b.shotAt);
-  for (const tile of due) {
-    if (wall.inFlight >= WALL_PARALLEL) break;
-    wallShot(tile);
-  }
-}
-async function wallShot(tile) {
-  const w = wall;
-  tile.busy = true; w.inFlight++;
-  try {
-    const res = await api("GET", wallPath(tile.name, `screenshot?quality=60&width=${wallShotWidth(tile)}`), undefined, { raw: true });
-    const blob = await res.blob();
-    if (w !== wall || tile.gone) return;
-    tile.vw = Number(res.headers.get("X-Viewport-Width")) || 0;
-    tile.vh = Number(res.headers.get("X-Viewport-Height")) || 0;
-    const shot = URL.createObjectURL(blob);
-    tile.img.src = shot;
-    if (tile.shot) URL.revokeObjectURL(tile.shot);
-    tile.shot = shot;
-    tile.msg.textContent = "";
-    if (Date.now() - tile.tabsAt >= WALL_TABS_MS) await wallTabs(tile);
-  } catch (e) {
-    if (w !== wall || tile.gone) return;
-    // 409: the browser is gone. 503: still starting, the next tick retries.
-    if (e.status === 409) { tile.gone = true; tile.el.classList.add("gone"); tile.msg.textContent = t("idle"); }
-    else if (e.status !== 503 && !tile.shot) tile.msg.textContent = e.message;
-  } finally {
-    tile.shotAt = Date.now(); tile.busy = false; w.inFlight--;
-  }
-}
-// The image's width on screen in device pixels: the tile's width, or less for a
-// phone held to 80% of the screen's height (.tile-screen img). Rounded so the
-// request stays the same while nothing changes.
-function wallShotWidth(tile) {
-  let css = tile.img.parentElement.clientWidth || 300;
-  if (tile.vw && tile.vh) css = Math.min(css, (innerHeight * 0.8 * tile.vw) / tile.vh);
-  return Math.min(4096, Math.max(80, Math.ceil((css * (devicePixelRatio || 1)) / 20) * 20));
-}
-async function wallTabs(tile) {
-  const { tabs } = await wallDo(tile, "tabs");
-  tile.tabsAt = Date.now();
-  const active = tabs.find((x) => x.active);
-  if (active && document.activeElement !== tile.url) tile.url.value = active.url;
-  tile.tabs.replaceChildren(
-    ...tabs.map((x) => h("button", { type: "button", class: x.active ? "active" : "", title: x.url,
-      onclick: () => wallAct(tile, "tab_select", { index: x.index }) }, x.title || x.url)),
-    h("button", { type: "button", class: "tile-newtab", title: t("new_tab"), "aria-label": t("new_tab"),
-      onclick: () => wallAct(tile, "tab_new", { url: null }) }, icon("plus", true)));
-}
-// A page action by its control name (control.py), over the live socket when it
-// is open, else through the API.
-const WALL_ROUTES = { click_at: "click-at", keyboard_type: "keyboard", press: "press", navigate: "navigate", back: "back", tab_new: "tabs" };
-function wallDo(tile, action, params = {}) {
-  if (tile.ws) {
-    const id = ++tile.seq;
-    return new Promise((resolve, reject) => {
-      tile.pending.set(id, { resolve, reject });
-      tile.ws.send(JSON.stringify({ type: "do", id, action, params }));
-    });
-  }
-  if (action === "tabs") return api("GET", wallPath(tile.name, "tabs"));
-  if (action === "tab_select") return api("POST", wallPath(tile.name, `tabs/${params.index}/select`));
-  if (action === "scroll") return api("POST", wallPath(tile.name, "evaluate"), { script: `window.scrollBy(0, ${Math.round(params.dy)})` });
-  return api("POST", wallPath(tile.name, WALL_ROUTES[action]), params);
-}
-// Typing straight into a tile. Text arrives as the textarea's input events, so
-// the OS composes it; keys and shortcuts are presses. Characters are batched for
-// a moment into one keyboard_type, and one chain per tile keeps their order.
-const WALL_MODIFIERS = ["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "NumLock", "Dead", "Process", "Unidentified"];
-function wallKey(tile, e) {
-  e.stopPropagation(); // Escape goes to the page, not the wall
-  if (e.isComposing || WALL_MODIFIERS.includes(e.key)) return;
-  // AltGr (Ctrl+Alt on Windows) types a character such as @ on Spanish keyboards.
-  const altGr = e.getModifierState && e.getModifierState("AltGraph");
-  const ctrl = (e.ctrlKey || e.metaKey) && !altGr;
-  // A character: left to the textarea, whose input event carries it.
-  // Ctrl+V comes back as a paste event with the text.
-  if ((!ctrl && (!e.altKey || altGr) && e.key.length === 1) || (ctrl && e.key.toLowerCase() === "v")) return;
-  e.preventDefault();
-  const mods = [ctrl && "Control", e.altKey && !altGr && "Alt", e.shiftKey && e.key.length > 1 && "Shift"].filter(Boolean);
-  wallFlush(tile);
-  wallQueue(tile, "press", { key: [...mods, e.key].join("+") });
-}
-function wallType(tile, text) {
-  tile.typed += text;
-  tile.typeTimer ??= setTimeout(() => wallFlush(tile), 40);
-}
-function wallFlush(tile) {
-  clearTimeout(tile.typeTimer); tile.typeTimer = null;
-  if (!tile.typed) return;
-  const text = tile.typed; tile.typed = "";
-  wallQueue(tile, "keyboard_type", { text });
-}
-function wallQueue(tile, action, params) {
-  tile.keyChain = tile.keyChain
-    .then(() => (tile.gone ? null : wallDo(tile, action, params)))
-    .then(() => { tile.shotAt = 0; })
-    .catch((e) => toast(`${tile.name}: ${e.message}`, true));
-}
-// The tile then refreshes ahead of the others.
-async function wallAct(tile, action, params) {
-  if (tile.gone) return;
-  wallPick(tile.name);
-  try { await wallDo(tile, action, params); } catch (e) { toast(`${tile.name}: ${e.message}`, true); }
-  tile.shotAt = 0; tile.tabsAt = 0;
-  wallTick();
-}
-// Open the live socket if this PC runs the browser; on failure the tile keeps
-// taking screenshots.
-async function wallLive(tile) {
-  let ticket;
-  try { ticket = await api("GET", wallPath(tile.name, "live")); } catch { return; }
-  if (!wall || tile.gone || !ticket || !ticket.available) return;
-  let ws;
-  try { ws = new WebSocket(`ws://127.0.0.1:${ticket.port}/live?t=${enc(ticket.token)}`); } catch { return; }
-  ws.binaryType = "blob";
-  ws.onopen = () => {
-    if (tile.gone) return ws.close();
-    tile.ws = ws; tile.liveSent = ""; tile.el.classList.add("live");
-    wallTick();
-  };
-  ws.onmessage = (e) => {
-    if (typeof e.data === "string") {
-      let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (m.type === "viewport") { tile.vw = m.width; tile.vh = m.height; }
-      else if (m.type === "done" && tile.pending.has(m.id)) {
-        const p = tile.pending.get(m.id); tile.pending.delete(m.id);
-        if (m.ok) p.resolve(m.result); else p.reject(new Error(m.error));
-      }
-      return;
-    }
-    if (tile.gone) return;
-    const shot = URL.createObjectURL(e.data);
-    tile.img.src = shot;
-    if (tile.shot) URL.revokeObjectURL(tile.shot);
-    tile.shot = shot;
-    tile.msg.textContent = "";
-  };
-  ws.onclose = () => {
-    if (tile.ws !== ws) return;
-    tile.ws = null; tile.el.classList.remove("live");
-    for (const p of tile.pending.values()) p.reject(new Error(t("wall_live_lost")));
-    tile.pending.clear();
-    tile.shotAt = 0;
-  };
-}
-// Tell the live socket the frame width and rate this tile needs now: the picked
-// tile fastest, a tile off screen or a hidden panel none. Tabs refresh as with photos.
-function wallLiveTick(tile) {
-  const fps = document.hidden || !tile.visible ? 0 : tile.name === wall.picked ? WALL_LIVE_FPS : WALL_LIVE_IDLE_FPS;
-  const view = JSON.stringify({ type: "view", width: wallShotWidth(tile), fps });
-  if (view !== tile.liveSent) { tile.liveSent = view; tile.ws.send(view); }
-  if (fps && !tile.tabsBusy && Date.now() - tile.tabsAt >= WALL_TABS_MS) {
-    tile.tabsBusy = true;
-    wallTabs(tile).catch(() => { tile.tabsAt = Date.now(); }).finally(() => { tile.tabsBusy = false; });
-  }
-}
-
-$("wall-close").onclick = () => closeWall();
-// Columns: auto fits as many 300px tiles as the screen holds; 1-4 makes them bigger.
-function wallCols(cols) {
-  if (!["auto", "1", "2", "3", "4"].includes(cols)) cols = "auto";
-  store.set("foxprofile.wallCols", cols);
-  $("wall-grid").style.gridTemplateColumns = cols === "auto" ? "" : `repeat(${cols}, minmax(0, 1fr))`;
-  document.querySelectorAll("[data-wall-cols]").forEach((b) => {
-    b.classList.toggle("active", b.dataset.wallCols === cols);
-    b.setAttribute("aria-pressed", b.dataset.wallCols === cols);
-  });
-}
-document.querySelectorAll("[data-wall-cols]").forEach((b) => { b.onclick = () => wallCols(b.dataset.wallCols); });
-wallCols(store.get("foxprofile.wallCols"));
-// Size: the tile width in Auto columns; a phone tile shrinks with it.
-const WALL_SIZES = [180, 220, 260, 300, 360, 440, 540, 660];
-function wallSize(i) {
-  if (!Number.isInteger(i) || i < 0 || i >= WALL_SIZES.length) i = WALL_SIZES.indexOf(300);
-  store.set("foxprofile.wallSize", String(i));
-  $("wall-grid").style.setProperty("--tile-w", `${WALL_SIZES[i]}px`);
-  $("wall-smaller").disabled = i === 0;
-  $("wall-bigger").disabled = i === WALL_SIZES.length - 1;
-  return i;
-}
-let wallSizeAt = wallSize(parseInt(store.get("foxprofile.wallSize"), 10));
-// A fixed column count decides the width, so resizing goes back to Auto.
-const wallResize = (step) => {
-  wallCols("auto");
-  wallSizeAt = wallSize(Math.max(0, Math.min(WALL_SIZES.length - 1, wallSizeAt + step)));
-};
-$("wall-smaller").onclick = () => wallResize(-1);
-$("wall-bigger").onclick = () => wallResize(1);
-$("wall-type").onsubmit = (e) => {
-  e.preventDefault();
-  const tile = wall && wall.tiles.get(wall.picked), text = $("wall-text").value;
-  if (!tile || !text) return;
-  $("wall-text").value = "";
-  wallAct(tile, "keyboard_type", { text });
-};
-document.querySelectorAll("[data-wall-key]").forEach((b) => {
-  b.onclick = () => { const tile = wall && wall.tiles.get(wall.picked); if (tile) wallAct(tile, "press", { key: b.dataset.wallKey }); };
-});
-
 // --- Boot ----------------------------------------------------------------------
 let listTimer = null;
 function showLogin() {
   clearInterval(listTimer); listTimer = null;
-  closeWall({ quiet: true });
   showSettings(false);
   $("app").classList.add("hidden"); $("viewer").classList.add("hidden"); $("login").classList.remove("hidden");
   $("agent-card").classList.add("hidden"); $("login-form").classList.remove("hidden");
@@ -3411,7 +2993,7 @@ async function showApp(authRequired) {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
   $("logout-btn").classList.toggle("hidden", !authRequired);
   await refresh();
-  if (!listTimer) listTimer = setInterval(() => { if (!viewing && !wall && !document.hidden) refresh(); }, 4000);
+  if (!listTimer) listTimer = setInterval(() => { if (!viewing && !document.hidden) refresh(); }, 4000);
 }
 $("login-form").onsubmit = async (e) => {
   e.preventDefault();
@@ -3483,7 +3065,6 @@ document.querySelectorAll("[data-lang]").forEach((b) => { b.onclick = () => { la
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (!$("viewer").classList.contains("hidden")) { closeViewer(); return; }
-    if (wall && !$("modal-root").lastElementChild) { closeWall(); return; }
     const topBg = $("modal-root").lastElementChild;
     if (topBg) topBg.dismiss();
   }

@@ -19,7 +19,6 @@ from aiohttp import web
 
 from .recorder import REPLAYABLE, Recorder
 from .recorder import origin as origin_of
-from .screencast import MAX_LIVE, LiveView
 
 ALLOWED_SCHEMES = ("http", "https", "about")
 MAX_FULL_PAGE_HEIGHT = 16_384
@@ -47,6 +46,7 @@ def jpeg_width(data: bytes) -> int | None:
 
 MAX_ARRANGE = 50
 MAX_HOLD_MS = 3000  # the longest press click_at holds
+TITLE_WAIT_S = 0.5  # tabs(): how long a tab's title may take
 MIN_SHOT_WIDTH, MAX_SHOT_WIDTH = 80, 4096
 # The viewport in CSS pixels and where it is on the page (for a CDP clip).
 _VIEWPORT_JS = """() => ({
@@ -139,11 +139,7 @@ class PageController:
         # Playwright's mouse then waits forever for its own events: tap instead.
         self._touch = touch
         self._current: Any = None
-        # Set by serve(): {"port", "token"} for the live view's WebSocket.
-        self.live: dict[str, Any] | None = None
-        self._live_ok: bool | None = None
-        self._live_count = 0
-        # Chromium: per page, a CDP session for the wall's small screenshots and
+        # Chromium: per page, a CDP session for small screenshots (width) and
         # the screen scaling it applies to them (_small_jpeg).
         self._cdp: dict[Any, tuple[Any, float | None]] = {}
         self._recorder: Recorder | None = None
@@ -152,17 +148,6 @@ class PageController:
 
     def _open_pages(self) -> list[Any]:
         return [p for p in self._context.pages if not p.is_closed()]
-
-    def active_page(self) -> Any:
-        """The tab actions go to, without opening one (the live view follows it)."""
-        if self._current is not None and not self._current.is_closed():
-            return self._current
-        pages = self._open_pages()
-        return pages[-1] if pages else None
-
-    @property
-    def cdp_context(self) -> Any:
-        return self._context
 
     async def _page(self) -> Any:
         pages = self._open_pages()
@@ -191,6 +176,38 @@ class PageController:
         page = await self._page()
         await page.go_back(wait_until="domcontentloaded")
         return await self._describe(page)
+
+    async def reload(self) -> dict[str, Any]:
+        page = await self._page()
+        await page.reload(wait_until="domcontentloaded")
+        return await self._describe(page)
+
+    async def wheel(self, x: float, y: float, dy: float, dx: float = 0) -> dict[str, Any]:
+        """Turn the mouse wheel over viewport coordinates: the element under them
+        scrolls (a feed, a dialog), not only the page. Chromium gets the wheel
+        through CDP, which a phone persona's touch emulation does not block."""
+        page = await self._page()
+        try:
+            session = await self._context.new_cdp_session(page)
+        except Exception:  # Camoufox: no CDP
+            await page.mouse.move(x, y)
+            await page.mouse.wheel(dx, dy)
+            return await self._describe(page)
+        try:
+            await session.send(
+                "Input.dispatchMouseEvent",
+                {"type": "mouseWheel", "x": x, "y": y, "deltaX": dx, "deltaY": dy},
+            )
+        finally:
+            await session.detach()
+        return await self._describe(page)
+
+    async def viewport(self) -> dict[str, Any]:
+        """The active tab's address, title and size in CSS pixels (click_at's
+        coordinates): the agent's browser wall maps its tiles with it."""
+        page = await self._page()
+        view = await page.evaluate(_VIEWPORT_JS)
+        return {**await self._describe(page), "width": view["width"], "height": view["height"]}
 
     async def snapshot(self, max_chars: int = MAX_TEXT) -> dict[str, Any]:
         """Accessibility tree of the page: roles, names and text, compact."""
@@ -288,9 +305,8 @@ class PageController:
     ) -> dict[str, Any]:
         """A PNG of the active tab; with `quality`, a JPEG of the viewport instead.
 
-        The JPEG is what the panel's wall refreshes for up to 20 browsers: a
-        fraction of the PNG's size (a phone's PNG is in device pixels, 2-3x wider).
-        `width` shrinks it further to the tile it is shown in (Chromium renders it
+        The JPEG is a fraction of the PNG's size (a phone's PNG is in device
+        pixels, 2-3x wider), for previews. `width` shrinks it further (Chromium renders it
         that small; Camoufox's stays in CSS pixels). `viewport` gives its size in
         CSS pixels, the coordinates click_at takes."""
         page = await self._page()
@@ -364,12 +380,22 @@ class PageController:
     async def tabs(self) -> dict[str, Any]:
         current = await self._page()
         pages = self._open_pages()
+        titles = await asyncio.gather(*(self._title(p) for p in pages))
         return {
             "tabs": [
-                {"index": i, "url": p.url, "title": await p.title(), "active": p is current}
-                for i, p in enumerate(pages)
+                {"index": i, "url": p.url, "title": title, "active": p is current}
+                for i, (p, title) in enumerate(zip(pages, titles, strict=True))
             ],
         }
+
+    @staticmethod
+    async def _title(page: Any) -> str:
+        """A tab's title, or "" when it does not come quickly: Chrome runs
+        background tabs slowly, and reading one's title took seconds."""
+        try:
+            return await asyncio.wait_for(page.title(), TITLE_WAIT_S)
+        except Exception:
+            return ""
 
     async def tab_new(self, url: str | None = None) -> dict[str, Any]:
         self._current = await self._context.new_page()
@@ -471,24 +497,12 @@ class PageController:
         await page.bring_to_front()
         return {k: placed[k] for k in ("left", "top", "width", "height")}
 
-    async def live_ticket(self) -> dict[str, Any]:
-        """Where the panel can watch this browser live (screencast.py): the control
-        server's port on 127.0.0.1 and the live token. Chromium only."""
-        if self.live is None:
-            return {"available": False}
-        if self._live_ok is None:
-            page = await self._page()
-            try:
-                session = await self._context.new_cdp_session(page)
-                await session.detach()
-                self._live_ok = True
-            except Exception:
-                self._live_ok = False
-        return {"available": True, **self.live} if self._live_ok else {"available": False}
-
     ACTIONS = (
         "navigate",
         "back",
+        "reload",
+        "wheel",
+        "viewport",
         "snapshot",
         "text",
         "click",
@@ -509,7 +523,6 @@ class PageController:
         "record_stop",
         "replay",
         "arrange",
-        "live_ticket",
         "quit",
     )
 
@@ -541,28 +554,8 @@ def build_app(controller: PageController, token: str) -> web.Application:
             )
         return web.json_response({"ok": True, "result": result})
 
-    async def live(request: web.Request) -> web.StreamResponse:
-        info = controller.live
-        # Browsers cannot set headers on a WebSocket: the token is in the query.
-        # The Host check stops a website from reaching it through DNS rebinding.
-        if info is None or not secrets.compare_digest(request.query.get("t", ""), info["token"]):
-            return web.json_response({"ok": False, "error": "unauthorized"}, status=401)
-        if request.host not in (f"127.0.0.1:{info['port']}", f"localhost:{info['port']}"):
-            return web.json_response({"ok": False, "error": "bad host"}, status=403)
-        if controller._live_count >= MAX_LIVE:
-            return web.json_response({"ok": False, "error": "too many live views"}, status=429)
-        ws = web.WebSocketResponse(heartbeat=20, max_msg_size=64 * 1024)
-        await ws.prepare(request)
-        controller._live_count += 1
-        try:
-            await LiveView(controller, ws).run()
-        finally:
-            controller._live_count -= 1
-        return ws
-
     app = web.Application(client_max_size=4 * 1024 * 1024)
     app.router.add_post("/action", handle)
-    app.router.add_get("/live", live)
     return app
 
 
@@ -575,6 +568,4 @@ async def serve(context: Any, touch: bool = False) -> tuple[web.AppRunner, int, 
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
     port = site._server.sockets[0].getsockname()[1]
-    # Its own token: the panel gets it, and it only reaches the live view.
-    controller.live = {"port": port, "token": secrets.token_urlsafe(24)}
     return runner, port, token

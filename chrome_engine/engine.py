@@ -53,6 +53,10 @@ IGNORED_DEFAULT_ARGS = (
     "--no-sandbox",
 )
 HEADLESS_SCREEN = (1920, 1080)
+# Windows: Chrome stops drawing a window that others cover entirely, and the
+# agent's browser wall (src/agent_wall.py) shows each window live while its own
+# window covers them. Playwright passes this too; the page cannot tell.
+DRAW_COVERED_WINDOWS = "--disable-backgrounding-occluded-windows"
 # A phone's page is shorter than its screen by Chrome's own bars (status bar,
 # address bar): Playwright's Pixel 7 is a 915 screen with an 839 viewport.
 PHONE_BARS = 76
@@ -222,6 +226,8 @@ def build_args(
             args.append(f"--window-position={x},{y}")
     else:
         args.append("--start-maximized")
+    if headless is False and sys.platform == "win32":
+        args.append(DRAW_COVERED_WINDOWS)
     args += list(extra_args)
     return args
 

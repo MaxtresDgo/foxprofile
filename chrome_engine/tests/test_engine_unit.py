@@ -26,6 +26,14 @@ def test_build_args_headed():
     assert not any(a.startswith("--proxy-server") for a in args)
 
 
+def test_covered_windows_keep_drawing_on_windows(monkeypatch):
+    monkeypatch.setattr(engine_mod.sys, "platform", "win32")
+    assert engine_mod.DRAW_COVERED_WINDOWS in build_args(P)
+    assert engine_mod.DRAW_COVERED_WINDOWS not in build_args(P, headless=True)
+    monkeypatch.setattr(engine_mod.sys, "platform", "linux")
+    assert engine_mod.DRAW_COVERED_WINDOWS not in build_args(P)
+
+
 def test_build_args_headless_sets_a_real_screen():
     args = build_args(P, headless=True)
     assert "--window-size=1920,1080" in args
