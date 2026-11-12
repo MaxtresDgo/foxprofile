@@ -67,6 +67,29 @@ def test_badge_extension(tmp_path, monkeypatch, engine):
         assert manifest["browser_action"]["default_area"] == "navbar"
 
 
+@pytest.mark.parametrize("engine", ["chrome", "camoufox"])
+def test_report_extension_exists_without_profile_number(tmp_path, monkeypatch, engine):
+    monkeypatch.setattr(label.tempfile, "gettempdir", lambda: str(tmp_path))
+    value = {
+        **tag(),
+        "report": {"url": "http://127.0.0.1:12345/report", "token": "scoped-token"},
+        "report_accounts": [{"id": "a1", "platform": "facebook", "username": "fox"}],
+    }
+    folder = label.write_extension(value, engine)
+    from pathlib import Path
+
+    folder = Path(folder)
+    manifest = json.loads((folder / "manifest.json").read_text())
+    action = manifest["action" if engine == "chrome" else "browser_action"]
+    assert action["default_popup"] == "popup.html"
+    assert manifest["permissions"][0] == "activeTab"
+    assert "content_scripts" not in manifest and "web_accessible_resources" not in manifest
+    assert all((folder / filename).exists() for filename in ("popup.html", "popup.js", "popup.css"))
+    config = json.loads((folder / "config.json").read_text())
+    assert config["profile"] == "shop-01" and config["accounts"][0]["id"] == "a1"
+    assert config["token"] == "scoped-token"
+
+
 def test_pin_keeps_the_other_preferences(tmp_path):
     prefs = tmp_path / "Default" / "Preferences"
     prefs.parent.mkdir()

@@ -4,11 +4,13 @@ from typing import Any, Protocol
 
 from ..models.profile import Profile
 from ..services.profile.accounts import AccountStore
+from ..services.profile.reports import ReportStore
 
 
 class IProfileManager(Protocol):
     profiles: dict[str, Profile]
     accounts: AccountStore
+    reports: ReportStore
 
     def add_profile(
         self,

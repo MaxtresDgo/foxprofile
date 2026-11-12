@@ -1,3 +1,4 @@
+from .account_reports import router as account_reports_router
 from .accounts import router as accounts_router
 from .accounts import summary_router as accounts_summary_router
 from .adspower import router as adspower_router
@@ -13,6 +14,7 @@ from .snapshots import bucket_router as snapshots_bucket_router
 from .snapshots import router as snapshots_router
 
 __all__ = [
+    "account_reports_router",
     "accounts_router",
     "accounts_summary_router",
     "adspower_router",

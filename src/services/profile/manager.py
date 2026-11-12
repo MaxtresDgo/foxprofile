@@ -19,6 +19,7 @@ from ...utils.validation import (
 )
 from ..browser.extensions import ExtensionStore
 from .accounts import AccountsLocked, AccountStore
+from .reports import ReportStore
 from .transfer import export_to_zip, import_from_zip, read_profile_meta
 
 logger = get_logger("profile.manager")
@@ -47,6 +48,7 @@ class ProfileManager:
         self.profiles: dict[str, Profile] = {}
         # Its file and key are only created on the first account saved.
         self.accounts = AccountStore()
+        self.reports = ReportStore(pathlib.Path(PROFILES_FILE).with_name("account_reports.json"))
         # Browser extensions; their scopes name profiles, so they follow renames too.
         self.extensions = ExtensionStore()
         self._load_profiles()
@@ -250,6 +252,7 @@ class ProfileManager:
         with self._lock:
             if name not in self.profiles:
                 return False
+            self.reports.forget_profile(self.profiles[name].uid)
             del self.profiles[name]
             self.save_profiles()
             self._accounts_follow(self.accounts.forget_profile, name)

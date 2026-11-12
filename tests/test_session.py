@@ -109,7 +109,8 @@ def test_label_tab_comes_first(tmp_path, monkeypatch):
     assert shown["title"] == "shop-01-No <chip>"
     assert "No &lt;chip&gt;" in shown["body"]
     assert shown["ip"] == "203.0.113.9"
-    assert [p.url for p in ctx.pages[1:]] == ["https://a.test/"]
+    # No Facebook tab was saved: Facebook's home still opens first.
+    assert [p.url for p in ctx.pages[1:]] == [runner.HOME_URL, "https://a.test/"]
 
     # Nothing saved: Facebook's home to work in, so the label tab stays as it is.
     ctx = FakeContext()
@@ -120,6 +121,17 @@ def test_label_tab_comes_first(tmp_path, monkeypatch):
     ctx = FakeContext()
     broken = {**tag, "remark": "broken"}
     assert asyncio.run(runner.open_tabs(ctx, str(tmp_path), broken)) == 1
+    # ...and Facebook takes its blank tab instead of opening after it.
+    assert [p.url for p in ctx.pages] == [runner.HOME_URL, "https://a.test/"]
+
+
+def test_facebook_tab_always_first():
+    fb = "https://www.facebook.com/groups/1"
+    assert runner.facebook_first(["https://a.test/", fb]) == [fb, "https://a.test/"]
+    assert runner.facebook_first([fb, "https://a.test/"]) == [fb, "https://a.test/"]
+    assert runner.facebook_first(["https://a.test/"]) == [runner.HOME_URL, "https://a.test/"]
+    assert runner.facebook_first([]) == [runner.HOME_URL]
+    assert runner.facebook_first(["https://notfacebook.com/"])[0] == runner.HOME_URL
 
 
 def test_snapshot_saves_changes_and_keeps_tabs_when_window_closes(tmp_path, monkeypatch):

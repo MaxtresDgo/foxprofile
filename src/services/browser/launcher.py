@@ -14,6 +14,7 @@ from ...core.strings import get_string
 from ...models.profile import Profile
 from .control import TOKEN_HEADER
 from .process import spawn_browser, terminate, wait_for_exit
+from .reporting import ReportBridge
 
 logger = get_logger("browser.launcher")
 
@@ -69,6 +70,8 @@ class BrowserLauncher:
         self.extensions: Callable[[Profile], list[str]] = lambda profile: []
         # Group and accounts for the start page (label.details(); Container wires it).
         self.details: Callable[[Profile], dict] = lambda profile: {}
+        self.report: Callable | None = None
+        self._report_bridges: dict[str, ReportBridge] = {}
         atexit.register(self.shutdown_all)
 
     @contextlib.contextmanager
@@ -109,6 +112,10 @@ class BrowserLauncher:
                     notifier.set()
                 terminate(proc, name)
             self._active_sessions.clear()
+            bridges = list(self._report_bridges.values())
+            self._report_bridges.clear()
+        for bridge in bridges:
+            bridge.close()
         logger.info("All browser sessions terminated")
 
     def start_thread(
@@ -138,12 +145,15 @@ class BrowserLauncher:
         stop_event = threading.Event()
         notify_lock = threading.Lock()
         result = _LaunchResult()
+        bridge = None
 
         def notify_stopped() -> None:
             with notify_lock:
                 if stop_event.is_set():
                     return
                 stop_event.set()
+                if bridge:
+                    bridge.close()
                 result.settle(False, "Browser exited before it was ready")
                 with self._lock:
                     # A newer launch may already own this name; leave it alone.
@@ -151,6 +161,7 @@ class BrowserLauncher:
                         self._controls.pop(profile.name, None)
                         self._active_sessions.pop(profile.name, None)
                         self._stop_notifiers.pop(profile.name, None)
+                        self._report_bridges.pop(profile.name, None)
                 log_callback(get_string("session_ended", name=profile.name))
                 logger.info(f"Session ended for profile: {profile.name}")
                 if on_stop:
@@ -166,10 +177,16 @@ class BrowserLauncher:
                 on_start()
 
             try:
-                proc = spawn_browser(profile, self.extensions(profile), self.details(profile))
+                details = dict(self.details(profile))
+                if self.report:
+                    bridge = ReportBridge(lambda body: self.report(profile, body))
+                    details["report"] = bridge.config()
+                proc = spawn_browser(profile, self.extensions(profile), details)
                 with self._lock:
                     self._active_sessions[profile.name] = proc
                     self._stop_notifiers[profile.name] = stop_event
+                    if bridge:
+                        self._report_bridges[profile.name] = bridge
                     self._busy.discard(profile.name)
                     registered = True
 
@@ -195,6 +212,8 @@ class BrowserLauncher:
             # Never keep the reservation when a callback raised before the
             # process was registered; the profile would stay busy for good.
             if not registered:
+                if bridge:
+                    bridge.close()
                 with self._lock:
                     self._busy.discard(profile.name)
         return True
@@ -205,8 +224,11 @@ class BrowserLauncher:
                 return False
             proc = self._active_sessions[profile_name]
             notifier = self._stop_notifiers.pop(profile_name, None)
+            bridge = self._report_bridges.pop(profile_name, None)
         if notifier:
             notifier.set()  # a stop is not a close: no on_stop
+        if bridge:
+            bridge.close()
         # Ask the browser to close first: terminate() is a hard kill on Windows,
         # and a killed browser loses the cookies it has not written yet.
         with contextlib.suppress(BrowserControlError, subprocess.TimeoutExpired):

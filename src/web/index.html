@@ -296,6 +296,7 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .inline-btns .btn { height: 34px; padding: 0 12px; font-size: 13px; }
 .msg { font-size: 13px; margin-top: 10px; min-height: 0; }
 .msg.err { color: var(--err); } .msg.ok { color: var(--ok); } .msg.info { color: var(--ink-2); }
+.report-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .note { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: var(--warn-tint); color: var(--warn-ink); }
 .note svg { margin-top: 1px; color: var(--warn); }
 .note.calm { background: var(--paper-sunk); color: var(--ink-2); }
@@ -567,6 +568,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
       <div><b>FoxProfile</b><span data-t="tagline"></span></div>
     </div>
     <button class="btn btn-act" id="new-btn"><svg class="i"><use href="#i-plus"/></svg><span data-t="new_profile"></span></button>
+    <button class="rail-link" id="reports-btn"><svg class="i"><use href="#i-alert"/></svg><span data-t="reports_title"></span><span id="reports-count" class="count"></span></button>
     <div class="group-pick hidden" id="group-pick">
       <div class="nav-title" data-t="group"></div>
       <button class="group-btn" id="group-btn" popovertarget="group-pop" aria-haspopup="listbox"><svg class="i"><use href="#i-users"/></svg><span class="label" id="group-label"></span><span class="count" id="group-count"></span><svg class="i s" aria-hidden="true"><use href="#i-down"/></svg></button>
@@ -695,6 +697,10 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 "use strict";
 const I18N = {
   vi: {
+    reports_title: "Báo cáo tài khoản", reports_search: "Tìm profile, nền tảng hoặc tài khoản", reports_hint: "Trạng thái do người dùng báo cáo từ trình duyệt. Bộ phận tài khoản kiểm tra các báo cáo đang chờ.",
+    reports_pending: "Chờ kiểm tra", reports_all: "Tất cả", reports_empty: "Không có báo cáo phù hợp", reports_review: "Đánh dấu đã kiểm tra", reports_reviewed: "Đã kiểm tra bởi {who} · {when}",
+    reports_by: "Báo cáo bởi {who} · {when}", reports_local: "Người dùng máy này", reports_no_account: "Chưa lưu tài khoản", reports_failed: "Không tải được báo cáo; thử làm mới.",
+    report_inhabilitado: "Bị vô hiệu hoá", report_suspendido: "Bị tạm ngưng", report_videoselfie: "Yêu cầu video selfie", report_codigo: "Mã điện thoại/SMS/WhatsApp",
     backups: "Sao lưu", backups_hint: "Snapshot của mọi profile trên NAS. Profile mồ côi là profile đã xoá: khôi phục lại hoặc xoá snapshot của nó.", backups_sub: "{n} profile · {s} có snapshot · {orphans} mồ côi", backups_search: "Tìm profile", snapshot_view: "Xem snapshot", snapshot_hide: "Ẩn snapshot", snapshot_put_back_this: "Khôi phục từ bản này", backups_group: "Lọc theo nhóm", snapshot_orphans: "Mồ côi", snapshot_saved_of: "Đã lưu snapshot của {name}", snapshots_none_any: "NAS chưa có snapshot nào.",
     snapshot_count: "{n} snapshot", snapshot_newest: "mới nhất {when}", snapshot_orphan: "mồ côi", snapshot_put_back: "Khôi phục profile", snapshot_put_back_as: "Khôi phục với tên",
     snapshot_put_back_done: "Đã khôi phục profile {name}", snapshot_delete_confirm: "Xoá vĩnh viễn {n} snapshot của {name} trên NAS?", snapshot_deleted: "Đã xoá snapshot của {name}",
@@ -803,6 +809,10 @@ const I18N = {
     ext_button: "Extension", ext_title: "Extension của trình duyệt", ext_hint: "Chrome: .crx hoặc .zip cho profile engine Chrome. Firefox: .xpi cho Camoufox.", ext_upload: "Tải file lên", ext_store: "ID hoặc link Chrome Web Store", ext_store_add: "Thêm từ cửa hàng", ext_store_note: "Được tải từ máy chủ của Google khi bạn bấm Thêm.", ext_uploading: "Đang tải lên {name}…", ext_store_fetching: "Đang tải từ Chrome Web Store…", ext_added: "Đã thêm {name} {version}", ext_none: "Chưa có extension nào.", ext_all: "Mọi profile", ext_in_groups: "Nhóm: {list}", ext_in_profiles: "{n} profile", ext_excluded: "loại trừ {n}", ext_nowhere: "Chưa áp dụng cho profile nào", ext_where: "Áp dụng cho", ext_confirm_delete: "Xoá “{name}” khỏi mọi profile?", ext_scope_all: "Mọi profile {engine}", ext_scope_groups: "Profile của các nhóm", ext_scope_profiles: "Các profile này", ext_scope_excluded: "Loại trừ: không bao giờ tải", ext_scope_hint: "Profile đang mở sẽ tải thay đổi ở lần mở sau.", ext_filter: "Lọc", ext_no_profiles: "Không có profile {engine}.", ext_no_groups: "Chưa có nhóm nào.",
   },
   en: {
+    reports_title: "Account reports", reports_search: "Find a profile, platform or account", reports_hint: "Status reported by users from the browser. Accounts can review pending reports here.",
+    reports_pending: "Pending review", reports_all: "All reports", reports_empty: "No matching reports", reports_review: "Mark reviewed", reports_reviewed: "Reviewed by {who} · {when}",
+    reports_by: "Reported by {who} · {when}", reports_local: "Local operator", reports_no_account: "No saved account", reports_failed: "Reports could not be loaded; refresh to retry.",
+    report_inhabilitado: "Disabled", report_suspendido: "Suspended", report_videoselfie: "Video selfie", report_codigo: "Phone/SMS/WhatsApp code",
     backups: "Backups", backups_hint: "Every profile's snapshots on the NAS. Orphans are deleted profiles: put one back or delete its snapshots.", backups_sub: "{n} profiles · {s} with snapshots · {orphans} orphans", backups_search: "Search profiles", snapshot_view: "View snapshots", snapshot_hide: "Hide snapshots", snapshot_put_back_this: "Put back from this one", backups_group: "Filter by group", snapshot_orphans: "Orphans", snapshot_saved_of: "Snapshot of {name} saved", snapshots_none_any: "No snapshots on the NAS yet.",
     snapshot_count: "{n} snapshots", snapshot_newest: "newest {when}", snapshot_orphan: "orphan", snapshot_put_back: "Put back profile", snapshot_put_back_as: "Put back as",
     snapshot_put_back_done: "Profile {name} is back", snapshot_delete_confirm: "Delete the {n} snapshots of {name} from the NAS for good?", snapshot_deleted: "Snapshots of {name} deleted",
@@ -911,6 +921,10 @@ const I18N = {
     ext_button: "Extensions", ext_title: "Browser extensions", ext_hint: "Chrome: .crx or .zip for Chrome engine profiles. Firefox: .xpi for Camoufox.", ext_upload: "Upload file", ext_store: "Chrome Web Store ID or link", ext_store_add: "Add from the store", ext_store_note: "Downloaded from Google's servers when you click Add.", ext_uploading: "Uploading {name}…", ext_store_fetching: "Downloading from the Chrome Web Store…", ext_added: "Added {name} {version}", ext_none: "No extensions yet.", ext_all: "All profiles", ext_in_groups: "Groups: {list}", ext_in_profiles: "{n} profiles", ext_excluded: "{n} excluded", ext_nowhere: "Not applied to any profile", ext_where: "Applies to", ext_confirm_delete: "Remove “{name}” from every profile?", ext_scope_all: "Every {engine} profile", ext_scope_groups: "Profiles of these groups", ext_scope_profiles: "These profiles", ext_scope_excluded: "Excluded: never load it", ext_scope_hint: "Open profiles load the change the next time they open.", ext_filter: "Filter", ext_no_profiles: "No {engine} profiles.", ext_no_groups: "No groups yet.",
   },
   es: {
+    reports_title: "Reportes de cuentas", reports_search: "Buscar perfil, red o cuenta", reports_hint: "Estados reportados por los usuarios desde el navegador. Cuentas puede revisar aquí los reportes pendientes.",
+    reports_pending: "Pendientes de revisión", reports_all: "Todos los reportes", reports_empty: "No hay reportes que coincidan", reports_review: "Marcar revisado", reports_reviewed: "Revisado por {who} · {when}",
+    reports_by: "Reportado por {who} · {when}", reports_local: "Operador local", reports_no_account: "Sin cuenta guardada", reports_failed: "No se pudieron cargar los reportes; actualiza para reintentar.",
+    report_inhabilitado: "Inhabilitado", report_suspendido: "Suspendido", report_videoselfie: "Videoselfie", report_codigo: "Código de teléfono/SMS/WhatsApp",
     backups: "Respaldos", backups_hint: "Los snapshots de todos los profiles en el NAS. Los huérfanos son profiles borrados: recupera uno o borra sus snapshots.", backups_sub: "{n} profiles · {s} con snapshots · {orphans} huérfanos", backups_search: "Buscar profiles", snapshot_view: "Ver snapshots", snapshot_hide: "Ocultar snapshots", snapshot_put_back_this: "Recuperar desde esta", backups_group: "Filtrar por grupo", snapshot_orphans: "Huérfanos", snapshot_saved_of: "Snapshot de {name} guardado", snapshots_none_any: "Aún no hay snapshots en el NAS.",
     snapshot_count: "{n} snapshots", snapshot_newest: "el más reciente {when}", snapshot_orphan: "huérfano", snapshot_put_back: "Recuperar profile", snapshot_put_back_as: "Recuperar como",
     snapshot_put_back_done: "Profile {name} recuperado", snapshot_delete_confirm: "¿Borrar para siempre los {n} snapshots de {name} del NAS?", snapshot_deleted: "Snapshots de {name} borrados",
@@ -1142,10 +1156,11 @@ function refresh() {
 }
 async function refreshOnce() {
   try {
-    const [list, run, who, sync, accts, chrome] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
+    const [list, run, who, sync, accts, chrome, reports] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
       hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync"),
       // A locked accounts store must not keep the profiles from showing.
-      api("GET", "/accounts").catch(() => ({})), api("GET", "/chrome/builds").catch(() => null)]);
+      api("GET", "/accounts").catch(() => ({})), api("GET", "/chrome/builds").catch(() => null),
+      api("GET", "/account-reports").catch(() => null)]);
     profiles = list.profiles;
     // A build install that just failed (here or on the agent) says why, once.
     for (const b of (chrome && chrome.builds) || []) {
@@ -1156,6 +1171,9 @@ async function refreshOnce() {
     if (drawBuilds) drawBuilds();
     syncs = sync.sessions;
     accountsOf = accts;
+    accountReports = reports;
+    $("reports-count").textContent = reports ? String(reports.filter((r) => r.reviewed_at === null).length) : "!";
+    if (drawAccountReports) drawAccountReports();
     if (hub) renderMe(who);
     const now = new Set(run.running);
     for (const name of now) if (!liveSince.has(name)) liveSince.set(name, new Date());
@@ -1207,7 +1225,7 @@ function render() {
   const shown = visible();
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
-  const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, [...running].sort(), [...busy], [...failed], [...selected].sort(),
+  const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, accountReports, [...running].sort(), [...busy], [...failed], [...selected].sort(),
     [...justLanded], syncs, builds, shown.map((p) => fingerprints[p.name] || null)]);
   if (key === lastRender) return;
   lastRender = key;
@@ -1388,7 +1406,9 @@ function row(p) {
       h("span", { class: "name", tabindex: 0, onmouseenter: (e) => showAccountsPop(p, e.currentTarget), onmouseleave: hideAccountsPop,
         onfocus: (e) => showAccountsPop(p, e.currentTarget), onblur: hideAccountsPop }, p.name),
       // What the browser shows (number badge, remark in the first tab), else the engine.
-      h("span", { class: "minor" }, [p.number && "#" + p.number, p.remark].filter(Boolean).join(" · ") || engine)),
+      h("span", { class: "minor" }, [p.number && "#" + p.number, p.remark].filter(Boolean).join(" · ") || engine),
+      (accountReports || []).some((r) => r.profile === p.name && r.reviewed_at === null)
+        ? h("button", { class: "btn btn-ghost", onclick: () => openAccountReports(p.name) }, icon("alert", true), t("reports_pending")) : null),
     h("div", { class: "c-device device", role: "cell" }, h("span", { class: "os", role: "img", title: osName || p.os_type, "aria-label": osName || p.os_type }, osName ? icon("os-" + p.os_type) : "OS"),
       h("div", { class: "stack" }, h("span", { class: p.engine === "chrome" ? "engine chrome" : "engine" }, engine),
         fp && fp.exists ? h("span", { class: "data minor" }, [fp.screen, `${fp.hardware_concurrency || "?"} CPU`].filter(Boolean).join(" · "))
@@ -1865,6 +1885,63 @@ async function launchWithAccount(p, a) {
 
 // Brand names: the same in every language.
 const PLATFORM_LABELS = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", x: "X", gmail: "Gmail", hotmail: "Hotmail / Outlook" };
+
+let accountReports = null, drawAccountReports = null;
+function openAccountReports(profile = null) {
+  modal((close) => {
+    const list = h("div");
+    const msg = h("div", { class: "msg err", role: "status" });
+    const pending = h("select", { "aria-label": t("reports_title") },
+      h("option", { value: "pending" }, t("reports_pending")), h("option", { value: "all" }, t("reports_all")));
+    const search = h("input", { type: "search", placeholder: t("reports_search"), "aria-label": t("reports_search") });
+    const date = (at) => new Date(at * 1000).toLocaleString(lang);
+    let signature = "", saving = false;
+    const draw = () => {
+      if (!list.isConnected) return;
+      const key = JSON.stringify([accountReports, pending.value, search.value, lang]);
+      if (signature === key || saving) return;
+      signature = key;
+      if (accountReports === null) { list.replaceChildren(); msg.textContent = t("reports_failed"); return; }
+      msg.textContent = "";
+      const q = search.value.toLowerCase().trim();
+      const reports = accountReports.filter((r) => (!profile || r.profile === profile) &&
+        (pending.value === "all" || r.reviewed_at === null) &&
+        (!q || [r.profile, r.username, PLATFORM_LABELS[r.platform]].some((v) => (v || "").toLowerCase().includes(q))));
+      list.replaceChildren(...reports.map((report) => {
+        const review = h("button", { type: "button", class: "btn btn-line", onclick: async () => {
+          review.disabled = true; saving = true; msg.textContent = "";
+          let failure = "";
+          try {
+            await api("POST", `/profiles/${enc(report.profile)}/account-reports/${report.id}/review`);
+            await refresh();
+          } catch (error) { failure = error.message; if (error.status === 409) await refresh(); }
+          finally {
+            saving = false; review.disabled = false; signature = ""; draw();
+            if (failure) msg.textContent = failure;
+            if (!review.isConnected) (list.querySelector("button") || pending).focus();
+          }
+        } }, t("reports_review"));
+        return h("article", { class: "acct" },
+          h("div", { class: "acct-head" }, h("b", {}, `${report.profile} · ${PLATFORM_LABELS[report.platform]}`),
+            report.reviewed_at === null ? review : null),
+          h("div", { class: "acct-line data" }, report.username || t("reports_no_account")),
+          // Todos los estados son incidencias para Cuentas: siempre destacados.
+          h("div", { class: "note" }, icon("alert", true), t("report_" + report.status)),
+          report.note ? h("p", { class: "report-note" }, report.note) : null,
+          h("p", { class: "minor" }, t("reports_by", { who: report.reported_by || t("reports_local"), when: date(report.reported_at) })),
+          report.reviewed_at !== null ? h("p", { class: "minor" }, t("reports_reviewed", {
+            who: report.reviewed_by || t("reports_local"), when: date(report.reviewed_at) })) : null);
+      }));
+      if (!reports.length) list.append(h("p", { class: "note calm", role: "status" }, t("reports_empty")));
+    };
+    search.oninput = draw; pending.onchange = draw;
+    drawAccountReports = draw;
+    // The dialog uses the panel's regular refresh; closing it leaves no polling timer.
+    queueMicrotask(draw);
+    return h("div", {}, modalHead(t("reports_title"), profile || t("reports_hint"), close),
+      h("div", { class: "modal-body" }, h("div", { class: "field-row" }, search, pending), msg, list));
+  }, { wide: true });
+}
 
 function openAccounts(p) {
   const base = `/profiles/${enc(p.name)}/accounts`;
@@ -3428,6 +3505,7 @@ $("agents-btn").onclick = openAgents;
 $("ext-btn").onclick = openExtensions;
 $("proxies-btn").onclick = openProxies;
 $("builds-btn").onclick = openBuilds;
+$("reports-btn").onclick = () => openAccountReports();
 $("backups-btn").onclick = () => showPage("backups-page");
 $("backups-q").oninput = drawBackups;
 $("backups-group").onchange = drawBackups;

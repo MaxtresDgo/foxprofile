@@ -234,6 +234,29 @@ Click the cookie button on a profile row to open **Cookies & fingerprint**. **Th
 
 ## Browser extensions
 
+Every profile opened locally or by an updated hub agent includes the built-in
+account-report popup on its profile toolbar button, including profiles without a
+number. On Facebook, Instagram, TikTok, X, Gmail or Outlook, click that button,
+choose the saved account when applicable, and mark **Disabled**, **Suspended**,
+**Video selfie** or **Phone/SMS/WhatsApp code**, with an optional note. The network
+comes from the active tab, so each network of a profile keeps its own report. These are manual observations. No passwords,
+cookies or 2FA codes are read. Reopen existing browsers after updating to load it.
+
+Open **Account reports** in the web panel to see the latest report for each
+profile/account, filter pending reviews and mark them reviewed. Reports without a
+saved account identify the profile and platform. The panel refreshes while visible
+every four seconds; profile/group permissions also apply to reports. The Accounts
+team needs access to the relevant groups. A newer report stays pending even if
+someone was reviewing the previous one.
+
+Reports are kept in `account_reports.json` next to the profile catalogue, separate
+from profile exports and credentials. They follow profile renames and are removed
+with the profile. Retry receipts are retained for seven days. When sending fails,
+keep the popup open and retry; there is no offline queue. The extension receives
+only a temporary report permission for its own running profile. In hub mode the
+agent forwards reports using its existing authenticated connection; it cannot read
+reports or mark them reviewed with its agent key.
+
 **Extensions** (sidebar of the desktop app, **Settings** in the web panel) holds the extensions profiles load:
 
 - Chrome extensions (`.crx` or `.zip`) for Chrome engine profiles, Firefox add-ons (`.xpi`) for Camoufox. Paste a Chrome Web Store link or ID to add one from the store: FoxProfile then downloads the `.crx` from Google's servers, only when you click **Add**.
