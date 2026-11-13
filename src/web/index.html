@@ -257,6 +257,8 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .stack .minor { font-size: 11.5px; color: var(--ink-3); }
 .modal-body .minor { font-size: 12px; color: var(--ink-3); }
 .geo-inline { display: none; }
+/* On a hub, each profile's group stands after its name (rows marked .grouped). */
+.row.grouped { --cols: 32px minmax(150px, 1.15fr) minmax(110px, 0.8fr) minmax(170px, 1.05fr) minmax(170px, 1.15fr) minmax(150px, 1fr) 112px 232px; }
 .name { font-weight: 600; font-size: 14.5px; }
 .tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; margin-left: 8px; border-radius: 5px; border: 1px solid var(--rule-strong); color: var(--ink-2); font-size: 11.5px; font-weight: 600; vertical-align: 1px; }
 .tag.chrome { border-color: var(--chrome-line); color: var(--chrome-ink); background: var(--chrome-tint); }
@@ -410,11 +412,21 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 /* The table follows its own width, not the viewport: all columns need about
-   1140px, the version without Timezone · Locale about 870px. */
+   1140px (1270px with Grupo), the version without Timezone · Locale about 870px
+   (1000px with Grupo). Grupo goes first, Timezone · Locale next. */
+@container sheet (max-width: 1270px) {
+  .row.grouped { --cols: 32px minmax(140px, 1.1fr) minmax(110px, 0.8fr) minmax(140px, 1fr) minmax(140px, 1.1fr) 108px 218px; column-gap: 12px; }
+  .row.grouped .col-geo { display: none; }
+  .row.grouped .geo-inline { display: block; }
+}
 @container sheet (max-width: 1150px) {
   .row { --cols: 32px minmax(140px, 1.1fr) minmax(140px, 1fr) minmax(140px, 1.1fr) 108px 218px; column-gap: 12px; }
   .col-geo { display: none; }
   .geo-inline { display: block; }
+}
+@container sheet (max-width: 1010px) {
+  .row.grouped { --cols: 32px minmax(140px, 1.1fr) minmax(140px, 1fr) minmax(140px, 1.1fr) 108px 218px; }
+  .row .col-group { display: none; }
 }
 /* Cards: name over device, the proxy beside them, and on the right the status
    over Abrir with the icon buttons under it (216px = six icon buttons). */
@@ -646,7 +658,7 @@ const I18N = {
     f_all: "Tất cả", f_running: "Đang chạy", f_proxy: "Có proxy", f_direct: "Không proxy", f_chrome: "Engine Chrome",
     api_docs: "Tài liệu API", logout: "Đăng xuất", your_profiles: "Profile", search: "Tìm theo tên hoặc proxy",
     counts: "{n} profile · {r} đang chạy", counts_none: "{n} profile · chưa có profile nào chạy",
-    col_profile: "Profile", col_device: "Thiết bị", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Trạng thái",
+    col_profile: "Profile", col_device: "Thiết bị", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Trạng thái", owner_line: "Chủ: {user}",
     empty_title: "Chưa có profile nào", empty: "Mỗi profile là một danh tính riêng: fingerprint, cookie và proxy của nó. Tạo profile đầu tiên để bắt đầu.",
     no_match_title: "Không tìm thấy profile", no_match: "Không có profile nào khớp “{q}” trong bộ lọc này.", clear_filters: "Xoá bộ lọc",
     launch: "Mở", stop: "Dừng", view: "Xem màn hình", cookies: "Cookie & fingerprint", edit: "Sửa", delete: "Xoá",
@@ -758,7 +770,7 @@ const I18N = {
     f_all: "All", f_running: "Running", f_proxy: "With proxy", f_direct: "No proxy", f_chrome: "Chrome engine",
     api_docs: "API docs", logout: "Log out", your_profiles: "Profiles", search: "Search by name or proxy",
     counts: "{n} profiles · {r} running", counts_none: "{n} profiles · none running",
-    col_profile: "Profile", col_device: "Device", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Status",
+    col_profile: "Profile", col_device: "Device", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Status", owner_line: "Owner: {user}",
     empty_title: "No profiles yet", empty: "Each profile is its own identity: its fingerprint, cookies and proxy. Create the first one to get started.",
     no_match_title: "No profile found", no_match: "Nothing matches “{q}” in this filter.", clear_filters: "Clear filters",
     launch: "Launch", stop: "Stop", view: "View screen", cookies: "Cookies & fingerprint", edit: "Edit", delete: "Delete",
@@ -870,7 +882,7 @@ const I18N = {
     f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome",
     api_docs: "Docs de la API", logout: "Cerrar sesión", your_profiles: "Profiles", search: "Buscar por nombre o proxy",
     counts: "{n} profiles · {r} en ejecución", counts_none: "{n} profiles · ninguno en ejecución",
-    col_profile: "Profile", col_device: "Dispositivo", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Estado",
+    col_profile: "Profile", col_device: "Dispositivo", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Estado", owner_line: "Dueño: {user}",
     empty_title: "Aún no hay profiles", empty: "Cada profile es una identidad propia: su fingerprint, sus cookies y su proxy. Crea el primero para empezar.",
     no_match_title: "No se encontró ningún profile", no_match: "Nada coincide con “{q}” en este filtro.", clear_filters: "Quitar filtros",
     launch: "Abrir", stop: "Detener", view: "Ver pantalla", cookies: "Cookies y fingerprint", edit: "Editar", delete: "Eliminar",
@@ -1234,9 +1246,11 @@ function headRow(shown) {
     shown.forEach((p) => (e.target.checked ? selected.add(p.name) : selected.delete(p.name))); render(); } });
   box.checked = all;
   box.indeterminate = !all && shown.some((p) => selected.has(p.name));
-  return h("div", { class: "row head-row", role: "row" },
+  return h("div", { class: "row head-row" + (hub && me ? " grouped" : ""), role: "row" },
     h("div", { class: "c-sel", role: "columnheader" }, box),
-    h("div", { role: "columnheader" }, t("col_profile")), h("div", { role: "columnheader" }, t("col_device")), h("div", { role: "columnheader" }, t("col_proxy")),
+    h("div", { role: "columnheader" }, t("col_profile")),
+    hub && me ? h("div", { class: "col-group", role: "columnheader" }, t("group")) : null,
+    h("div", { role: "columnheader" }, t("col_device")), h("div", { role: "columnheader" }, t("col_proxy")),
     h("div", { class: "col-geo", role: "columnheader" }, t("col_geo")), h("div", { role: "columnheader" }, t("col_status")), h("div", { role: "columnheader" }));
 }
 
@@ -1338,7 +1352,10 @@ function row(p) {
       : launch;
   const iconBtn = (name, label, fn, cls = "", disabled = false) =>
     h("button", { class: "icon-btn " + cls, title: label, "aria-label": `${label}: ${p.name}`, disabled, onclick: fn }, icon(name));
-  return h("div", { class: "row body" + (on ? " live" : "") + (selected.has(p.name) ? " selected" : ""), role: "row" },
+  // Hub only: the profile's group, and under it who owns the profile.
+  const group = hub && me ? me.groups[p.name] || "" : null;
+  const owner = hub && me ? me.owners[p.name] : null;
+  return h("div", { class: "row body" + (group === null ? "" : " grouped") + (on ? " live" : "") + (selected.has(p.name) ? " selected" : ""), role: "row" },
     h("div", { class: "c-sel", role: "cell" }, box),
     h("div", { class: "c-name stack", role: "cell" },
       h("span", { class: "name", tabindex: 0, onmouseenter: (e) => showAccountsPop(p, e.currentTarget), onmouseleave: hideAccountsPop,
@@ -1347,6 +1364,9 @@ function row(p) {
       h("span", { class: "minor" }, [p.number && "#" + p.number, p.remark].filter(Boolean).join(" · ") || engine),
       (accountReports || []).some((r) => r.profile === p.name && r.reviewed_at === null)
         ? h("button", { class: "btn btn-ghost", onclick: () => openAccountReports(p.name) }, icon("alert", true), t("reports_pending")) : null),
+    group === null ? null : h("div", { class: "col-group stack", role: "cell" },
+      h("span", { class: group ? "" : "muted", title: group || null }, group || t("no_group")),
+      h("span", { class: "minor", title: owner || null }, owner ? t("owner_line", { user: owner }) : "—")),
     h("div", { class: "c-device device", role: "cell" }, h("span", { class: "os", role: "img", title: osName || p.os_type, "aria-label": osName || p.os_type }, osName ? icon("os-" + p.os_type) : "OS"),
       h("div", { class: "stack" }, h("span", { class: p.engine === "chrome" ? "engine chrome" : "engine" }, engine),
         fp && fp.exists ? h("span", { class: "data minor" }, [fp.screen, `${fp.hardware_concurrency || "?"} CPU`].filter(Boolean).join(" · "))
