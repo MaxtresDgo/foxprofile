@@ -1404,15 +1404,23 @@ function bulkBar() {
 const selectedRunning = () => [...selected].filter((n) => running.has(n));
 
 // Tile the selected running Chrome windows on the screen of the PC running them:
-// desktops share a grid, phones keep their size and stand in a row.
+// desktops share a grid, phones keep their size and cascade from the left.
 async function arrangeWindows() {
   const names = selectedRunning();
   if (!names.length) return toast(t("need_running"), true);
   const chrome = profiles.filter((p) => names.includes(p.name) && p.engine === "chrome");
   if (!chrome.length) return toast(t("arrange_chrome_only"), true);
-  const groups = [chrome.filter((p) => p.os_type !== "android"), chrome.filter((p) => p.os_type === "android")];
-  const calls = groups.flatMap((g) => g.map((p, i) => ({ name: p.name, body: { index: i, count: g.length } })));
-  const results = await Promise.allSettled(calls.map((c) => api("POST", `/browser/${enc(c.name)}/page/arrange`, c.body)));
+  const desktops = chrome.filter((p) => p.os_type !== "android");
+  const phones = chrome.filter((p) => p.os_type === "android");
+  const call = (p, i, g) => ({ name: p.name, body: { index: i, count: g.length } });
+  const calls = [...desktops.map(call), ...phones.map(call)];
+  const send = (c) => api("POST", `/browser/${enc(c.name)}/page/arrange`, c.body);
+  const grid = Promise.allSettled(calls.slice(0, desktops.length).map(send));
+  // Each arranged window comes to the front: phones go one after another so the
+  // cascade stacks in order, the last one whole on top.
+  const cascade = [];
+  for (const c of calls.slice(desktops.length)) cascade.push(await send(c).then((value) => ({ status: "fulfilled", value }), (reason) => ({ status: "rejected", reason })));
+  const results = [...(await grid), ...cascade];
   const bad = results.flatMap((r, i) => (r.status === "rejected" ? [`${calls[i].name}: ${r.reason.message}`] : []));
   if (bad.length) return toast(bad.join(" · "), true);
   const skipped = names.length - chrome.length;

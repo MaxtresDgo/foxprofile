@@ -38,15 +38,20 @@ def test_grid_cell_columns_and_offset_work_area():
     assert grid_cell(area, (0, 0), 0, 1) == {**area}
 
 
-def test_grid_cell_phones_keep_their_size_in_one_centred_row():
+def test_grid_cell_phones_cascade_from_the_left():
     cells = [grid_cell(AREA, (520, 1000), i, 3, phone=True) for i in range(3)]
-    assert cells == [{"left": 180, "top": 0}, {"left": 700, "top": 0}, {"left": 1220, "top": 0}]
+    assert cells == [{"left": 0, "top": 0}, {"left": 32, "top": 0}, {"left": 64, "top": 0}]
 
 
-def test_grid_cell_phones_overlap_when_the_row_is_full():
-    cells = [grid_cell(AREA, (520, 1000), i, 6, phone=True) for i in range(6)]
-    assert [c["left"] for c in cells] == [0, 280, 560, 840, 1120, 1400]
-    assert cells[-1]["left"] + 520 == AREA["width"]
+def test_grid_cell_phones_cascade_closer_rather_than_leave_the_screen():
+    cells = [grid_cell(AREA, (520, 1000), i, 50, phone=True) for i in range(50)]
+    assert [c["left"] for c in cells[:3]] == [0, 28, 56]
+    assert cells[-1]["left"] + 520 <= AREA["width"]
+
+
+def test_grid_cell_phone_wider_than_the_screen_stays_at_its_left():
+    area = {"left": 10, "top": 0, "width": 400, "height": 800}
+    assert grid_cell(area, (520, 1000), 2, 3, phone=True) == {"left": 10, "top": 0}
 
 
 class FakeSession:
@@ -124,8 +129,8 @@ def test_arrange_a_phone_only_moves_it(fast_sleep):
     result = asyncio.run(
         PageController(ctx, touch=True).dispatch("arrange", {"index": 0, "count": 2})
     )
-    # Two 700px phones fit: centred, and the window keeps its size.
-    assert result == {"left": 260, "top": 0, "width": 700, "height": 500}
+    # The first phone of the cascade: at the left, and the window keeps its size.
+    assert result == {"left": 0, "top": 0, "width": 700, "height": 500}
 
 
 def test_arrange_without_cdp_is_a_control_error(fast_sleep):
