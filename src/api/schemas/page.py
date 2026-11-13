@@ -21,6 +21,7 @@ class TypeRequest(BaseModel):
     submit: bool = Field(False, description="Press Enter after typing")
     clear: bool = Field(True, description="Replace the field's value instead of appending")
     timeout: int = Field(10_000, ge=100, le=120_000)
+    human: bool = Field(False, description="Type key by key with random pauses, like a person")
 
 
 class PressRequest(BaseModel):

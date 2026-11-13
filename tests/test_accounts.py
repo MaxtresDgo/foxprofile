@@ -206,6 +206,8 @@ def test_login_fills_fields_in_order_and_the_code_only_when_asked():
         (vis(recipe["fields"][1][0]), "pw", True),
         (vis(recipe["otp"]), totp(RFC_SECRET, 39)[0], True),
     ]
+    # Key by key, like a person.
+    assert all(p["human"] for a, p in bl.calls if a == "type")
     # In a new tab, so the profile's own tabs stay as they were.
     assert bl.calls[0] == ("tab_new", {"url": None})
     assert bl.calls[1] == ("navigate", {"url": recipe["url"], "wait_until": "load"})
