@@ -418,8 +418,12 @@ class PageController:
         if len(pages) == 1:
             # Closing the last tab closes the profile's browser.
             raise ControlError("Cannot close the last tab; stop the profile instead")
-        await pages[index].close()
-        self._current = None
+        closing, current = pages[index], await self._page()
+        await closing.close()
+        if closing is current:
+            # The tab shown and the one actions go to stay the same (the agent's wall).
+            self._current = None
+            await (await self._page()).bring_to_front()
         return await self.tabs()
 
     # --- sync: record on the leader, replay on the followers -------------
