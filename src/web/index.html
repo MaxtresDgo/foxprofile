@@ -671,7 +671,7 @@ const I18N = {
     chrome_build: "Bản build Chrome", chrome_build_hint: "Bản build cũ hơn sẽ đặt lại dữ liệu trình duyệt; cookie, fingerprint và các tab được giữ.", build_downgrade_confirm: "Chuyển {name} về {version} sẽ đặt lại dữ liệu trình duyệt: lịch sử, local storage (các trang như WhatsApp Web sẽ yêu cầu đăng nhập lại), mật khẩu đã lưu trong trình duyệt và dữ liệu extension. Fingerprint, proxy, các tab và cookie được giữ nguyên.", build_downgrade_go: "Đặt lại và chuyển", chrome_downgraded: "{name} đã chuyển về {version}: dữ liệu trình duyệt được đặt lại, cookie được giữ", not_installed: "chưa cài", build_missing: "Cài bản build Chrome {version} để mở profile này", build_unavailable: "Bản build Chrome {version} không có cho hệ điều hành của máy này", install_build: "Cài {version}", installing_build: "Đang cài {pct}%", install_started: "Đang cài bản build Chrome {version}…", install_failed: "Không cài được bản build Chrome {version}: {error}", act_installing_build: "Đang cài bản build Chrome {version}… {pct}%", build_confirm: "Chuyển {name} sang bản build Chrome {version}? Không thể quay lại bản cũ hơn.",
     engine_note: "Engine Chromium đang thử nghiệm. Mỗi bản build (~150 MB) được cài trên máy chạy trình duyệt bằng nút Cài trong danh sách. Nên chọn đúng hệ điều hành của máy đó, chọn hệ khác sẽ lộ font. Không đổi được engine sau khi tạo.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, hoặc socks5://... Để trống = kết nối trực tiếp.",
-    check_proxy: "Kiểm tra proxy", cancel: "Huỷ", save: "Lưu thay đổi", checking: "Đang kiểm tra...",
+    check_proxy: "Kiểm tra proxy", cancel: "Huỷ", bulk_opening: "Đang mở {done}/{total}", bulk_stopping: "Đang dừng {done}/{total}", bulk_cancelling: "Đang huỷ… các profile đang mở dở sẽ mở xong", bulk_cancelled: "Đã huỷ: mở {done}/{total} profile", save: "Lưu thay đổi", checking: "Đang kiểm tra...",
     confirm_delete: "Xoá profile “{name}”? Cookie và dữ liệu của profile sẽ mất vĩnh viễn.", confirm_title: "Xác nhận", stop_first: "Hãy dừng trình duyệt trước",
     cookie_hint: "Trình duyệt của profile phải đang tắt.", export_json: "Xuất cookie JSON", export_json_hint: "Cookie-Editor, GoLogin, GPM",
     export_txt: "Xuất cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Nhập cookie", import_hint: "Từ file JSON hoặc cookies.txt",
@@ -783,7 +783,7 @@ const I18N = {
     chrome_build: "Chrome build", chrome_build_hint: "An older build resets the browser data; cookies, fingerprint and tabs are kept.", build_downgrade_confirm: "Moving {name} back to {version} resets its browser data: history, local storage (sites such as WhatsApp Web ask you to sign in again), passwords saved in the browser and extension data. The fingerprint, proxy, tabs and cookies are kept.", build_downgrade_go: "Reset and switch", chrome_downgraded: "{name} moved back to {version}: browser data reset, cookies kept", not_installed: "not installed", build_missing: "Install Chrome build {version} to open this profile", build_unavailable: "Chrome build {version} has no download for this PC\u2019s system", install_build: "Install {version}", installing_build: "Installing {pct}%", install_started: "Installing Chrome build {version}…", install_failed: "Could not install Chrome build {version}: {error}", act_installing_build: "Installing Chrome build {version}… {pct}%", build_confirm: "Move {name} to Chrome build {version}? It cannot go back to an older build.",
     engine_note: "Experimental Chromium engine. Each build (~150 MB) is installed on the PC that runs the browser, with the Install button in the list. Pick that machine's OS: other OSes leak its fonts. The engine cannot be changed later.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, or socks5://... Blank = direct connection.",
-    check_proxy: "Check proxy", cancel: "Cancel", save: "Save changes", checking: "Checking...",
+    check_proxy: "Check proxy", cancel: "Cancel", bulk_opening: "Opening {done} of {total}", bulk_stopping: "Stopping {done} of {total}", bulk_cancelling: "Cancelling… the ones already opening finish", bulk_cancelled: "Cancelled: {done} of {total} profiles opened", save: "Save changes", checking: "Checking...",
     confirm_delete: "Delete profile “{name}”? Its cookies and data are removed permanently.", confirm_title: "Confirm", stop_first: "Stop the browser first",
     cookie_hint: "The profile's browser must be stopped.", export_json: "Export cookies as JSON", export_json_hint: "Cookie-Editor, GoLogin, GPM",
     export_txt: "Export cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Import cookies", import_hint: "From a JSON or cookies.txt file",
@@ -895,7 +895,7 @@ const I18N = {
     chrome_build: "Build de Chrome", chrome_build_hint: "Un build más viejo reinicia los datos del navegador; se conservan las cookies, el fingerprint y las pestañas.", build_downgrade_confirm: "Pasar {name} a {version} reinicia los datos de su navegador: historial, almacenamiento local (sitios como WhatsApp Web piden volver a entrar), contraseñas guardadas en el navegador y datos de las extensiones. Se conservan el fingerprint, el proxy, las pestañas y las cookies.", build_downgrade_go: "Reiniciar y pasar", chrome_downgraded: "{name} pasó a {version}: datos del navegador reiniciados, cookies conservadas", not_installed: "no instalado", build_missing: "Instala el build de Chrome {version} para abrir este profile", build_unavailable: "El build de Chrome {version} no tiene descarga para el sistema de este PC", install_build: "Instalar {version}", installing_build: "Instalando {pct} %", install_started: "Instalando el build de Chrome {version}…", install_failed: "No se pudo instalar el build de Chrome {version}: {error}", act_installing_build: "Instalando el build de Chrome {version}… {pct} %", build_confirm: "¿Pasar {name} al build de Chrome {version}? No podrá volver a un build anterior.",
     engine_note: "Engine Chromium experimental. Cada build (~150 MB) se instala en el PC que ejecuta el navegador, con el botón Instalar de la lista. Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass o socks5://... Vacío = conexión directa.",
-    check_proxy: "Probar proxy", cancel: "Cancelar", save: "Guardar cambios", checking: "Comprobando...",
+    check_proxy: "Probar proxy", cancel: "Cancelar", bulk_opening: "Abriendo {done} de {total}", bulk_stopping: "Deteniendo {done} de {total}", bulk_cancelling: "Cancelando… terminan de abrir los que ya iban", bulk_cancelled: "Cancelado: se abrieron {done} de {total} profiles", save: "Guardar cambios", checking: "Comprobando...",
     confirm_delete: "¿Eliminar el profile “{name}”? Sus cookies y datos se borran para siempre.", confirm_title: "Confirmar", stop_first: "Primero detén el navegador",
     cookie_hint: "El navegador del profile debe estar detenido.", export_json: "Exportar cookies en JSON", export_json_hint: "Cookie-Editor, GoLogin, GPM",
     export_txt: "Exportar cookies.txt", export_txt_hint: "Netscape: yt-dlp, curl, wget", import: "Importar cookies", import_hint: "Desde un archivo JSON o cookies.txt",
@@ -976,6 +976,8 @@ const store = {
 let lang = store.get("foxprofile.lang") || "es";
 let token = store.get("foxprofile.token") || "";
 let profiles = [], running = new Set(), fingerprints = {};
+// The bulk open or stop in progress (bulk): {action, done, total, cancelled, finished}.
+let bulkRun = null;
 let builds = null;               // GET /chrome/builds: the browser PC's Chrome engine builds
 let snapshotsOn = false;         // /info: a snapshot bucket is set
 let hub = false, me = null;      // hub mode: browsers open on each operator's PC
@@ -1075,9 +1077,9 @@ function maskProxy(p) {
 const hhmm = (d) => d.toTimeString().slice(0, 5);
 
 // Runs fn over items, at most n at a time.
-async function pool(items, n, fn) {
+async function pool(items, n, fn, stopped = () => false) {
   const queue = [...items];
-  await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => { while (queue.length) await fn(queue.shift()); }));
+  await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => { while (queue.length && !stopped()) await fn(queue.shift()); }));
 }
 
 // One refresh at a time: a call during one asks for another round when it ends,
@@ -1161,7 +1163,8 @@ function render() {
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
   const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, accountReports, [...running].sort(), [...busy], [...failed], [...selected].sort(),
-    [...justLanded], syncs, builds, shown.map((p) => fingerprints[p.name] || null)]);
+    [...justLanded], syncs, builds, shown.map((p) => fingerprints[p.name] || null),
+    bulkRun && [bulkRun.action, bulkRun.done, bulkRun.total, bulkRun.cancelled]]);
   if (key === lastRender) return;
   lastRender = key;
   hideAccountsPop();
@@ -1366,6 +1369,16 @@ function row(p) {
       iconBtn("trash", t("delete"), () => removeProfile(p), "danger", on)));
 }
 
+// The bar's count and Cancel for the bulk open or stop in progress (bulkRun).
+function bulkProgress() {
+  const run = bulkRun;
+  if (!run) return null;
+  const text = run.cancelled ? t("bulk_cancelling")
+    : t(run.action === "launch" ? "bulk_opening" : "bulk_stopping", { done: run.done, total: run.total });
+  return h("span", { class: "sync-chip", role: "status" }, icon(run.action === "launch" ? "play" : "stop", true), text,
+    run.cancelled ? null : h("button", { class: "btn btn-line", onclick: () => { run.cancelled = true; render(); } }, t("cancel")));
+}
+
 function bulkBar() {
   const names = [...selected];
   // A running sync stays visible (and stoppable) with nothing selected.
@@ -1373,32 +1386,41 @@ function bulkBar() {
     icon("sync", true), t("syncing", { leader: s.leader, n: s.followers.length }),
     Object.keys(s.errors).length ? icon("alert", true) : null,
     h("button", { class: "btn btn-line", onclick: () => stopSync(s.leader) }, icon("stop", true), t("sync_stop"))));
-  if (!names.length) return h("div", { class: "bulk" }, chips);
+  const progress = bulkProgress();
+  if (!names.length) return h("div", { class: "bulk" }, progress, chips);
   return h("div", { class: "bulk" },
     h("span", { class: "n" }, t("selected", { n: names.length })),
-    h("button", { class: "btn btn-act", onclick: () => bulk("launch") }, icon("play", true), t("bulk_launch")),
+    h("button", { class: "btn btn-act", onclick: () => bulk("launch"), disabled: !!bulkRun }, icon("play", true), t("bulk_launch")),
     h("button", { class: "btn btn-line", onclick: () => bulk("stop") }, icon("stop", true), t("bulk_stop")),
     h("button", { class: "btn btn-line", onclick: openBulkEdit }, icon("edit", true), t("bulk_edit")),
     h("button", { class: "btn btn-line", onclick: openRunSteps }, icon("steps", true), t("run_steps")),
     h("button", { class: "btn btn-line", onclick: openSync }, icon("sync", true), t("sync")),
     h("button", { class: "btn btn-line", onclick: arrangeWindows }, icon("grid", true), t("arrange")),
     h("button", { class: "btn btn-line", onclick: () => bulk("delete") }, icon("trash", true), t("bulk_delete")),
-    chips,
+    progress, chips,
     h("button", { class: "btn btn-ghost", style: "margin-left:auto", onclick: () => { selected.clear(); render(); } }, t("clear_sel")));
 }
 
 const selectedRunning = () => [...selected].filter((n) => running.has(n));
 
 // Tile the selected running Chrome windows on the screen of the PC running them:
-// desktops share a grid, phones keep their size and stand in a row.
+// desktops share a grid, phones keep their size and cascade from the left.
 async function arrangeWindows() {
   const names = selectedRunning();
   if (!names.length) return toast(t("need_running"), true);
   const chrome = profiles.filter((p) => names.includes(p.name) && p.engine === "chrome");
   if (!chrome.length) return toast(t("arrange_chrome_only"), true);
-  const groups = [chrome.filter((p) => p.os_type !== "android"), chrome.filter((p) => p.os_type === "android")];
-  const calls = groups.flatMap((g) => g.map((p, i) => ({ name: p.name, body: { index: i, count: g.length } })));
-  const results = await Promise.allSettled(calls.map((c) => api("POST", `/browser/${enc(c.name)}/page/arrange`, c.body)));
+  const desktops = chrome.filter((p) => p.os_type !== "android");
+  const phones = chrome.filter((p) => p.os_type === "android");
+  const call = (p, i, g) => ({ name: p.name, body: { index: i, count: g.length } });
+  const calls = [...desktops.map(call), ...phones.map(call)];
+  const send = (c) => api("POST", `/browser/${enc(c.name)}/page/arrange`, c.body);
+  const grid = Promise.allSettled(calls.slice(0, desktops.length).map(send));
+  // Each arranged window comes to the front: phones go one after another so the
+  // cascade stacks in order, the last one whole on top.
+  const cascade = [];
+  for (const c of calls.slice(desktops.length)) cascade.push(await send(c).then((value) => ({ status: "fulfilled", value }), (reason) => ({ status: "rejected", reason })));
+  const results = [...(await grid), ...cascade];
   const bad = results.flatMap((r, i) => (r.status === "rejected" ? [`${calls[i].name}: ${r.reason.message}`] : []));
   if (bad.length) return toast(bad.join(" · "), true);
   const skipped = names.length - chrome.length;
@@ -1485,11 +1507,34 @@ async function bulk(action) {
     if (fails.length) toastFailures(fails, done); else if (done) toast(done);
     return refresh();
   }
+  if (bulkRun && bulkRun.action === action) return;
+  if (bulkRun) {
+    // Stop during an open: the open ends first, or it would keep opening the
+    // rest of the list; the ones it was opening then get stopped too.
+    bulkRun.cancelled = true;
+    render();
+    await bulkRun.finished;
+  }
   const targets = profiles.filter((p) => names.includes(p.name) && (action === "launch" ? !running.has(p.name) : running.has(p.name)));
-  // A few at a time: in hub mode they all open on this one PC.
+  if (!targets.length) return;
+  // A few at a time: in hub mode they all open on this one PC. The bar shows
+  // how far it is, with Cancel: the next ones are not started.
   const fails = [];
-  await pool(targets, 3, async (p) => { const error = await toggle(p, { quiet: true, batch: true }); if (error) fails.push([p.name, error]); });
+  const run = { action, done: 0, total: targets.length, cancelled: false };
+  let finish;
+  run.finished = new Promise((resolve) => { finish = resolve; });
+  bulkRun = run;
+  render();
+  await pool(targets, 3, async (p) => {
+    const error = await toggle(p, { quiet: true, batch: true });
+    if (error) fails.push([p.name, error]);
+    run.done++;
+    render();
+  }, () => run.cancelled);
+  if (bulkRun === run) bulkRun = null;
+  finish();
   await refresh();
+  if (run.cancelled && action === "launch") toast(t("bulk_cancelled", { done: run.done, total: run.total }));
   if (fails.length) toastFailures(fails);
 }
 

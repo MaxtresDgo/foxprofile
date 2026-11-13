@@ -51,6 +51,7 @@ import urllib.parse  # noqa: E402
 import urllib.request  # noqa: E402
 import webbrowser  # noqa: E402
 import zipfile  # noqa: E402
+from collections.abc import Callable  # noqa: E402
 
 from chrome_engine.fetch import installed_versions as fetch_installed_versions  # noqa: E402
 from src.api.schemas.proxy import GeoCheckResponse  # noqa: E402
@@ -345,11 +346,11 @@ class Agent:
             self.chrome_installs.pop(version, None)
             self.report(force=True)
 
-    def stop(self, name: str) -> None:
+    def stop(self, name: str, said: str = "agent_stopped_panel") -> None:
         # stop_profile does not fire on_stop, so sync here.
         # Time for the browser to close and write its cookies before the upload.
         if self.bl.stop_profile(name, timeout=15):
-            say(get_string("agent_stopped_panel", name=name))
+            say(get_string(said, name=name))
             self._sync(name)
         else:
             # Not running here (lost launch, or already closed): just free it.
@@ -849,11 +850,13 @@ class BrowserWall:
     # What a tile can do: look, click, scroll, type, load pages and switch tabs.
     ACTIONS = frozenset(
         {"viewport", "tabs", "tab_new", "tab_select", "navigate", "back", "reload",
-         "click_at", "wheel", "keyboard_type", "press"}
+         "click_at", "wheel", "keyboard_type", "press", "tab_close"}
     )  # fmt: skip
 
-    def __init__(self, launcher) -> None:
+    def __init__(self, launcher, stop: Callable[[str], None] | None = None) -> None:
         self.bl = launcher
+        # Closes a profile's browser and uploads its data (Agent.stop): the tile's ✕.
+        self.stop = stop
         self.proc: subprocess.Popen | None = None
         self.lock = threading.Lock()  # self.proc
         self.write_lock = threading.Lock()  # lines to its stdin
@@ -917,11 +920,18 @@ class BrowserWall:
     def _run(self, proc: subprocess.Popen, ask: dict) -> None:
         answer: dict = {"reply": ask["id"]}
         action, params = ask.get("action"), ask.get("params") or {}
-        if action not in self.ACTIONS or not isinstance(params, dict):
+        name = str(ask.get("name"))
+        if action == "stop" and self.stop is not None:
+            if name in self.bl.session_pids():
+                self.stop(name)
+                answer.update(ok=True, result={})
+            else:
+                answer.update(ok=False, error=get_string("err_browser_not_running"))
+        elif action not in self.ACTIONS or not isinstance(params, dict):
             answer.update(ok=False, error=f"Unknown action '{action}'")
         else:
             try:
-                result = self.bl.control(str(ask.get("name")), action, params, timeout=30)
+                result = self.bl.control(name, action, params, timeout=30)
                 answer.update(ok=True, result=result)
             except BrowserControlError as e:
                 answer.update(ok=False, error=str(e))
@@ -989,7 +999,9 @@ class App:
         )
         self.client.on_unauthorized = self._unauthorized
         self.agent = Agent(self.client, self.set_status, self.notify)
-        self.wall = BrowserWall(self.agent.bl)
+        self.wall = BrowserWall(
+            self.agent.bl, lambda name: self.agent.stop(name, said="agent_stopped_wall")
+        )
         # Run from source: no update hook would load the hub's code, so an
         # update would only restart into the same code, again and again.
         self.agent.follow_updates = (agent_code.INSTALLED / "BUILD").exists()

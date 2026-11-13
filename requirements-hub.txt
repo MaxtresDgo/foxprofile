@@ -2,3 +2,8 @@
 # (FOXPROFILE_S3_*, docs/HUB.md). Not in requirements.txt: the agent installers
 # ship that file, and a change there asks every agent for a new installer.
 boto3>=1.34
+# The full IANA zone list for zoneinfo (chrome_engine/probe.same_timezone): Linux
+# images such as Ubuntu 24.04 moved the old aliases (Asia/Saigon, Europe/Kiev),
+# which Chrome still reports, to an optional package. Windows agents get it from
+# requirements.txt.
+tzdata>=2024.1

@@ -162,6 +162,16 @@ def key_action(keysym: str, char: str, state: int) -> tuple[str, str] | None:
     return "press", "+".join([*mods, name])
 
 
+def common_shape(shape: float | None, shapes: Iterable[float | None]) -> float:
+    """The height / width every tile of this kind gets: the tallest phone among
+    the phones (each phone persona is another model, its window another shape),
+    the tallest desktop among the desktops. Pictures fill the width, top-aligned."""
+    if shape is None:
+        return 10 / 16
+    phone = shape >= 1
+    return max(s for s in shapes if s is not None and (s >= 1) == phone)
+
+
 def columns(width: float, tile: float, gap: float) -> int:
     """How many tiles of `tile` px fit side by side."""
     return max(1, int((width - gap) // (tile + gap)))
@@ -431,6 +441,7 @@ class Tile:
         tk.Label(
             head, text=name, font=("Segoe UI Semibold", 10), background=bg, foreground=ink
         ).pack(side=tk.LEFT)
+        self.button(head, "✕", self.close_browser).pack(side=tk.RIGHT)
         self.button(head, "⤢", self.open_window).pack(side=tk.RIGHT)
         self.status = tk.Label(
             head, font=("Segoe UI", 9), background=bg, foreground=muted, anchor="e", width=1
@@ -562,13 +573,24 @@ class Tile:
             child.destroy()
         for tab in tabs:
             title = (tab.get("title") or tab.get("url") or "")[:18]
-            b = self.button(
-                self.tabs, title, lambda i=tab["index"]: self.act("tab_select", {"index": i})
+            active = bool(tab.get("active"))
+            bg = COLORS["cover_line"] if active else COLORS["cover_deep"]
+            box = tk.Frame(self.tabs, background=bg)
+            box.pack(side=tk.LEFT, padx=(0, round(2 * s)))
+            pick = self.button(
+                box, title, lambda i=tab["index"]: self.act("tab_select", {"index": i})
             )
-            b.configure(font=("Segoe UI", 8), anchor="w")
-            if tab.get("active"):
-                b.configure(background=COLORS["cover_line"], font=("Segoe UI Semibold", 8))
-            b.pack(side=tk.LEFT, padx=(0, round(2 * s)))
+            pick.configure(
+                font=("Segoe UI Semibold" if active else "Segoe UI", 8), anchor="w", background=bg
+            )
+            pick.pack(side=tk.LEFT)
+            # The last tab stays: closing it would close the profile's browser.
+            if len(tabs) > 1:
+                close = self.button(
+                    box, "×", lambda i=tab["index"]: self.act("tab_close", {"index": i})
+                )
+                close.configure(font=("Segoe UI", 8), background=bg, padx=round(3 * s))
+                close.pack(side=tk.LEFT)
         self.button(self.tabs, "+", lambda: self.act("tab_new", {"url": None})).pack(side=tk.LEFT)
 
     def error(self, text: str) -> None:
@@ -674,13 +696,28 @@ class Tile:
         if self.hwnd and user32.IsWindow(self.hwnd):
             bring_to_front(self.hwnd)
 
+    def close_browser(self) -> None:
+        """Close the profile's browser, as Stop in the panel does: the agent
+        uploads its data to the hub. The tile goes when the browser is gone."""
+        from tkinter import messagebox
+
+        if not messagebox.askyesno(
+            get_string("agent_wall_close_title"),
+            get_string("agent_wall_close_confirm", name=self.name),
+            parent=self.wall.root,
+        ):
+            return
+        self.status.configure(
+            text=get_string("agent_wall_closing"), foreground=COLORS["cover_muted"]
+        )
+        self.act("stop")
+
     # --- picture ------------------------------------------------------------------
 
-    def size(self, width: int) -> None:
-        """The screen frame: the tile's width, as tall as the window's page area.
-        Not the page's own size, which changes as a site shows or hides a bar:
-        the tiles would jump around."""
-        shape = self.shape or 10 / 16
+    def size(self, width: int, shape: float) -> None:
+        """The screen frame: the tile's width, as tall as `shape` (common_shape):
+        from the windows' page areas, not the pages' own size, which changes as a
+        site shows or hides a bar and would make the tiles jump around."""
         height = min(round(width * shape), round(self.wall.max_height()))
         self.screen.configure(width=width, height=max(60, height))
 
@@ -701,7 +738,8 @@ class Tile:
         if self.shape is None or abs(shape - self.shape) > self.shape * RESHAPE:
             self.shape = shape  # the window was resized: the tile follows, once
             self.wall.root.after_idle(self.wall.relayout)
-        self.shown = fit(aw, ah, (0, 0, w, h))
+        left, top, right, bottom = fit(aw, ah, (0, 0, w, h))
+        self.shown = (left, 0, right, bottom - top)  # top-aligned
         ox = self.screen.winfo_rootx() - self.wall.root.winfo_rootx()
         oy = self.screen.winfo_rooty() - self.wall.root.winfo_rooty()
         dest = (ox + self.shown[0], oy + self.shown[1], ox + self.shown[2], oy + self.shown[3])
@@ -874,9 +912,10 @@ class Wall:
         gap = round(GAP * self.scale)
         cols = columns(self.canvas.winfo_width(), width + 4, gap)
         names = sorted(self.tiles, key=str.casefold)
+        shapes = [t.shape for t in self.tiles.values()]
         for i, name in enumerate(names):
             tile = self.tiles[name]
-            tile.size(width)
+            tile.size(width, common_shape(tile.shape, shapes))
             tile.frame.grid(
                 row=i // cols, column=i % cols, padx=(gap, 0), pady=(gap, 0), sticky="n"
             )

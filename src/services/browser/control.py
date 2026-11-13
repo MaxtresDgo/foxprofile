@@ -45,6 +45,8 @@ def jpeg_width(data: bytes) -> int | None:
 
 
 MAX_ARRANGE = 50
+# How far each phone window sits to the right of the one before it (grid_cell).
+CASCADE_STEP = 32
 MAX_HOLD_MS = 3000  # the longest press click_at holds
 TITLE_WAIT_S = 0.5  # tabs(): how long a tab's title may take
 MIN_SHOT_WIDTH, MAX_SHOT_WIDTH = 80, 4096
@@ -69,13 +71,14 @@ def grid_cell(
 
     A desktop window takes its cell: `columns` per row, by default as many as
     rows. A phone keeps its `size`, since its page is the phone's and would be
-    cut off, not shrunk: phones stand in one row, overlapping when it is full."""
+    cut off, not shrunk: phones cascade from the left, each CASCADE_STEP to the
+    right of the one before (closer when they would leave the screen), so every
+    window's edge stays in sight and the last one is whole in front."""
     left, top, width, height = area["left"], area["top"], area["width"], area["height"]
     if phone:
-        w = size[0]
-        step = w if count * w <= width else (width - w) // max(count - 1, 1)
-        start = left + max(0, (width - count * w) // 2) if step == w else left
-        return {"left": start + index * max(step, 0), "top": top}
+        room = max(width - size[0], 0)
+        step = min(CASCADE_STEP, room // max(count - 1, 1))
+        return {"left": left + index * step, "top": top}
     cols = max(1, min(columns or math.ceil(math.sqrt(count)), count))
     rows = math.ceil(count / cols)
     w, h = width // cols, height // rows
@@ -418,8 +421,12 @@ class PageController:
         if len(pages) == 1:
             # Closing the last tab closes the profile's browser.
             raise ControlError("Cannot close the last tab; stop the profile instead")
-        await pages[index].close()
-        self._current = None
+        closing, current = pages[index], await self._page()
+        await closing.close()
+        if closing is current:
+            # The tab shown and the one actions go to stay the same (the agent's wall).
+            self._current = None
+            await (await self._page()).bring_to_front()
         return await self.tabs()
 
     # --- sync: record on the leader, replay on the followers -------------
