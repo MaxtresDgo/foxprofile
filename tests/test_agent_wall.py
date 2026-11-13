@@ -4,7 +4,16 @@ import io
 import json
 
 from src.agent import BrowserWall
-from src.agent_wall import clip, columns, descendants, fit, key_action, match, to_page
+from src.agent_wall import (
+    clip,
+    columns,
+    common_shape,
+    descendants,
+    fit,
+    key_action,
+    match,
+    to_page,
+)
 from src.services.browser.launcher import BrowserControlError
 
 
@@ -100,9 +109,30 @@ def test_the_wall_runs_page_actions_and_nothing_else():
     wall, proc = BrowserWall(launcher), FakeProc([])
     wall._run(proc, {"id": 1, "name": "a", "action": "click_at", "params": {"x": 1, "y": 2}})
     wall._run(proc, {"id": 2, "name": "a", "action": "evaluate", "params": {"script": "1"}})
+    assert "tab_close" in BrowserWall.ACTIONS
     wall._run(proc, {"id": 3, "name": "gone", "action": "back", "params": {}})
     replies = [json.loads(x) for x in proc.stdin.getvalue().splitlines()]
     assert replies[0] == {"reply": 1, "ok": True, "result": {"url": "https://example.test/"}}
     assert replies[1]["reply"] == 2 and not replies[1]["ok"]
     assert replies[2] == {"reply": 3, "ok": False, "error": "not running"}
     assert launcher.calls == [("a", "click_at", {"x": 1, "y": 2}), ("gone", "back", {})]
+
+
+def test_tiles_of_a_kind_share_one_shape():
+    shapes = [2.05, 1.98, 2.17, 0.52, 0.6, None]  # three phone models, two desktops, one unknown
+    assert common_shape(1.98, shapes) == 2.17
+    assert common_shape(0.52, shapes) == 0.6
+    assert common_shape(None, shapes) == 10 / 16
+
+
+def test_the_tile_close_button_stops_the_browser_like_the_panel():
+    stopped = []
+    launcher = FakeLauncher([{"a": 1}])
+    wall, proc = BrowserWall(launcher, stop=stopped.append), FakeProc([])
+    wall._run(proc, {"id": 1, "name": "a", "action": "stop", "params": {}})
+    wall._run(proc, {"id": 2, "name": "b", "action": "stop", "params": {}})  # not running here
+    replies = [json.loads(x) for x in proc.stdin.getvalue().splitlines()]
+    assert stopped == ["a"]
+    assert replies[0] == {"reply": 1, "ok": True, "result": {}}
+    assert replies[1]["reply"] == 2 and not replies[1]["ok"]
+    assert launcher.calls == []  # not a page action

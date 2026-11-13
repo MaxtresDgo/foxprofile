@@ -119,3 +119,45 @@ def test_the_wheel_goes_to_the_point_through_cdp():
         "Input.dispatchMouseEvent",
         {"type": "mouseWheel", "x": 10, "y": 20, "deltaX": 0, "deltaY": 300},
     )
+
+
+class TabPage(FakePage):
+    def __init__(self, log, name):
+        super().__init__(log)
+        self.log, self.name, self.closed = log, name, False
+
+    def is_closed(self):
+        return self.closed
+
+    async def close(self):
+        self.closed = True
+
+    async def bring_to_front(self):
+        self.log.append(("front", self.name))
+
+
+def test_closing_the_active_tab_shows_the_one_actions_now_go_to():
+    ctx = FakeContext()
+    ctx.pages = [TabPage(ctx.log, "a"), TabPage(ctx.log, "b"), TabPage(ctx.log, "c")]
+    controller = control.PageController(ctx)
+    asyncio.run(controller.tab_select(1))
+    ctx.log.clear()
+    tabs = asyncio.run(controller.tab_close(1))["tabs"]
+    assert [t["active"] for t in tabs] == [False, True]
+    assert ctx.log == [("front", "c")]
+    # A background tab closes without moving the view.
+    ctx.log.clear()
+    asyncio.run(controller.tab_close(0))
+    assert ctx.log == []
+
+
+def test_the_last_tab_is_not_closed():
+    ctx = FakeContext()
+    ctx.pages = [TabPage(ctx.log, "a")]
+    try:
+        asyncio.run(control.PageController(ctx).tab_close(0))
+    except control.ControlError:
+        pass
+    else:
+        raise AssertionError("closed the last tab")
+    assert not ctx.pages[0].closed
