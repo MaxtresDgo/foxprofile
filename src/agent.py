@@ -217,12 +217,21 @@ class Agent:
         # Group and accounts for each launch's start page, as the hub sent them.
         self._details: dict[str, dict] = {}
         self.bl.details = lambda profile: self._details.get(profile.name, {})
+        self.bl.report = self._account_report
         self.proxies = container.proxy_service
         self.data_root = pathlib.Path(DATA_DIR)
         self.data_root.mkdir(parents=True, exist_ok=True)
 
     def q(self, name: str) -> str:
         return urllib.parse.quote(name, safe="")
+
+    def _account_report(self, profile: Profile, body) -> dict:
+        return self.hub.call(
+            "POST",
+            f"/profiles/{self.q(profile.name)}/account-reports",
+            body.model_dump_json().encode(),
+            timeout=15,
+        )
 
     # --- activity (the panel's "Your PC" line) ---------------------------------
 

@@ -1,6 +1,7 @@
 """Snapshots of a profile's browser data in an S3 bucket (a NAS running RustFS,
 MinIO, AWS; config.SNAPSHOT_S3_*): the server keeps only the current version on
-its disk, the bucket the last SNAPSHOTS_KEEP of each profile.
+its disk, the bucket one per day (the day's last) for the last SNAPSHOTS_KEEP days
+with one: opening and closing a profile all day only ever replaces today's.
 
 Each snapshot is an export_to_zip archive (no caches, never the site accounts) at
 <SNAPSHOT_PREFIX><uid>/<id>.zip: filed under the profile's uid, which a rename
@@ -70,6 +71,11 @@ def new_id() -> str:
 def created(snap_id: str) -> str:
     when = datetime.strptime(snap_id[:15], "%Y%m%d-%H%M%S")
     return when.replace(tzinfo=timezone.utc).isoformat()
+
+
+def _day(snap_id: str):
+    """The day a snapshot belongs to, in the server's time zone (TZ env)."""
+    return datetime.fromisoformat(created(snap_id)).astimezone().date()
 
 
 def _key(uid: str, snap_id: str) -> str:
@@ -144,8 +150,13 @@ def upload(profile: Profile, zip_path: str, snap_id: str | None = None) -> str:
         _key(profile.uid, snap_id),
         ExtraArgs={"Metadata": {"profile": meta}},
     )
-    for old in _ids(profile.uid)[config.SNAPSHOTS_KEEP :]:
-        _client().delete_object(Bucket=config.SNAPSHOT_S3_BUCKET, Key=_key(profile.uid, old))
+    days: set = set()
+    for old in _ids(profile.uid):  # newest first: each day keeps its last
+        day = _day(old)
+        if day in days or len(days) >= config.SNAPSHOTS_KEEP:
+            _client().delete_object(Bucket=config.SNAPSHOT_S3_BUCKET, Key=_key(profile.uid, old))
+        else:
+            days.add(day)
     logger.info("Snapshot %s of %s saved", snap_id, profile.name)
     return snap_id
 

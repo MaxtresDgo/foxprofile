@@ -150,8 +150,11 @@ def test_protocol_control_and_tab_restore(chrome_exe, tmp_path, origin_url):
             ":", 2
         )
         tabs = control(int(port), token, "tabs")["tabs"]
-        # The start page (services/browser/label.py), named after the profile, then the saved tabs.
-        assert sorted(t["title"] for t in tabs) == ["alice", "page /one", "page /two"]
+        # The start page (services/browser/label.py), named after the profile, Facebook
+        # (always opened first) and the saved tabs.
+        titles = [t["title"] for t in tabs]
+        assert "alice" in titles
+        assert sorted(t for t in titles if t.startswith("page ")) == ["page /one", "page /two"]
     finally:
         runner.stop()
     assert json.loads(persona_file.read_text("utf-8")) == first_persona

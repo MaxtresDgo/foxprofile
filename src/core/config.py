@@ -78,6 +78,10 @@ AUTH_ACCESS_PERMISSION = _env("AUTH_ACCESS_PERMISSION", "foxprofile:access")
 # which signs the user in and names where the panel POSTs their key. Only a holder
 # of the secret can name that address. Empty = linking off.
 ARMY_SECRET = _env("ARMY_SECRET", "")
+# Army backends told when account reports change (hub/army_events.py), e.g.
+# https://api.army.example/perfiles/fox/eventos. Comma separated, one per Army
+# environment linked to this hub; signed with ARMY_SECRET. Empty = Army only polls.
+ARMY_WEBHOOK_URLS = [u.strip() for u in _env("ARMY_WEBHOOK_URLS", "").split(",") if u.strip()]
 # Agent side: where the hub is and which operator this PC belongs to.
 HUB_URL = _env("HUB_URL", "").rstrip("/")
 # Agent installers in a private S3 bucket (RustFS, MinIO, AWS) instead of next to
@@ -98,8 +102,8 @@ S3_PREFIX = f"fox-profiles/{S3_ENV}/installers/"
 # Profile snapshots (services/profile/snapshots.py): each synced or saved version of
 # a profile as a ZIP in a bucket, such as a NAS running RustFS. Opt-in: the bucket
 # must be named here (cookies go into it); endpoint, keys and region fall back to
-# S3_*. SNAPSHOTS=0 turns them off too.
-SNAPSHOTS_KEEP = int(_env("SNAPSHOTS", "5"))
+# S3_*. One per day (its last), for the last SNAPSHOTS days. SNAPSHOTS=0 turns them off too.
+SNAPSHOTS_KEEP = int(_env("SNAPSHOTS", "3"))
 SNAPSHOT_S3_ENDPOINT = _env("SNAPSHOT_S3_ENDPOINT", "").rstrip("/") or S3_ENDPOINT
 SNAPSHOT_S3_BUCKET = _env("SNAPSHOT_S3_BUCKET", "")
 SNAPSHOT_S3_ACCESS_KEY = _env("SNAPSHOT_S3_ACCESS_KEY", "") or S3_ACCESS_KEY

@@ -81,6 +81,29 @@ def test_failed_spawn_releases_the_profile(bl, monkeypatch):
         pass
 
 
+def test_reports_use_a_per_launch_bridge_and_revoke_it_on_close(bl, monkeypatch):
+    from tests.test_reporting_bridge import send
+
+    stopped = []
+    monkeypatch.setattr(
+        launcher_mod, "wait_for_exit", lambda proc, name, notify: stopped.append(notify)
+    )
+    bl.report = lambda profile, body: {"id": body.request_id}
+    assert bl.start_thread(Profile(name="p"), lambda message: None)
+    bridge = bl._report_bridges["p"]
+    body = {"request_id": "a" * 32, "platform": "facebook", "status": "suspendido"}
+    assert send(bridge, body)[0] == 200
+    # wait_for_exit runs on its own thread.
+    import time
+
+    deadline = time.monotonic() + 3
+    while not stopped and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert stopped
+    stopped[0]()
+    assert "p" not in bl._report_bridges and not bridge.thread.is_alive()
+
+
 class _Profiles:
     def __init__(self, *names):
         self.profiles = {n: Profile(name=n) for n in names}

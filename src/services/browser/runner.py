@@ -3,6 +3,7 @@ import contextlib
 import os
 import signal
 import sys
+from urllib.parse import urlparse
 
 sys.path.insert(
     0,
@@ -63,6 +64,20 @@ def _setup_signals(loop: asyncio.AbstractEventLoop) -> None:
         pass
 
 
+def _is_facebook(url: str) -> bool:
+    host = urlparse(url).hostname or ""
+    return host == "facebook.com" or host.endswith(".facebook.com")
+
+
+def facebook_first(urls: list[str]) -> list[str]:
+    """The tabs to open, Facebook first: the saved Facebook tab moved to the front,
+    or Facebook's home put before the others when none was saved."""
+    fb = next((u for u in urls if _is_facebook(u)), None)
+    if fb is None:
+        return [HOME_URL, *urls]
+    return [fb, *(u for u in urls if u is not fb)]
+
+
 def _open_urls(context: object) -> list[str]:
     return [p.url for p in context.pages if not p.is_closed()]
 
@@ -70,28 +85,32 @@ def _open_urls(context: object) -> list[str]:
 async def open_tabs(
     context: object, profile_dir: str, tag: dict, place_job: asyncio.Future | None = None
 ) -> int:
-    """The start page first, then the saved tabs, or Facebook's home to work in; on
-    Windows, the number on the browser's taskbar icon too."""
+    """The start page first, then Facebook, then the other saved tabs; on Windows,
+    the number on the browser's taskbar icon too. Returns how many were saved."""
+    blank = None
     try:
         await label.open_tab(context, tag, place_job)
     except Exception as e:  # a missing label never stops the launch
         _safe_print(f"Warning: no label tab: {_compact_error(e, 200)}")
+        # Its first tab is left blank: Facebook goes there instead of after it.
+        blank = context.pages[0] if context.pages else None
     taskbar.start(tag["number"], tag["name"])
-    restored = await restore_tabs(context, session.load(profile_dir)) if RESTORE_TABS else 0
-    if not restored:
-        await restore_tabs(context, [HOME_URL])
-    return restored
+    saved = session.load(profile_dir) if RESTORE_TABS else []
+    await restore_tabs(context, facebook_first(saved), blank)
+    return len(saved)
 
 
-async def restore_tabs(context: object, urls: list[str]) -> int:
-    """Reopen saved tabs, each in a new tab after the ones already open.
+async def restore_tabs(context: object, urls: list[str], reuse: object | None = None) -> int:
+    """Reopen saved tabs, each in a new tab after the ones already open; the first
+    one goes into `reuse` when given.
 
     Waits only for navigation to commit, so a slow site does not hold up the
     launch; a tab that fails to load stays open on whatever it reached.
     """
     if not urls:
         return 0
-    pages = [await context.new_page() for _ in urls]
+    pages = [reuse or await context.new_page()]
+    pages += [await context.new_page() for _ in urls[1:]]
 
     async def go(page: object, url: str) -> None:
         try:

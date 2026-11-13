@@ -1,0 +1,16 @@
+:root { color-scheme: light; font: 14px/1.5 system-ui, sans-serif; color: #1e2422; background: #f3f4ef; }
+* { box-sizing: border-box; }
+body { width: 340px; margin: 0; }
+header { padding: 16px 20px; background: #17332e; color: #e8efea; }
+header span { color: #a3bab0; font-size: 12px; }
+h1 { margin: 4px 0; font-size: 19px; }
+p { margin: 8px 0; overflow-wrap: anywhere; }
+main { padding: 12px 20px 16px; }
+label { display: block; margin-top: 12px; font-weight: 600; }
+select, textarea, button { width: 100%; font: inherit; border-radius: 6px; padding: 8px; }
+select, textarea { border: 1px solid #b4bdb0; background: #fbfbf8; color: inherit; }
+textarea { resize: vertical; }
+button { margin-top: 16px; border: 0; background: #17332e; color: #fff; cursor: pointer; }
+button:disabled { opacity: .6; cursor: default; }
+:focus-visible { outline: 3px solid #c2510f; outline-offset: 2px; }
+#message[data-error="true"] { color: #a22c25; }

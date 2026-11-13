@@ -5,7 +5,7 @@ own user agent, languages and timezone.
 
 The launcher hands what the runner cannot know (number, remark, hub group, the
 accounts' platform and user name, never a password) to the runner in
-FOXPROFILE_LABEL. The badge is a tiny extension written at each launch, with no
+FOXPROFILE_LABEL. The badge also opens the reporting popup and is written at each launch, with no
 content scripts and no web-accessible resources, so pages cannot see it.
 """
 
@@ -48,6 +48,9 @@ def details(group: str | None, accounts: list[dict]) -> dict:
     return {
         "group": group or "",
         "accounts": [{"platform": a["platform"], "username": a["username"]} for a in accounts],
+        "report_accounts": [
+            {"id": a["id"], "platform": a["platform"], "username": a["username"]} for a in accounts
+        ],
     }
 
 
@@ -86,6 +89,8 @@ def current(name: str, proxy: str = "", os_type: str = "") -> dict:
         "remark": data.get("remark") or "",
         "group": data.get("group") or "",
         "accounts": data.get("accounts") or [],
+        "report_accounts": data.get("report_accounts") or [],
+        "report": data.get("report"),
         "proxy": _proxy_kind(proxy),
         "os": os_type,
         "started": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -104,8 +109,8 @@ def full_title(tag: dict[str, str]) -> str:
 
 
 def write_extension(tag: dict[str, str], engine: str) -> str | None:
-    """The badge extension's folder for this launch, or None without a number."""
-    if not tag["number"]:
+    """The badge and report popup for this launch, or None when neither is needed."""
+    if not tag["number"] and not tag.get("report"):
         return None
     title = full_title(tag)
     if engine == "chrome":
@@ -123,6 +128,14 @@ def write_extension(tag: dict[str, str], engine: str) -> str | None:
             "background": {"scripts": ["badge.js"]},
         }
     manifest.update(name=title[:75], version="1.0")
+    if tag.get("report"):
+        action = manifest["action" if engine == "chrome" else "browser_action"]
+        action["default_popup"] = "popup.html"
+        manifest["permissions"] = ["activeTab"]
+        if engine == "chrome":
+            manifest["host_permissions"] = ["http://127.0.0.1/*"]
+        else:
+            manifest["permissions"].append("http://127.0.0.1/*")
     # Badge state is not kept across restarts: set it whenever the script starts.
     script = (
         "const action = chrome.action || chrome.browserAction;\n"
@@ -140,6 +153,17 @@ def write_extension(tag: dict[str, str], engine: str) -> str | None:
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (folder / "badge.js").write_text(script, encoding="utf-8")
+    if tag.get("report"):
+        assets = pathlib.Path(__file__).resolve().parents[2] / "web" / "account-report"
+        for filename in ("popup.html", "popup.js", "popup.css"):
+            (folder / filename).write_bytes((assets / filename).read_bytes())
+        config = {
+            **tag["report"],
+            "profile": tag["name"],
+            "lang": current_language(),
+            "accounts": tag.get("report_accounts", []),
+        }
+        (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     return str(folder)
 
 

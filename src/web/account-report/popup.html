@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FoxProfile</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <header><span>FoxProfile</span><h1 id="heading">Reportar cuenta</h1><p id="profile"></p></header>
+  <main>
+    <p id="network"></p>
+    <form id="report-form" hidden>
+      <label for="account" id="account-label"></label>
+      <select id="account" required></select>
+      <label for="status" id="status-label"></label>
+      <select id="status" required></select>
+      <label for="note" id="note-label"></label>
+      <textarea id="note" maxlength="1000" rows="3"></textarea>
+      <button id="send" type="submit"></button>
+    </form>
+    <p id="message" role="status" aria-live="polite"></p>
+  </main>
+</body>
+</html>
