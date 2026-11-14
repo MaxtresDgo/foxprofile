@@ -61,10 +61,14 @@ def test_the_local_panel_opens_copies_only_while_the_hub_is_down(tmp_path, monke
         assert _call(panel, "POST", "/api/open", panel.token, body={"name": "nope"})[0] == 400
         agent.state = "live"
         assert _call(panel, "POST", "/api/stop", panel.token, body={"name": "p1"})[0] == 200
-        time.sleep(0.2)  # both run in their own thread
+        deadline = time.monotonic() + 5  # both run in their own thread
+        while len(agent.calls) < 2 and time.monotonic() < deadline:
+            time.sleep(0.02)
         assert agent.calls == [("open", "p1"), ("stop", "p1", "agent_stopped_local")]
 
         # The token survives a restart (an update restarts the agent).
-        assert LocalPanel(agent, port=0).token == panel.token
+        again = LocalPanel(agent, port=0)
+        again.server.server_close()
+        assert again.token == panel.token
     finally:
         panel.close()

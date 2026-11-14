@@ -105,11 +105,16 @@ class LocalPanel:
                     self._json(200, panel.state())
 
             def do_POST(self) -> None:
+                # Read the body first, even to refuse: answering with it unread
+                # resets the connection, and the page would see a network error.
+                try:
+                    raw = self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 4096))
+                except ValueError:
+                    raw = b""
                 if not self._allowed():
                     return
                 try:
-                    length = min(int(self.headers.get("Content-Length") or 0), 4096)
-                    body = json.loads(self.rfile.read(length) or b"{}")
+                    body = json.loads(raw or b"{}")
                     name = str(body["name"])
                 except (ValueError, KeyError, TypeError):
                     return self._json(400, {"error": "bad request"})
