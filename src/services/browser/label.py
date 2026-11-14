@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import collections
 import contextlib
 import html
 import json
@@ -21,9 +22,11 @@ import pathlib
 import tempfile
 import time
 
+from ...core.config import DATA_DIR
 from ...core.strings import current_language, get_string, set_language
 from ...models.profile import Profile
 from ...utils.proxy_parser import parse_proxy
+from ..profile.transfer import read_meta, update_meta
 from .extensions import chrome_id
 
 LABEL_ENV = "FOXPROFILE_LABEL"
@@ -236,6 +239,8 @@ dl > :nth-child(4n+1), dl > :nth-child(4n+2) { background: #E9ECE4; }
 dl > :nth-child(4n+1) { border-radius: 8px 0 0 8px; }
 dl > :nth-child(4n+2) { border-radius: 0 8px 8px 0; }
 .data { font: 12.5px/1.5 "JetBrains Mono", ui-monospace, Consolas, monospace; }
+.verdict { font-weight: 600; white-space: pre-line; }
+.bad { color: #B42330; }
 </style>"""
 
 # Fills the page and what only the browser knows: the user agent, languages and
@@ -261,7 +266,12 @@ _FILL = r"""({ title, body, lang }) => {
   setInterval(tick, 1000);
 }"""
 
-_PLACE = """({ ip, country, timezone, lang, unknown }) => {
+_PLACE = """({ ip, country, timezone, lang, unknown, prev, same, changed }) => {
+  const check = document.getElementById("ipcheck");
+  if (check && prev && ip) {
+    check.textContent = ip === prev ? same : changed;
+    check.className = ip === prev ? "" : "bad";
+  }
   let name = country;
   try { name = new Intl.DisplayNames([lang], { type: "region" }).of(country); } catch {}
   document.getElementById("ip").textContent = ip || unknown;
@@ -283,8 +293,82 @@ def _rows(rows: list[tuple[str, str, bool]]) -> str:
     )
 
 
-def page_body(tag: dict) -> str:
-    """The start page's HTML (no script: _FILL runs what it needs)."""
+def _when(ts: float | None) -> str:
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else ""
+
+
+def _joined(*parts) -> str:
+    return " · ".join(str(p) for p in parts if p)
+
+
+def sync_check(meta: dict, browser: dict | None) -> tuple[list[str], list[tuple[str, str, bool]]]:
+    """What went wrong with the cookies between the last close and now, and the
+    rows that show it: `meta` is the profile's sync.json, `browser` what the
+    running browser holds ({"count", "domains"}), None when it could not be read."""
+    s = get_string
+    issues, rows = [], []
+    packed = meta.get("packed") or {}
+    restored = meta.get("restored") or {}
+    if restored.get("ts", 0) < packed.get("ts", 0):
+        restored = {}  # from an earlier open: this launch did not come from the hub
+    if packed:
+        if packed.get("error"):
+            issues.append(s("start_sync_pack_failed", error=packed["error"]))
+        value = _joined(
+            f"{packed.get('cookies', 0)} cookies", packed.get("pc"), _when(packed.get("ts"))
+        )
+        rows.append((s("start_sync_packed"), value, True))
+    got = restored.get("cookies") or 0
+    if restored:
+        expected = restored.get("expected")
+        if restored.get("error"):
+            issues.append(s("start_sync_restore_failed", error=restored["error"]))
+        elif expected and got < expected:
+            issues.append(s("start_sync_missing", missing=expected - got, expected=expected))
+        mb = restored.get("bundle_bytes")
+        value = _joined(
+            s("start_sync_not_packed") if expected is None else f"{got}/{expected} cookies",
+            mb and f"{mb / 1e6:.1f} MB",
+            restored.get("pc"),
+            _when(restored.get("ts")),
+        )
+        rows.append((s("start_sync_restored"), value, True))
+    if browser is None:
+        issues.append(s("start_sync_unreadable"))
+        return issues, rows
+    count = browser["count"]
+    rows.append((s("start_sync_browser"), str(count), True))
+    rows.append(
+        (s("start_sync_sites"), _joined(*(f"{d} {n}" for d, n in browser["domains"])), True)
+    )
+    if not count and (got or packed.get("cookies")):
+        issues.append(s("start_sync_empty"))
+    elif count < got:
+        issues.append(s("start_sync_lost", missing=got - count))
+    return issues, rows
+
+
+def _sync_section(meta: dict, browser: dict | None) -> str:
+    s = get_string
+    issues, rows = sync_check(meta, browser)
+    verdict = "\n".join(issues) or s("start_sync_ok")
+    html_rows = (
+        f"<dt>{html.escape(s('start_sync_verdict'))}</dt>"
+        f'<dd class="verdict{" bad" if issues else ""}">{html.escape(verdict)}</dd>' + _rows(rows)
+    )
+    prev = meta.get("ip") or {}
+    if prev.get("ip"):
+        value = _joined(prev["ip"], prev.get("country"), _when(prev.get("ts")))
+        html_rows += (
+            f"<dt>{html.escape(s('start_sync_prev_ip'))}</dt>"
+            f'<dd class=data>{html.escape(value)} <span id="ipcheck"></span></dd>'
+        )
+    return f"<h2>{html.escape(s('start_sync'))}</h2><dl>{html_rows}</dl>"
+
+
+def page_body(tag: dict, meta: dict | None = None, browser: dict | None = None) -> str:
+    """The start page's HTML (no script: _FILL runs what it needs). With `meta`
+    (sync.json, may be empty) it adds the session check (sync_check)."""
     s = get_string
     who = " · ".join(filter(None, [tag["number"] and "#" + tag["number"], tag["name"]]))
     checks = "".join(
@@ -313,6 +397,7 @@ def page_body(tag: dict) -> str:
         + f'<div class="checks"><span>{html.escape(s("start_check"))}</span>{checks}'
         + '<a id="ip2location" target="_blank" rel="noopener" hidden>IP2Location</a></div>'
         + f"<h2>{html.escape(s('start_profile'))}</h2><dl>{_rows(account)}</dl>"
+        + (_sync_section(meta, browser) if meta is not None else "")
         + f"<h2>{html.escape(s('start_fingerprint'))}</h2><dl>{_rows(fingerprint)}"
         + "".join(f'<dt>{html.escape(s(k))}</dt><dd id="{i}"{c}></dd>' for k, i, c in live)
         + "</dl></main>"
@@ -327,22 +412,47 @@ async def open_tab(context: object, tag: dict, place_job: asyncio.Future | None 
     """Turn the browser's first (blank) tab into the start page. `place_job`
     resolves to place() of the exit IP, shown when it comes."""
     page = context.pages[0] if context.pages else await context.new_page()
-    arg = {"title": tab_title(tag), "body": page_body(tag), "lang": current_language()}
+    profile_dir = os.path.join(os.getcwd(), DATA_DIR, tag["name"])
+    meta = read_meta(profile_dir)  # before this launch writes its exit IP
+    browser = await _browser_cookies(context)
+    issues, _ = sync_check(meta, browser)
+    # ASCII only: the runner's stdout goes to the agent's log on any console.
+    print(f"Session check: {json.dumps({'browser': browser, 'issues': issues})}", flush=True)
+    body = page_body(tag, meta, browser)
+    arg = {"title": tab_title(tag), "body": body, "lang": current_language()}
     # Written into its about:blank: set_content waits for a load event that Chrome's
     # first tab never reports to Playwright.
     await asyncio.wait_for(page.evaluate(_FILL, arg), 5)
     if place_job is not None:
-        task = asyncio.ensure_future(_show_place(page, place_job))
+        prev = (meta.get("ip") or {}).get("ip", "")
+        task = asyncio.ensure_future(_show_place(page, place_job, profile_dir, prev))
         _pending.add(task)
         task.add_done_callback(_pending.discard)
 
 
-async def _show_place(page: object, place_job: asyncio.Future) -> None:
+async def _browser_cookies(context: object) -> dict | None:
+    """How many cookies the browser holds and the sites with most of them."""
+    try:
+        cookies = await asyncio.wait_for(context.cookies(), 5)
+    except Exception:
+        return None
+    domains = collections.Counter(c["domain"].lstrip(".") for c in cookies)
+    return {"count": len(cookies), "domains": domains.most_common(6)}
+
+
+async def _show_place(
+    page: object, place_job: asyncio.Future, profile_dir: str = "", prev: str = ""
+) -> None:
     try:
         found = await place_job
     except Exception:
         found = {}
+    if found.get("ip") and profile_dir:
+        ip = {"ip": found["ip"], "country": found.get("country", ""), "ts": time.time()}
+        update_meta(profile_dir, ip=ip)
     arg = {"ip": "", "country": "", "timezone": "", **found, "lang": current_language()}
     arg["unknown"] = get_string("start_ip_unknown")
+    arg |= {"prev": prev, "same": get_string("start_sync_ip_same")}
+    arg["changed"] = get_string("start_sync_ip_changed")
     with contextlib.suppress(Exception):  # the tab may be closed by now
         await page.evaluate(_PLACE, arg)

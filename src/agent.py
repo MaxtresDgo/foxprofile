@@ -34,6 +34,7 @@ if "--home" in sys.argv:
     os.chdir(_home)
 
 import argparse  # noqa: E402
+import collections  # noqa: E402
 import contextlib  # noqa: E402
 import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
@@ -81,6 +82,8 @@ from src.services.profile.transfer import (  # noqa: E402
     import_from_zip,
     pack_cookies,
     read_cookies,
+    read_meta,
+    update_meta,
 )
 from src.services.proxy.geo_check import check_geo  # noqa: E402
 
@@ -98,6 +101,56 @@ def say(msg: str) -> None:
     logger.info(msg)
     if sys.stdout:  # None under pythonw (no console)
         print(time.strftime("%H:%M:%S"), msg, flush=True)
+
+
+def trace(name: str, step: str, warn: bool = False, **data) -> None:
+    """One line per step of a profile's download or upload, in the agent's log
+    file: what to read when a profile comes back without its sessions."""
+    line = json.dumps(data, ensure_ascii=False, default=str)
+    (logger.warning if warn else logger.info)("[sync %s] %s %s", name, step, line)
+
+
+# The browsers' own cookie stores: Camoufox (Firefox) and Chrome (old and new place).
+_COOKIE_STORES = ("cookies.sqlite", "Default/Cookies", "Default/Network/Cookies")
+
+
+def store_info(local: pathlib.Path) -> dict:
+    """Size and age of a profile dir's cookie stores, and the whole dir's size."""
+    files, size = 0, 0
+    for f in local.rglob("*") if local.is_dir() else ():
+        if f.is_file():
+            files += 1
+            size += f.stat().st_size
+    stores = {}
+    for rel in (*_COOKIE_STORES, COOKIES_GZ):
+        f = local / rel
+        if f.is_file():
+            st = f.stat()
+            stores[rel] = {"bytes": st.st_size, "modified": time.ctime(st.st_mtime)}
+    return {"files": files, "bytes": size, "stores": stores}
+
+
+def merge_cookies(text: str, previous: str | None) -> tuple[str, int]:
+    """`text` plus the cookies of `previous` it lacks (same domain, name and path):
+    after a failed restore the browser never had them, so they are not dropped."""
+    current = json.loads(text)
+    have = {(c.get("domain"), c.get("name"), c.get("path")) for c in current}
+    extra = [
+        c
+        for c in json.loads(previous or "[]")
+        if (c.get("domain"), c.get("name"), c.get("path")) not in have
+    ]
+    return json.dumps(current + extra, ensure_ascii=False), len(extra)
+
+
+def cookie_domains(text: str | None, top: int = 8) -> dict:
+    """The sites with most cookies in extension JSON: which sessions travel."""
+    try:
+        items = json.loads(text or "[]")
+    except ValueError:
+        return {}
+    counts = collections.Counter(str(c.get("domain", "")).lstrip(".") for c in items)
+    return dict(counts.most_common(top))
 
 
 def _request(url: str, key: str = "", timeout: float = 10, body: dict | None = None):
@@ -349,6 +402,7 @@ class Agent:
     def stop(self, name: str, said: str = "agent_stopped_panel") -> None:
         # stop_profile does not fire on_stop, so sync here.
         # Time for the browser to close and write its cookies before the upload.
+        trace(name, "stop.requested")
         if self.bl.stop_profile(name, timeout=15):
             say(get_string(said, name=name))
             self._sync(name)
@@ -432,6 +486,7 @@ class Agent:
         self._call_quietly("POST", f"/hub/result/{request_id}", json.dumps(answer).encode())
 
     def _closed(self, name: str) -> None:
+        trace(name, "browser.closed_by_user")
         say(get_string("agent_closed", name=name))
         threading.Thread(target=self._sync, args=(name,), daemon=True).start()
 
@@ -439,20 +494,39 @@ class Agent:
 
     def _download(self, name: str) -> Profile:
         local = self.data_root / name
+        started = time.monotonic()
+        trace(name, "download.start", pc=self.identity["pc"], user=self.hub.user)
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = os.path.join(tmp, "bundle.zip")
             self._fetch_bundle(name, zip_path)
+            size = os.path.getsize(zip_path)
+            trace(name, "download.bundle", bytes=size, sha256=file_sha256(zip_path)[:16])
             shutil.rmtree(local, ignore_errors=True)
             ok, result = import_from_zip(zip_path, str(self.data_root))
         if not ok:
+            trace(name, "download.unpack_failed", warn=True, error=result)
             raise RuntimeError(result)
+        trace(
+            name,
+            "download.unpacked",
+            engine=result.engine,
+            os=result.os_type,
+            chrome=result.chrome_version,
+            last_close=read_meta(str(local)).get("packed"),
+            **store_info(local),
+        )
         self._profiles[name] = result
+        # For _pack_cookies after a crash: recover() has only the folder.
+        engine = {"os_type": result.os_type, "engine": result.engine}
+        update_meta(str(local), profile={**engine, "chrome_version": result.chrome_version})
         try:
-            self._restore_cookies(result, local)
-        except IntegrityError:
+            self._restore_cookies(result, local, size)
+        except IntegrityError as e:
+            trace(name, "download.cookies_corrupt", warn=True, error=e)
             # Not left for recover() to upload: the hub keeps its own copy.
             shutil.rmtree(local, ignore_errors=True)
             raise
+        trace(name, "download.done", seconds=round(time.monotonic() - started, 1))
         return result
 
     def _extensions(self, wanted: list[dict]) -> list[str]:
@@ -523,38 +597,83 @@ class Agent:
         if expected and expected.lower() != digest.hexdigest():
             raise IntegrityError(get_string("err_bundle_corrupt"))
 
-    def _restore_cookies(self, profile: Profile, local: pathlib.Path) -> None:
+    def _restore_cookies(self, profile: Profile, local: pathlib.Path, bundle: int = 0) -> None:
         """Load the cookies packed on the last close into this PC's browser store."""
+        name = profile.name
         text = read_cookies(str(local))  # IntegrityError: the launch is refused
-        # Imported now, so a stale copy is never uploaded back over newer cookies.
-        for packed in (COOKIES_GZ, COOKIES_SHA):
-            (local / packed).unlink(missing_ok=True)
-        if not text or not json.loads(text):
+        if profile.engine != "chrome":
+            # Camoufox's own store travels: a stale copy must never be uploaded
+            # back and imported over newer cookies. Chrome's store does not travel
+            # (Windows encrypts it per PC), so its pack stays until the close
+            # replaces it: a failed export uploads the last good cookies, not none.
+            for packed in (COOKIES_GZ, COOKIES_SHA):
+                (local / packed).unlink(missing_ok=True)
+        expected = len(json.loads(text)) if text else None
+        restored = {"ts": time.time(), "pc": self.identity["pc"], "bundle_bytes": bundle}
+        restored |= {"expected": expected, "cookies": 0, "error": ""}
+        if not expected:
+            # Chrome's own store is encrypted per PC: on another PC these sessions are gone.
+            trace(name, "restore.nothing_packed", warn=profile.engine == "chrome")
+            update_meta(str(local), restored=restored)
             return
+        trace(name, "restore.start", expected=expected, domains=cookie_domains(text))
         try:
             count = cookies.import_cookies(
-                profile.name, profile.os_type, text, profile.engine, profile.chrome_version
+                name, profile.os_type, text, profile.engine, profile.chrome_version
             )
-            say(get_string("agent_cookies_restored", name=profile.name, count=count))
+            restored["cookies"] = count
+            trace(name, "restore.done", cookies=count, missing=expected - count)
+            say(get_string("agent_cookies_restored", name=name, count=count))
         except cookies.CookieError as e:
             # The browser's own store still has the cookies this PC can read.
-            say(get_string("agent_cookies_pack_failed", name=profile.name, error=e))
+            restored["error"] = str(e)
+            trace(name, "restore.failed", warn=True, expected=expected, error=e)
+            say(get_string("agent_cookies_restore_failed", name=name, error=e))
+        update_meta(str(local), restored=restored)
 
     def _pack_cookies(self, name: str, local: pathlib.Path) -> None:
         """Export the stopped profile's cookies as gzipped JSON plus SHA-256."""
+        meta = read_meta(str(local))
         profile = self._profiles.get(name)
+        if profile is None and meta.get("profile"):  # left by a crashed run
+            profile = Profile(name=name, **meta["profile"])
+        packed = {"ts": time.time(), "pc": self.identity["pc"], "cookies": 0, "error": ""}
+        trace(name, "pack.start", **store_info(local))
         if profile is None:
-            # ponytail: a profile left by a crashed run has no os_type/engine here;
-            # it uploads its browser store alone. Ask the hub for them if that bites.
+            # Left by an agent older than sync.json's "profile": its store goes alone.
+            packed["error"] = "skipped: left by an earlier run (engine unknown)"
+            trace(name, "pack.skipped", warn=True, reason=packed["error"])
+            update_meta(str(local), packed=packed)
             return
+        restored = meta.get("restored") or {}
         try:
             text, count = cookies.export_cookies(
                 name, profile.os_type, "json", profile.engine, profile.chrome_version
             )
+            if restored.get("error"):
+                text, kept = merge_cookies(text, read_cookies(str(local)))
+                count += kept
+                trace(name, "pack.merged", kept_from_last_pack=kept)
             pack_cookies(str(local), text)
+            packed["cookies"] = count
+            # Fewer than were restored on open: sessions dropped while it ran, or
+            # the browser did not write its store before it closed.
+            fewer = (restored.get("cookies") or 0) - count
+            trace(
+                name,
+                "pack.done",
+                warn=fewer > 0 or not count,
+                cookies=count,
+                restored_on_open=restored.get("cookies"),
+                domains=cookie_domains(text),
+            )
             say(get_string("agent_cookies_packed", name=name, count=count))
-        except (cookies.CookieError, OSError) as e:
+        except (cookies.CookieError, OSError, IntegrityError) as e:
+            packed["error"] = str(e)
+            kept = (local / COOKIES_GZ).exists()  # Chrome: the pack it opened with
+            trace(name, "pack.failed", warn=True, error=e, uploads_last_pack=kept)
             say(get_string("agent_cookies_pack_failed", name=name, error=e))
+        update_meta(str(local), packed=packed)
 
     def _sync(self, name: str) -> None:
         """Upload the profile's data and end the lease, retrying until the hub takes it."""
@@ -563,15 +682,19 @@ class Agent:
 
     def _sync_now(self, name: str) -> None:
         local = self.data_root / name
+        started = time.monotonic()
+        trace(name, "upload.start", pc=self.identity["pc"], user=self.hub.user)
         self._pack_cookies(name, local)
         while True:
             try:
                 self._upload(name, local)
                 shutil.rmtree(local, ignore_errors=True)
                 self._profiles.pop(name, None)
+                trace(name, "upload.done", seconds=round(time.monotonic() - started, 1))
                 say(get_string("agent_synced", name=name))
                 return
             except urllib.error.HTTPError as e:
+                trace(name, "upload.http_error", warn=True, code=e.code)
                 if e.code in (400, 404, 409):
                     # Deleted on the hub, or someone else holds it now: keep the
                     # local copy for an admin to recover by hand.
@@ -580,6 +703,7 @@ class Agent:
                 # 401 included: retried with the new key once the operator signs in again.
                 say(get_string("agent_upload_retry", name=name, error=e.code))
             except (OSError, urllib.error.URLError) as e:
+                trace(name, "upload.error", warn=True, error=e)
                 say(get_string("agent_upload_retry", name=name, error=e))
             time.sleep(RETRY_SECONDS)
 
@@ -591,6 +715,11 @@ class Agent:
             bundle = f"/hub/bundle/{self.q(name)}"
             raw = {"Content-Type": "application/octet-stream"}
             sha = {"X-Content-SHA256": file_sha256(zip_path)}
+            size = os.path.getsize(zip_path)
+            parts = -(-size // PART_BYTES)
+            trace(
+                name, "upload.bundle", bytes=size, parts=parts, sha256=sha["X-Content-SHA256"][:16]
+            )
             with open(zip_path, "rb") as f:
                 offset = 0
                 while part := f.read(PART_BYTES):

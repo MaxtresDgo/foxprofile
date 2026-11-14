@@ -57,8 +57,22 @@ async def _run(
     async with _open(profile_dir, os_type, engine, version) as context:
         if action == "export":
             return {"cookies": await context.cookies()}
-        await context.add_cookies(payload)
-        return {"imported": len(payload)}
+        try:
+            await context.add_cookies(payload)
+            return {"imported": len(payload)}
+        except Exception:
+            # Chrome refuses the whole batch for one cookie it rejects: add them
+            # one at a time and report the ones it would not take.
+            imported, skipped = 0, []
+            for cookie in payload:
+                try:
+                    await context.add_cookies([cookie])
+                    imported += 1
+                except Exception as e:
+                    skipped.append(f"{cookie.get('domain')} {cookie.get('name')}: {e}"[:200])
+            if not imported:
+                raise
+            return {"imported": imported, "skipped": len(skipped), "errors": skipped[:5]}
 
 
 def main() -> int:

@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
+import json
 import os
 import pathlib
 import secrets
@@ -35,6 +36,7 @@ import tempfile
 import threading
 import time
 import urllib.parse
+import zipfile
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -51,10 +53,12 @@ from ..core.logging import get_logger
 from ..core.strings import get_string
 from ..services.profile import snapshots
 from ..services.profile.transfer import (
+    SYNC_META,
     IntegrityError,
     WrongProfileError,
     export_to_zip,
     file_sha256,
+    read_meta,
     swap_in,
 )
 from . import agent_code, installers, platform_auth
@@ -663,6 +667,19 @@ async def upload_installer(platform: str, request: Request, name: str = Query(..
 SHA_HEADER = "X-Content-SHA256"
 
 
+def _zip_meta(zip_path: str) -> dict:
+    """The sync.json inside an uploaded bundle (what its agent packed on close)."""
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            return json.loads(z.read(f"data/{SYNC_META}"))
+    except (KeyError, OSError, ValueError, zipfile.BadZipFile):
+        return {}
+
+
+def _packed(meta: dict) -> dict:
+    return meta.get("packed") or {}
+
+
 def _require_lease(request: Request, name: str, allow_free: bool = False) -> None:
     bl, user = _launcher(request), _user(request)["name"]
     holder = bl.holder(name)
@@ -748,6 +765,12 @@ def start_download(name: str, request: Request) -> dict:
     with _downloads_lock:
         _downloads[job_id] = job
     data_dir = os.path.join(DATA_DIR, name)
+    logger.info(
+        "[sync %s] hub.download to=%s packed=%s",
+        name,
+        _user(request)["name"],
+        _packed(read_meta(data_dir)),
+    )
     threading.Thread(target=_build_download, args=(job, profile, data_dir), daemon=True).start()
     return {"id": job_id}
 
@@ -840,6 +863,21 @@ async def upload_bundle(
         expected = request.headers.get(SHA_HEADER)  # agents older than the header send none
         if expected and expected.lower() != actual:
             raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt"))
+        # Who replaces what: an upload whose cookies were packed before the copy it
+        # replaces puts older sessions back (a stale copy left on some PC).
+        new, old = _packed(_zip_meta(zip_path)), _packed(read_meta(os.path.join(DATA_DIR, name)))
+        stale = bool(new and old and new.get("ts", 0) < old.get("ts", 0))
+        (logger.warning if stale or not new else logger.info)(
+            "[sync %s] hub.upload from=%s lease=%s bytes=%d sha256=%s packed=%s replaces=%s%s",
+            name,
+            _user(request)["name"],
+            _launcher(request).holder(name) or "free",
+            os.path.getsize(zip_path),
+            actual[:16],
+            new or "none",
+            old or "none",
+            " STALE: older than the copy it replaces" if stale else "",
+        )
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
         if snapshots.enabled():  # the checked upload is this version's snapshot
             snapshots.upload_later(profile, zip_path)

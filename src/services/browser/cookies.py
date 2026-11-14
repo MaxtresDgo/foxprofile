@@ -260,4 +260,11 @@ def import_cookies(
         raise CookieError("No valid cookies found in the input")
     result = _call_tool("import", profile_name, os_type, json.dumps(cookies), engine, version)
     logger.info("Imported %d cookies into %s", result["imported"], profile_name)
+    if result.get("skipped"):
+        logger.warning(
+            "%d cookies refused by %s's browser: %s",
+            result["skipped"],
+            profile_name,
+            result.get("errors"),
+        )
     return result["imported"]

@@ -11,6 +11,7 @@ Chạy thủ công với một FoxProfile thật (không thuộc `pytest`/CI vì
 | `panel_e2e.py` | API + web panel | đăng nhập, tạo/sửa profile, xem màn hình từ xa |
 | `mcp_guide_e2e.py` | API + web panel | hộp thoại "Kết nối AI (MCP)" |
 | `detection_e2e.py headless headed` | mạng | so headless/có cửa sổ trên các trang kiểm tra bot |
+| `session_e2e.py <profile> [vòng]` | API hoặc hub + agent, profile đã đăng nhập chatgpt.com | mở, kiểm tra phiên ChatGPT và mục "Kiểm tra phiên" của trang đầu, đóng, chờ đồng bộ, lặp lại |
 
 Biến môi trường:
 

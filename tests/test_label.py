@@ -143,3 +143,32 @@ def test_adspower_never_replaces_what_was_written_here(client):
     pm = client.app.state.container.profile_manager
     adspower.fill_label(pm, "p", {"no": 7, "remark": "AdsPower's"})
     assert (pm.profiles["p"].number, pm.profiles["p"].remark) == ("7", "Mine")
+
+
+def test_session_check_flags_lost_cookies(tmp_path):
+    from src.services.profile.transfer import read_meta, update_meta
+
+    update_meta(str(tmp_path), packed={"ts": 10, "pc": "PC-A", "cookies": 40, "error": ""})
+    update_meta(str(tmp_path), restored={"ts": 20, "pc": "PC-B", "expected": 40, "cookies": 40})
+    meta = read_meta(str(tmp_path))
+    ok = {"count": 40, "domains": [("chatgpt.com", 12)]}
+    assert label.sync_check(meta, ok)[0] == []
+    assert "chatgpt.com 12" in label.page_body(tag(), meta, ok)
+
+    issues = label.sync_check(meta, {"count": 30, "domains": []})[0]
+    assert issues == [label.get_string("start_sync_lost", missing=10)]
+    assert label.sync_check(meta, {"count": 0, "domains": []})[0] == [
+        label.get_string("start_sync_empty")
+    ]
+    assert label.sync_check(meta, None)[0] == [label.get_string("start_sync_unreadable")]
+
+    failed = {**meta, "restored": {**meta["restored"], "cookies": 0, "error": "boom"}}
+    assert (
+        label.get_string("start_sync_restore_failed", error="boom")
+        in label.sync_check(failed, {"count": 0, "domains": []})[0]
+    )
+    # A restore older than the last close belongs to an earlier open: not this one.
+    stale = {**meta, "restored": {**meta["restored"], "ts": 5, "error": "boom"}}
+    assert label.sync_check(stale, ok)[0] == []
+    # A new profile with nothing saved yet is fine.
+    assert label.sync_check({}, {"count": 0, "domains": []})[0] == []

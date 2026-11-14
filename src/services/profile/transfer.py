@@ -27,6 +27,26 @@ _CACHE_DIRS = {"cache2", "startupCache", "Cache", "Code Cache", "GPUCache", "GrS
 # DB alone loses every session on another PC. The hash travels with them.
 COOKIES_GZ = "cookies.json.gz"
 COOKIES_SHA = "cookies.json.gz.sha256"
+# What happened to the cookies on the last close and open, and the last exit IP:
+# the agent and runner write it, the start page shows it. Travels in the ZIP.
+SYNC_META = "sync.json"
+
+
+def read_meta(profile_dir: str) -> dict:
+    try:
+        data = json.loads(pathlib.Path(profile_dir, SYNC_META).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def update_meta(profile_dir: str, **fields) -> None:
+    """Merge `fields` into SYNC_META. Diagnostics only: never fails a sync."""
+    try:
+        merged = {**read_meta(profile_dir), **fields}
+        pathlib.Path(profile_dir, SYNC_META).write_text(json.dumps(merged), encoding="utf-8")
+    except OSError as e:
+        logger.warning("Could not write %s in %s: %s", SYNC_META, profile_dir, e)
 
 
 class IntegrityError(ValueError):
