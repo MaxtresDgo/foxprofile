@@ -36,6 +36,7 @@ if "--home" in sys.argv:
 import argparse  # noqa: E402
 import collections  # noqa: E402
 import contextlib  # noqa: E402
+import dataclasses  # noqa: E402
 import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
 import ipaddress  # noqa: E402
@@ -74,6 +75,7 @@ from src.services.browser import extensions as ext_files  # noqa: E402
 from src.services.browser.launcher import BrowserControlError  # noqa: E402
 from src.services.profile import adspower  # noqa: E402
 from src.services.profile.transfer import (  # noqa: E402
+    _CACHE_DIRS,
     CHECKPOINTS,
     COOKIES_GZ,
     COOKIES_SHA,
@@ -100,6 +102,11 @@ CREDENTIALS = pathlib.Path("agent.json")
 # Minutes between cookie checkpoints of each open profile; 0 turns them off. A
 # crash uploads the last verified one instead of what the browser left behind.
 CHECKPOINT_MIN = 10
+# Each profile's data stays on this PC after its upload (profile-cache/<name>), so
+# it still opens when the hub or the internet is down; a copy unused for
+# CACHE_DAYS goes. It opens without a download only while the hub's copy is
+# exactly the one uploaded from it (same data_stamp), and offline from the tray.
+CACHE_DAYS = 14
 ICON = pathlib.Path(__file__).parent / "assets" / "icon.png"
 
 
@@ -282,6 +289,8 @@ class Agent:
         self.proxies = container.proxy_service
         self.data_root = pathlib.Path(DATA_DIR)
         self.data_root.mkdir(parents=True, exist_ok=True)
+        self.cache_root = pathlib.Path("profile-cache")
+        self.online = False  # the last poll reached the hub
 
     def q(self, name: str) -> str:
         return urllib.parse.quote(name, safe="")
@@ -379,13 +388,18 @@ class Agent:
     # --- commands --------------------------------------------------------------
 
     def launch(
-        self, profile_dict: dict, extensions: list[dict] = (), details: dict | None = None
+        self,
+        profile_dict: dict,
+        extensions: list[dict] = (),
+        details: dict | None = None,
+        stamp: str | None = None,
+        offline: bool = False,
     ) -> None:
         name = profile_dict["name"]
         self._details[name] = details or {}
         try:
             with self.busy("opening", name):
-                profile = self._download(name)
+                profile = self._download(name, profile_dict, stamp, offline)
                 self._ext_dirs[name] = self._extensions(extensions)
         except Exception as e:
             say(get_string("agent_download_failed", name=name, error=e))
@@ -532,23 +546,39 @@ class Agent:
 
     # --- data transfer ---------------------------------------------------------
 
-    def _download(self, name: str) -> Profile:
+    def _download(
+        self,
+        name: str,
+        profile_dict: dict | None = None,
+        stamp: str | None = None,
+        offline: bool = False,
+    ) -> Profile:
+        """The profile's data into data_root: from the hub, or this PC's copy of it
+        (profile_dict given: a launch) when the hub's is unchanged, unreachable or
+        `offline` (opened from the tray while the hub is down)."""
         local = self.data_root / name
         started = time.monotonic()
         trace(name, "download.start", pc=self.identity["pc"], user=self.hub.user)
-        with tempfile.TemporaryDirectory() as tmp:
-            zip_path = os.path.join(tmp, "bundle.zip")
-            self._fetch_bundle(name, zip_path)
-            size = os.path.getsize(zip_path)
-            trace(name, "download.bundle", bytes=size, sha256=file_sha256(zip_path)[:16])
-            shutil.rmtree(local, ignore_errors=True)
-            ok, result = import_from_zip(zip_path, str(self.data_root))
-        if not ok:
-            trace(name, "download.unpack_failed", warn=True, error=result)
-            raise RuntimeError(result)
+        cached = self._cache_get(name) if profile_dict is not None else None
+        size, source = 0, {}
+        if cached and (offline or (stamp and cached["stamp"] == stamp)):
+            result = self._cache_take(name, cached, profile_dict, stale=offline)
+            source = {"source": "cache", "stale": offline}
+        else:
+            try:
+                result, size = self._fetch_into(name, local)
+            except (OSError, ValueError) as e:  # URLError and IntegrityError included
+                # A 4xx is the hub's answer (deleted, someone else's): not an outage.
+                answered = isinstance(e, urllib.error.HTTPError) and e.code < 500
+                if not cached or answered:
+                    raise
+                trace(name, "download.failed_using_cache", warn=True, error=e)
+                result = self._cache_take(name, cached, profile_dict, stale=True)
+                source = {"source": "cache", "stale": True}
         trace(
             name,
             "download.unpacked",
+            **source,
             engine=result.engine,
             os=result.os_type,
             chrome=result.chrome_version,
@@ -560,7 +590,7 @@ class Agent:
         engine = {"os_type": result.os_type, "engine": result.engine}
         update_meta(str(local), profile={**engine, "chrome_version": result.chrome_version})
         try:
-            self._restore_cookies(result, local, size)
+            self._restore_cookies(result, local, size, source)
         except IntegrityError as e:
             trace(name, "download.cookies_corrupt", warn=True, error=e)
             # Not left for recover() to upload: the hub keeps its own copy.
@@ -568,6 +598,83 @@ class Agent:
             raise
         trace(name, "download.done", seconds=round(time.monotonic() - started, 1))
         return result
+
+    def _fetch_into(self, name: str, local: pathlib.Path) -> tuple[Profile, int]:
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = os.path.join(tmp, "bundle.zip")
+            self._fetch_bundle(name, zip_path)
+            size = os.path.getsize(zip_path)
+            trace(name, "download.bundle", bytes=size, sha256=file_sha256(zip_path)[:16])
+            shutil.rmtree(local, ignore_errors=True)
+            ok, result = import_from_zip(zip_path, str(self.data_root))
+        if not ok:
+            trace(name, "download.unpack_failed", warn=True, error=result)
+            raise RuntimeError(result)
+        return result, size
+
+    # --- this PC's copy of each profile (CACHE_DAYS) ----------------------------
+
+    def _cache_get(self, name: str) -> dict | None:
+        """The local copy's record, if it is this account's on this hub."""
+        try:
+            meta = json.loads((self.cache_root / f"{name}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        mine = (meta.get("user"), meta.get("hub")) == (self.hub.user, self.hub.url)
+        return meta if mine and (self.cache_root / name).is_dir() else None
+
+    def cached_names(self) -> list[str]:
+        """The profiles that can open from this PC while the hub is down."""
+        if not self.cache_root.is_dir():
+            return []
+        return sorted(p.stem for p in self.cache_root.glob("*.json") if self._cache_get(p.stem))
+
+    def _cache_take(self, name: str, cached: dict, profile_dict: dict, stale: bool) -> Profile:
+        """Move the local copy into data_root: it is the profile's data until uploaded."""
+        local = self.data_root / name
+        shutil.rmtree(local, ignore_errors=True)
+        (self.cache_root / name).rename(local)
+        (self.cache_root / f"{name}.json").unlink(missing_ok=True)
+        known = {f.name for f in dataclasses.fields(Profile)}
+        trace(name, "download.from_cache", stale=stale, uploaded=cached.get("ts"))
+        return Profile(**{k: v for k, v in profile_dict.items() if k in known})
+
+    def _cache_put(self, name: str, local: pathlib.Path, stamp: str | None) -> None:
+        """Keep the uploaded data here under the hub's stamp instead of deleting it."""
+        shutil.rmtree(self.cache_root / name, ignore_errors=True)
+        profile = self._profiles.get(name)
+        if not stamp or profile is None or not CACHE_DAYS:  # a hub too old to stamp
+            shutil.rmtree(local, ignore_errors=True)
+            return
+        for rel in (CHECKPOINTS, *_CACHE_DIRS):  # rebuilt on demand, often big
+            for d in [local / rel, *local.glob(f"*/{rel}")]:
+                shutil.rmtree(d, ignore_errors=True)
+        self.cache_root.mkdir(exist_ok=True)
+        local.rename(self.cache_root / name)
+        record = {"stamp": stamp, "user": self.hub.user, "hub": self.hub.url, "ts": time.time()}
+        record["profile"] = profile.to_dict()
+        (self.cache_root / f"{name}.json").write_text(json.dumps(record), encoding="utf-8")
+        trace(name, "cache.kept", stamp=stamp[:12])
+
+    def prune_cache(self, everything: bool = False) -> None:
+        """Drop copies unused for CACHE_DAYS, or of another account; all on `everything`."""
+        if not self.cache_root.is_dir():
+            return
+        old = time.time() - CACHE_DAYS * 86400
+        for record in self.cache_root.glob("*.json"):
+            meta = self._cache_get(record.stem)
+            if everything or meta is None or meta.get("ts", 0) < old:
+                shutil.rmtree(self.cache_root / record.stem, ignore_errors=True)
+                record.unlink(missing_ok=True)
+
+    def open_offline(self, name: str) -> None:
+        """From the tray while the hub is down: the local copy, uploaded on close
+        once the hub is back (the lease follows the open browser then, touch())."""
+        cached = self._cache_get(name)
+        if cached is None or self.online:
+            return
+        say(get_string("agent_offline_opening", name=name))
+        self.launch(cached["profile"], offline=True)
 
     def _extensions(self, wanted: list[dict]) -> list[str]:
         """The launch's extensions unpacked here, downloaded from the hub once per
@@ -637,7 +744,9 @@ class Agent:
         if expected and expected.lower() != digest.hexdigest():
             raise IntegrityError(get_string("err_bundle_corrupt"))
 
-    def _restore_cookies(self, profile: Profile, local: pathlib.Path, bundle: int = 0) -> None:
+    def _restore_cookies(
+        self, profile: Profile, local: pathlib.Path, bundle: int = 0, source: dict | None = None
+    ) -> None:
         """Load the cookies packed on the last close into this PC's browser store."""
         name = profile.name
         text = read_cookies(str(local))  # IntegrityError: the launch is refused
@@ -650,7 +759,7 @@ class Agent:
                 (local / packed).unlink(missing_ok=True)
         expected = len(json.loads(text)) if text else None
         restored = {"ts": time.time(), "pc": self.identity["pc"], "bundle_bytes": bundle}
-        restored |= {"expected": expected, "cookies": 0, "error": ""}
+        restored |= {"expected": expected, "cookies": 0, "error": "", **(source or {})}
         if not expected:
             # Chrome's own store is encrypted per PC: on another PC these sessions are gone.
             trace(name, "restore.nothing_packed", warn=profile.engine == "chrome")
@@ -751,8 +860,8 @@ class Agent:
         self._pack_cookies(name, local, unexpected)
         while True:
             try:
-                self._upload(name, local)
-                shutil.rmtree(local, ignore_errors=True)
+                stamp = self._upload(name, local)
+                self._cache_put(name, local, stamp)
                 self._profiles.pop(name, None)
                 trace(name, "upload.done", seconds=round(time.monotonic() - started, 1))
                 say(get_string("agent_synced", name=name))
@@ -771,7 +880,8 @@ class Agent:
                 say(get_string("agent_upload_retry", name=name, error=e))
             time.sleep(RETRY_SECONDS)
 
-    def _upload(self, name: str, local: pathlib.Path) -> None:
+    def _upload(self, name: str, local: pathlib.Path) -> str | None:
+        """Send the profile's data; the hub's stamp of its new copy (None: older hub)."""
         with tempfile.TemporaryDirectory() as tmp:
             ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, include_data=True)
             if not ok:
@@ -797,9 +907,12 @@ class Agent:
                         # A profile deleted on the hub answers 404 here too.
                         f.seek(0)
                         self.hub.call("PUT", f"{bundle}?release=1", f, timeout=600, headers=sha)
-                        return
+                        return None
                     offset += len(part)
-            self.hub.call("PUT", f"{bundle}?release=1&chunked=1", b"", timeout=600, headers=sha)
+            done = self.hub.call(
+                "PUT", f"{bundle}?release=1&chunked=1", b"", timeout=600, headers=sha
+            )
+            return (done or {}).get("stamp")
 
     def _status(self, name: str, ok: bool, error: str | None) -> None:
         body = json.dumps({"ok": ok, "error": error}).encode()
@@ -820,6 +933,7 @@ class Agent:
             if local.is_dir():
                 say(get_string("agent_pending_upload", name=local.name))
                 self._sync(local.name, unexpected=True)
+        self.prune_cache()
 
     def run(self) -> None:
         self.report(force=True)  # clears what a previous run left on the hub
@@ -841,14 +955,21 @@ class Agent:
                 if not (isinstance(e, urllib.error.HTTPError) and e.code == 401):
                     say(get_string("agent_unreachable", error=e))
                     self.status("agent_status_offline")
+                    self.online = False
                 time.sleep(RETRY_SECONDS)
                 continue
+            self.online = True
             if self.hub.key:
                 self.status("agent_status_connected", user=self.hub.label, host=_host(self.hub.url))
             if not resp:
                 continue
             if resp["op"] == "launch":
-                args = (resp["profile"], resp.get("extensions") or [], resp.get("details"))
+                args = (
+                    resp["profile"],
+                    resp.get("extensions") or [],
+                    resp.get("details"),
+                    resp.get("stamp"),
+                )
                 threading.Thread(target=self.launch, args=args, daemon=True).start()
             elif resp["op"] == "stop":
                 threading.Thread(target=self.stop, args=(resp["name"],), daemon=True).start()
@@ -1251,6 +1372,7 @@ class App:
         ):
             # The old account's browsers sync with the old key before switching.
             self.agent.stop_all()
+            self.agent.prune_cache(everything=True)  # its sessions do not stay here
         self.client.url, self.client.user, self.client.key = (
             result["hub"],
             result["user"],
@@ -1355,6 +1477,14 @@ class App:
                 if self.dev
                 else []
             ),
+            # The hub is down: open a profile from this PC's copy, synced once it is back.
+            item(
+                lambda _: get_string("agent_menu_offline"),
+                pystray.Menu(
+                    lambda: [self._offline_item(item, n) for n in self.agent.cached_names()]
+                ),
+                visible=lambda _: not self.agent.online and bool(self.agent.cached_names()),
+            ),
             item(lambda _: get_string("agent_menu_logs"), open_logs),
             item(lambda _: get_string("agent_menu_quit"), self.quit),
         )
@@ -1366,6 +1496,15 @@ class App:
 
         self.icon.run(setup=setup)  # main thread: required on macOS
         return True
+
+    def _offline_item(self, item, name: str):
+        return item(
+            name,
+            lambda: threading.Thread(
+                target=self.agent.open_offline, args=(name,), daemon=True
+            ).start(),
+            enabled=lambda _: name not in self.agent.bl.running_profile_names(),
+        )
 
     def quit(self) -> None:
         say(get_string("agent_stopping"))

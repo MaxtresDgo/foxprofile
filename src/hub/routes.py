@@ -56,6 +56,7 @@ from ..services.profile.transfer import (
     SYNC_META,
     IntegrityError,
     WrongProfileError,
+    data_stamp,
     export_to_zip,
     file_sha256,
     read_meta,
@@ -887,7 +888,9 @@ async def upload_bundle(
     if release:
         _launcher(request).release(name, _user(request)["name"])
     logger.info("Synced %s from %s", name, _user(request)["name"])
-    return {"name": name, "released": release}
+    # The agent keeps its copy under this stamp: unchanged on the next launch, it opens.
+    stamp = await run_in_threadpool(data_stamp, os.path.join(DATA_DIR, name))
+    return {"name": name, "released": release, "stamp": stamp}
 
 
 def _keep_cookies(profile, name: str, by: str) -> None:

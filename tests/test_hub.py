@@ -839,3 +839,21 @@ def test_each_upload_keeps_its_cookies_and_leads_restore_them(hub, tmp_path):
     folder = next(pathlib.Path("cookie-history").iterdir())
     assert client.delete("/api/v1/profiles/shop-01", headers=admin).status_code == 200
     assert not folder.exists()
+
+
+def test_a_launch_carries_the_stamp_of_the_copy_last_uploaded(hub, tmp_path):
+    """Same stamp: the agent's local copy is the hub's and opens without a download."""
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    upload = _cookie_zip("shop-01", tmp_path, "sid")
+    stamp = client.put("/api/v1/hub/bundle/shop-01", content=upload, headers=ana).json()["stamp"]
+    bl = container.browser_launcher
+    bl.touch("ana", set())
+    assert client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana).status_code == 202
+    assert bl.next_command("ana")["stamp"] == stamp
+    bl.release("shop-01", "ana")
+    # Any change to the hub's copy (a restore, a new upload) changes it.
+    pathlib.Path("camoufox_data/shop-01/fingerprint.json").write_text("{}")
+    client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
+    assert bl.next_command("ana")["stamp"] != stamp

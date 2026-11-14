@@ -4,6 +4,8 @@ import contextlib
 import json
 import zipfile
 
+import pytest
+
 from src import agent
 from src.services.profile.transfer import (
     CHECKPOINTS,
@@ -163,3 +165,79 @@ def test_checkpoints_follow_the_wall_clock_per_profile(tmp_path, monkeypatch):
         a._checkpoints()
     # 100 ticks of 30 s: first seen at 30 s, then one every 10 minutes.
     assert done == [630.0, 1230.0, 1830.0, 2430.0]
+
+
+def _cached_agent(tmp_path, monkeypatch):
+    """An agent that uploaded p1 (Camoufox) and kept it under stamp "s1"."""
+    a = _agent(tmp_path, monkeypatch)
+    a.data_root = tmp_path / "data"
+    a.cache_root = tmp_path / "cache"
+    local = a.data_root / "p1"
+    (local / "cache2").mkdir(parents=True)
+    (local / "cookies.sqlite").write_text("sessions")
+    save_checkpoint(str(local), cookies_json("sid"))
+    a._profiles["p1"] = agent.Profile(name="p1")
+    a._cache_put("p1", local, "s1")
+    return a
+
+
+def _no_hub(*args, **kw):
+    raise agent.urllib.error.URLError("hub down")
+
+
+def test_an_unchanged_hub_copy_opens_from_this_pcs_copy(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    kept = a.cache_root / "p1"
+    assert (kept / "cookies.sqlite").exists()
+    assert not (kept / "cache2").exists() and not (kept / CHECKPOINTS).exists()
+    assert a.cached_names() == ["p1"]
+
+    monkeypatch.setattr(a, "_fetch_into", _no_hub)  # never asked: the stamps match
+    profile = a._download("p1", {"name": "p1", "proxy": "socks5://192.0.2.1:1080"}, "s1")
+    assert profile.proxy == "socks5://192.0.2.1:1080"  # the hub's settings, not the copy's
+    assert (a.data_root / "p1" / "cookies.sqlite").read_text() == "sessions"
+    assert read_meta(str(a.data_root / "p1"))["restored"]["source"] == "cache"
+    assert a.cached_names() == []  # in use: it comes back after the next upload
+
+
+def test_a_hub_outage_falls_back_to_the_local_copy(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    monkeypatch.setattr(a, "_fetch_into", _no_hub)
+    a._download("p1", {"name": "p1"}, "changed-on-the-hub")
+    assert read_meta(str(a.data_root / "p1"))["restored"]["stale"]
+
+
+def test_a_hub_answer_is_not_an_outage(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+
+    def gone(*args, **kw):
+        raise agent.urllib.error.HTTPError("u", 404, "gone", {}, None)
+
+    monkeypatch.setattr(a, "_fetch_into", gone)
+    with pytest.raises(agent.urllib.error.HTTPError):
+        a._download("p1", {"name": "p1"}, "s2")
+    assert a.cached_names() == ["p1"]
+
+
+def test_offline_opens_only_while_the_hub_is_down(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    opened = []
+    monkeypatch.setattr(a, "launch", lambda profile, offline=False: opened.append(offline))
+    a.online = True
+    a.open_offline("p1")
+    a.online = False
+    a.open_offline("p1")
+    assert opened == [True]
+
+
+def test_copies_of_another_account_or_unused_go(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    a.hub.user = "bob"  # switched account: ana's sessions are not bob's
+    assert a.cached_names() == []
+    a.prune_cache()
+    assert not (a.cache_root / "p1").exists()
+
+    a = _cached_agent(tmp_path, monkeypatch)
+    monkeypatch.setattr(agent, "CACHE_DAYS", 0)
+    a.prune_cache()
+    assert not (a.cache_root / "p1").exists()

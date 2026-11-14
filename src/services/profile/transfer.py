@@ -91,6 +91,21 @@ def read_cookies(profile_dir: str) -> str | None:
         raise IntegrityError(f"{COOKIES_GZ}: {e}") from e
 
 
+def data_stamp(profile_dir: str) -> str:
+    """Changes whenever a file of the dir does: names, sizes and times, nothing read.
+    An agent keeps the stamp of what it uploaded; the same stamp on the next launch
+    means the hub's copy is still exactly that, so its local copy can open."""
+    digest = hashlib.sha256()
+    for root, dirs, files in os.walk(profile_dir):
+        dirs.sort()
+        for name in sorted(files):
+            path = os.path.join(root, name)
+            st = os.stat(path)
+            rel = os.path.relpath(path, profile_dir)
+            digest.update(f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\n".encode())
+    return digest.hexdigest()[:32]
+
+
 def _checkpoint_index(folder: pathlib.Path) -> list[dict]:
     try:
         index = json.loads((folder / "index.json").read_text(encoding="utf-8"))
