@@ -74,15 +74,18 @@ from src.services.browser import extensions as ext_files  # noqa: E402
 from src.services.browser.launcher import BrowserControlError  # noqa: E402
 from src.services.profile import adspower  # noqa: E402
 from src.services.profile.transfer import (  # noqa: E402
+    CHECKPOINTS,
     COOKIES_GZ,
     COOKIES_SHA,
     IntegrityError,
     export_to_zip,
     file_sha256,
     import_from_zip,
+    last_verified,
     pack_cookies,
     read_cookies,
     read_meta,
+    save_checkpoint,
     update_meta,
 )
 from src.services.proxy.geo_check import check_geo  # noqa: E402
@@ -94,6 +97,9 @@ PART_BYTES = 8 * 1024 * 1024
 # What a hub without a route answers: older than the pieces above.
 OLD_HUB = (404, 405)
 CREDENTIALS = pathlib.Path("agent.json")
+# Minutes between cookie checkpoints of each open profile; 0 turns them off. A
+# crash uploads the last verified one instead of what the browser left behind.
+CHECKPOINT_MIN = 10
 ICON = pathlib.Path(__file__).parent / "assets" / "icon.png"
 
 
@@ -264,6 +270,8 @@ class Agent:
         self._sent: tuple = ()
         self._activity_lock = threading.Lock()
         threading.Thread(target=self._heartbeat, daemon=True).start()
+        if CHECKPOINT_MIN:
+            threading.Thread(target=self._checkpoints, daemon=True).start()
         container = Container(hub=False)
         self.bl = container.browser_launcher
         self.bl.extensions = lambda profile: self._ext_dirs.get(profile.name, [])
@@ -326,6 +334,30 @@ class Agent:
             time.sleep(10)
             if self.activity()["state"] != "ready":
                 self.report(force=True)
+
+    def _checkpoints(self) -> None:
+        while True:
+            time.sleep(CHECKPOINT_MIN * 60)
+            for name in self.bl.running_profile_names():
+                if name not in self._ops:  # not while it is still opening or saving
+                    self.checkpoint(name)
+
+    def checkpoint(self, name: str) -> None:
+        """Keep the open profile's cookies on this PC, checked back from disk."""
+        try:
+            text = cookies.as_json(self.bl.control(name, "cookies", timeout=30))
+            entry = save_checkpoint(str(self.data_root / name), text)
+        except (BrowserControlError, OSError, ValueError) as e:
+            trace(name, "checkpoint.failed", warn=True, error=e)
+            return
+        trace(
+            name,
+            "checkpoint.saved",
+            warn=not entry["verified"],
+            cookies=entry["cookies"],
+            verified=entry["verified"],
+            reason=entry["reason"],
+        )
 
     @contextlib.contextmanager
     def busy(self, state: str, name: str):
@@ -486,9 +518,10 @@ class Agent:
         self._call_quietly("POST", f"/hub/result/{request_id}", json.dumps(answer).encode())
 
     def _closed(self, name: str) -> None:
-        trace(name, "browser.closed_by_user")
+        clean = self.bl.closed_cleanly(name)
+        trace(name, "browser.closed_by_user" if clean else "browser.crashed", warn=not clean)
         say(get_string("agent_closed", name=name))
-        threading.Thread(target=self._sync, args=(name,), daemon=True).start()
+        threading.Thread(target=self._sync, args=(name, not clean), daemon=True).start()
 
     # --- data transfer ---------------------------------------------------------
 
@@ -631,8 +664,12 @@ class Agent:
             say(get_string("agent_cookies_restore_failed", name=name, error=e))
         update_meta(str(local), restored=restored)
 
-    def _pack_cookies(self, name: str, local: pathlib.Path) -> None:
-        """Export the stopped profile's cookies as gzipped JSON plus SHA-256."""
+    def _pack_cookies(self, name: str, local: pathlib.Path, unexpected: bool = False) -> None:
+        """Export the stopped profile's cookies as gzipped JSON plus SHA-256. After
+        an unexpected close (crash, power cut), or when the export fails or comes
+        out empty, the last verified checkpoint goes instead."""
+        if unexpected and self._pack_checkpoint(name, local, "unexpected close"):
+            return
         meta = read_meta(str(local))
         profile = self._profiles.get(name)
         if profile is None and meta.get("profile"):  # left by a crashed run
@@ -674,17 +711,37 @@ class Agent:
             trace(name, "pack.failed", warn=True, error=e, uploads_last_pack=kept)
             say(get_string("agent_cookies_pack_failed", name=name, error=e))
         update_meta(str(local), packed=packed)
+        if packed["cookies"]:
+            # This close's cookies are newer than any checkpoint of the session.
+            shutil.rmtree(local / CHECKPOINTS, ignore_errors=True)
+        else:
+            self._pack_checkpoint(name, local, packed["error"] or "no cookies", packed["error"])
 
-    def _sync(self, name: str) -> None:
+    def _pack_checkpoint(self, name: str, local: pathlib.Path, why: str, error: str = "") -> bool:
+        """Pack the newest verified checkpoint, if there is one."""
+        found = last_verified(str(local))
+        if found is None:
+            trace(name, "pack.no_checkpoint", warn=True, reason=why)
+            return False
+        entry, text = found
+        pack_cookies(str(local), text)
+        packed = {"ts": time.time(), "pc": self.identity["pc"], "cookies": entry["cookies"]}
+        packed |= {"error": error, "source": "checkpoint", "checkpoint_ts": entry["ts"]}
+        update_meta(str(local), packed=packed)
+        trace(name, "pack.from_checkpoint", reason=why, ts=entry["ts"], cookies=entry["cookies"])
+        say(get_string("agent_cookies_packed", name=name, count=entry["cookies"]))
+        return True
+
+    def _sync(self, name: str, unexpected: bool = False) -> None:
         """Upload the profile's data and end the lease, retrying until the hub takes it."""
         with self.busy("syncing", name):
-            self._sync_now(name)
+            self._sync_now(name, unexpected)
 
-    def _sync_now(self, name: str) -> None:
+    def _sync_now(self, name: str, unexpected: bool = False) -> None:
         local = self.data_root / name
         started = time.monotonic()
         trace(name, "upload.start", pc=self.identity["pc"], user=self.hub.user)
-        self._pack_cookies(name, local)
+        self._pack_cookies(name, local, unexpected)
         while True:
             try:
                 self._upload(name, local)
@@ -755,7 +812,7 @@ class Agent:
         for local in sorted(self.data_root.iterdir()):
             if local.is_dir():
                 say(get_string("agent_pending_upload", name=local.name))
-                self._sync(local.name)
+                self._sync(local.name, unexpected=True)
 
     def run(self) -> None:
         self.report(force=True)  # clears what a previous run left on the hub

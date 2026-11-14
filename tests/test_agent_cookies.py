@@ -1,9 +1,19 @@
 """The agent keeps a Chrome profile's portable cookies through every sync."""
 
 import json
+import zipfile
 
 from src import agent
-from src.services.profile.transfer import pack_cookies, read_cookies, read_meta, update_meta
+from src.services.profile.transfer import (
+    CHECKPOINTS,
+    export_to_zip,
+    last_verified,
+    pack_cookies,
+    read_cookies,
+    read_meta,
+    save_checkpoint,
+    update_meta,
+)
 
 
 def cookie(name, value="v", domain=".example.com"):
@@ -51,3 +61,84 @@ def test_chrome_pack_survives_a_crash_and_a_failed_restore(tmp_path, monkeypatch
     monkeypatch.setattr(agent.cookies, "export_cookies", refuse)
     a._pack_cookies("p1", local)
     assert read_cookies(str(local)) and read_meta(str(local))["packed"]["error"]
+
+
+def cookies_json(*names):
+    return json.dumps([cookie(n) for n in names])
+
+
+def test_checkpoint_is_verified_only_when_it_reads_back_sane(tmp_path):
+    good = save_checkpoint(str(tmp_path), cookies_json("a", "b", "c", "d"))
+    assert good["verified"] and len(_files(tmp_path)) == 1
+
+    # Under half of the last verified: kept, not trusted; the previous one stays.
+    drop = save_checkpoint(str(tmp_path), cookies_json("a"))
+    assert not drop["verified"] and "under half" in drop["reason"]
+    assert len(_files(tmp_path)) == 2
+    entry, text = last_verified(str(tmp_path))
+    assert entry["ts"] == good["ts"] and len(json.loads(text)) == 4
+
+    assert not save_checkpoint(str(tmp_path), "[]")["verified"]
+    # A verified file damaged on disk afterwards is skipped, not uploaded.
+    (tmp_path / CHECKPOINTS / good["file"]).write_bytes(b"x")
+    assert last_verified(str(tmp_path)) is None
+
+
+def _files(profile_dir):
+    return [f for f in (profile_dir / CHECKPOINTS).iterdir() if f.name != "index.json"]
+
+
+def _chrome_dir(tmp_path):
+    local = tmp_path / "p1"
+    local.mkdir()
+    engine = {"os_type": "windows", "engine": "chrome", "chrome_version": None}
+    update_meta(str(local), profile=engine)
+    return local
+
+
+def test_a_crash_uploads_the_last_verified_checkpoint(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    local = _chrome_dir(tmp_path)
+    monkeypatch.setattr(
+        a.bl, "control", lambda *a, **k: [{"domain": ".x.com", "name": "sid", "value": "1"}]
+    )
+    a.checkpoint("p1")
+    monkeypatch.setattr(agent.cookies, "export_cookies", lambda *a, **k: (cookies_json("half"), 1))
+
+    a._pack_cookies("p1", local, unexpected=True)
+    assert [c["name"] for c in json.loads(read_cookies(str(local)))] == ["sid"]
+    assert read_meta(str(local))["packed"]["source"] == "checkpoint"
+
+    # A normal close with cookies packs them and drops the older checkpoints.
+    a._pack_cookies("p1", local)
+    assert [c["name"] for c in json.loads(read_cookies(str(local)))] == ["half"]
+    assert "source" not in read_meta(str(local))["packed"]
+    assert not (local / CHECKPOINTS).exists()
+
+
+def test_an_empty_close_falls_back_to_the_checkpoint(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    local = _chrome_dir(tmp_path)
+    save_checkpoint(str(local), cookies_json("sid", "csrf"))
+    monkeypatch.setattr(agent.cookies, "export_cookies", lambda *a, **k: ("[]", 0))
+    a._pack_cookies("p1", local)
+    assert read_meta(str(local))["packed"]["cookies"] == 2
+    assert read_meta(str(local))["packed"]["source"] == "checkpoint"
+
+
+def test_a_crash_without_checkpoint_packs_as_before(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    local = _chrome_dir(tmp_path)
+    monkeypatch.setattr(agent.cookies, "export_cookies", lambda *a, **k: (cookies_json("s"), 1))
+    a._pack_cookies("p1", local, unexpected=True)
+    assert read_meta(str(local))["packed"]["cookies"] == 1
+
+
+def test_checkpoints_never_leave_the_pc(tmp_path):
+    local = tmp_path / "p1"
+    local.mkdir()
+    save_checkpoint(str(local), cookies_json("sid"))
+    ok, zip_path = export_to_zip(agent.Profile(name="p1"), str(local), str(tmp_path))
+    assert ok
+    with zipfile.ZipFile(zip_path) as z:
+        assert not [n for n in z.namelist() if CHECKPOINTS in n]

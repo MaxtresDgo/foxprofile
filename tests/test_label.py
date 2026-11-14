@@ -172,3 +172,10 @@ def test_session_check_flags_lost_cookies(tmp_path):
     assert label.sync_check(stale, ok)[0] == []
     # A new profile with nothing saved yet is fine.
     assert label.sync_check({}, {"count": 0, "domains": []})[0] == []
+
+
+def test_session_check_says_the_cookies_came_from_a_checkpoint():
+    packed = {"ts": 10, "pc": "PC-A", "cookies": 3, "source": "checkpoint", "checkpoint_ts": 5}
+    rows = label.sync_check({"packed": packed}, {"count": 3, "domains": []})[1]
+    when = label._when(5)
+    assert label.get_string("start_sync_from_checkpoint", when=when) in rows[0][1]

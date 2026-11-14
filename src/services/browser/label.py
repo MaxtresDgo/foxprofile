@@ -314,8 +314,14 @@ def sync_check(meta: dict, browser: dict | None) -> tuple[list[str], list[tuple[
     if packed:
         if packed.get("error"):
             issues.append(s("start_sync_pack_failed", error=packed["error"]))
+        source = packed.get("source") == "checkpoint" and s(
+            "start_sync_from_checkpoint", when=_when(packed.get("checkpoint_ts"))
+        )
         value = _joined(
-            f"{packed.get('cookies', 0)} cookies", packed.get("pc"), _when(packed.get("ts"))
+            f"{packed.get('cookies', 0)} cookies",
+            source,
+            packed.get("pc"),
+            _when(packed.get("ts")),
         )
         rows.append((s("start_sync_packed"), value, True))
     got = restored.get("cookies") or 0

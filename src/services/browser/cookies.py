@@ -117,6 +117,11 @@ def _to_extension_json(cookies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def as_json(cookies: list[dict[str, Any]]) -> str:
+    """Playwright cookies as the extension JSON that export and the hub packs use."""
+    return json.dumps(_to_extension_json(cookies), indent=2, ensure_ascii=False)
+
+
 def _to_netscape(cookies: list[dict[str, Any]]) -> str:
     lines = ["# Netscape HTTP Cookie File", "# Exported by FoxProfile", ""]
     for c in cookies:
@@ -242,9 +247,7 @@ def export_cookies(
     logger.info("Exported %d cookies from %s (%s)", len(cookies), profile_name, fmt)
     if fmt == "netscape":
         return _to_netscape(cookies), len(cookies)
-    return json.dumps(_to_extension_json(cookies), indent=2, ensure_ascii=False), len(
-        cookies,
-    )
+    return as_json(cookies), len(cookies)
 
 
 def import_cookies(
