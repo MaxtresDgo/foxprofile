@@ -314,8 +314,16 @@ def sync_check(meta: dict, browser: dict | None) -> tuple[list[str], list[tuple[
     if packed:
         if packed.get("error"):
             issues.append(s("start_sync_pack_failed", error=packed["error"]))
+        source = ""
+        if packed.get("source") == "checkpoint":
+            source = s("start_sync_from_checkpoint", when=_when(packed.get("checkpoint_ts")))
+        elif packed.get("source") == "history":
+            source = s("start_sync_from_history", when=_when(packed.get("history_ts")))
         value = _joined(
-            f"{packed.get('cookies', 0)} cookies", packed.get("pc"), _when(packed.get("ts"))
+            f"{packed.get('cookies', 0)} cookies",
+            source,
+            packed.get("pc"),
+            _when(packed.get("ts")),
         )
         rows.append((s("start_sync_packed"), value, True))
     got = restored.get("cookies") or 0
@@ -325,9 +333,12 @@ def sync_check(meta: dict, browser: dict | None) -> tuple[list[str], list[tuple[
             issues.append(s("start_sync_restore_failed", error=restored["error"]))
         elif expected and got < expected:
             issues.append(s("start_sync_missing", missing=expected - got, expected=expected))
+        if restored.get("stale"):
+            issues.append(s("start_sync_cache_stale"))
         mb = restored.get("bundle_bytes")
         value = _joined(
             s("start_sync_not_packed") if expected is None else f"{got}/{expected} cookies",
+            restored.get("source") == "cache" and s("start_sync_from_cache"),
             mb and f"{mb / 1e6:.1f} MB",
             restored.get("pc"),
             _when(restored.get("ts")),

@@ -10,6 +10,7 @@ from fastapi.responses import PlainTextResponse
 from ...core.config import DATA_DIR
 from ...core.logging import get_logger
 from ...core.strings import get_string
+from ...hub import conflicts, cookie_history
 from ...models.profile import ENGINES
 from ...services.browser import chrome_prefetch, cookies, fingerprint
 from ...services.browser.launcher import BrowserControlError, ProfileBusyError
@@ -286,7 +287,7 @@ def delete_profile(
     bl: IBrowserLauncher = Depends(get_browser_launcher),
     bus: EventBus = Depends(get_event_bus),
 ) -> SuccessResponse:
-    require_profile(name, pm)
+    profile = require_profile(name, pm)
     if bl.is_running(name):
         raise HTTPException(
             status_code=409,
@@ -295,6 +296,8 @@ def delete_profile(
     pm.delete_profile(name)
     if (store := hub_store(request)) is not None:
         store.forget_profile(name)
+        cookie_history.drop(profile.uid)  # sessions: not kept for a deleted profile
+        conflicts.drop(profile.uid)
     logger.info("API deleted profile: %s", name)
     bus.emit()
     return SuccessResponse(message=f"Profile '{name}' deleted")

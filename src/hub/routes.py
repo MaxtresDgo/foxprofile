@@ -57,12 +57,14 @@ from ..services.profile.transfer import (
     SYNC_META,
     IntegrityError,
     WrongProfileError,
+    data_stamp,
     export_to_zip,
     file_sha256,
     read_meta,
     swap_in,
+    update_meta,
 )
-from . import agent_code, installers, platform_auth
+from . import agent_code, conflicts, cookie_history, installers, platform_auth
 from .remote import POLL_WAIT
 from .store import HubError
 
@@ -160,7 +162,21 @@ def me(request: Request) -> dict:
         "syncing": sorted(n for n in _syncing(bl) if store.can(user, n)),
         "owners": {n: u for n, u in store.owners.items() if store.can(user, n)},
         "groups": {n: g for n, g in store.profile_groups.items() if store.can(user, n)},
+        "conflicts": _conflicts(request, store, user),
         "my_groups": {g["name"]: g["my_role"] for g in store.list_groups(user)},
+    }
+
+
+def _conflicts(request: Request, store, user: dict) -> dict[str, int]:
+    """Profile -> versions waiting for an admin or group lead to pick one."""
+    waiting = conflicts.counts()
+    if not waiting:
+        return {}
+    pm = request.app.state.container.profile_manager
+    return {
+        p.name: waiting[p.uid]
+        for p in pm.list_profiles()
+        if p.uid in waiting and store.can(user, p.name)
     }
 
 
@@ -666,6 +682,10 @@ async def upload_installer(platform: str, request: Request, name: str = Query(..
 
 
 SHA_HEADER = "X-Content-SHA256"
+# The hub copy's data_stamp the upload started from, and one id per agent sync
+# (the same on its retries): a copy changed since is a conflict, not replaced.
+BASE_HEADER = "X-Base-Stamp"
+UPLOAD_HEADER = "X-Upload-Id"
 
 
 def _zip_meta(zip_path: str) -> dict:
@@ -898,7 +918,28 @@ async def upload_bundle(
         ):
             logger.warning("[sync %s] hub.upload refused: no %s", name, COOKIES_GZ)
             raise HTTPException(status_code=409, detail=get_string("err_upload_no_cookies"))
+        by, hub_dir = _user(request)["name"], os.path.join(DATA_DIR, name)
+        base, upload_id = request.headers.get(BASE_HEADER), request.headers.get(UPLOAD_HEADER)
+        # The same sync retrying an upload the hub already took (the answer got lost).
+        retry = (
+            bool(upload_id) and (read_meta(hub_dir).get("hub_upload") or {}).get("id") == upload_id
+        )
+        if base and not retry and base != await run_in_threadpool(data_stamp, hub_dir):
+            # Someone else's version went in since this one started (two PCs offline
+            # on the same copy): both stay, an admin or a group lead picks one.
+            entry = await run_in_threadpool(conflicts.add, profile.uid, zip_path, by, base)
+            logger.warning(
+                "[sync %s] hub.conflict from=%s kept=%s: the hub's copy changed since it started",
+                name,
+                by,
+                entry["id"],
+            )
+            if release:
+                _launcher(request).release(name, by)
+            return {"name": name, "released": release, "conflict": entry["id"]}
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
+        update_meta(hub_dir, hub_upload={"id": upload_id, "by": by, "ts": time.time()})
+        await run_in_threadpool(_keep_cookies, profile, name, by)
         if snapshots.enabled():  # the checked upload is this version's snapshot
             snapshots.upload_later(profile, zip_path)
     finally:
@@ -906,7 +947,25 @@ async def upload_bundle(
     if release:
         _launcher(request).release(name, _user(request)["name"])
     logger.info("Synced %s from %s", name, _user(request)["name"])
-    return {"name": name, "released": release}
+    # The agent keeps its copy under this stamp: unchanged on the next launch, it opens.
+    stamp = await run_in_threadpool(data_stamp, os.path.join(DATA_DIR, name))
+    return {"name": name, "released": release, "stamp": stamp}
+
+
+def _keep_cookies(profile, name: str, by: str) -> None:
+    """The upload's cookies into the history. Never fails an upload already swapped in."""
+    try:
+        entry = cookie_history.add(profile.uid, os.path.join(DATA_DIR, name), by)
+    except (OSError, ValueError) as e:
+        logger.warning("[sync %s] hub.cookie_history failed: %s", name, e)
+        return
+    if entry:
+        logger.info(
+            "[sync %s] hub.cookie_history cookies=%d source=%s",
+            name,
+            entry["cookies"],
+            entry["source"],
+        )
 
 
 def _swap_in(zip_path: str, tmp: str, name: str, data_root: pathlib.Path) -> None:
