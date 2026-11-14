@@ -251,3 +251,12 @@ def test_a_conflicting_upload_is_not_kept_as_the_hubs_copy(tmp_path, monkeypatch
     monkeypatch.setattr(a, "_upload", lambda *args: {"conflict": "c1"})
     a._sync_now("p1")
     assert not (a.data_root / "p1").exists() and a.cached_names() == []
+
+
+def test_the_local_panel_lists_the_copies_on_this_pc(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    (a.data_root / "p2").mkdir()  # left behind, not uploaded yet
+    listed = {p["name"]: p for p in a.local_profiles()}
+    assert listed["p1"]["state"] == "idle" and listed["p1"]["copy"]
+    assert listed["p1"]["engine"] == "camoufox"
+    assert listed["p2"]["state"] == "pending" and listed["p2"]["copy"] is None

@@ -670,6 +670,35 @@ class Agent:
                 shutil.rmtree(self.cache_root / record.stem, ignore_errors=True)
                 record.unlink(missing_ok=True)
 
+    def local_profiles(self) -> list[dict]:
+        """What the local panel lists: profiles with a copy here, open, or not uploaded."""
+        running = self.bl.running_profile_names()
+        names = set(self.cached_names()) | running | set(self._ops)
+        if self.data_root.is_dir():
+            names |= {d.name for d in self.data_root.iterdir() if d.is_dir()}
+        out = []
+        for name in sorted(names):
+            cached = self._cache_get(name)
+            known = self._profiles.get(name)
+            config = known.to_dict() if known else (cached or {}).get("profile", {})
+            state = self._ops.get(name) or (
+                "live"
+                if name in running
+                else "pending"
+                if (self.data_root / name).is_dir()
+                else "idle"
+            )
+            out.append(
+                {
+                    "name": name,
+                    "state": state,
+                    "copy": cached["ts"] if cached else None,
+                    "engine": config.get("engine"),
+                    "os": config.get("os_type"),
+                }
+            )
+        return out
+
     def open_offline(self, name: str) -> None:
         """From the tray while the hub is down: the local copy, uploaded on close
         once the hub is back (the lease follows the open browser then, touch())."""
@@ -1327,6 +1356,7 @@ class App:
         )
         self.client.on_unauthorized = self._unauthorized
         self.agent = Agent(self.client, self.set_status, self.notify)
+        self.panel = None  # agent_panel.LocalPanel, from work()
         self.wall = BrowserWall(
             self.agent.bl, lambda name: self.agent.stop(name, said="agent_stopped_wall")
         )
@@ -1435,6 +1465,14 @@ class App:
                 self.icon.notify(text, "FoxProfile Agent")
 
     def work(self) -> None:
+        from src.agent_panel import LocalPanel
+
+        try:
+            self.panel = LocalPanel(self.agent)
+            self.panel.start()
+            say(get_string("agent_local_panel", url=f"http://127.0.0.1:{self.panel.port}/"))
+        except OSError as e:  # no loopback port: the agent works without it
+            say(get_string("agent_local_panel_failed", error=e))
         # Downloading and signing in at the same time: the operator authorizes the
         # agent in the browser while the ~1.3 GB browser is still coming.
         download = threading.Thread(target=self._download, daemon=True)
@@ -1498,6 +1536,11 @@ class App:
                     lambda: [self._offline_item(item, n) for n in self.agent.cached_names()]
                 ),
                 visible=lambda _: not self.agent.online and bool(self.agent.cached_names()),
+            ),
+            item(
+                lambda _: get_string("agent_menu_local_panel"),
+                lambda: webbrowser.open(self.panel.url),
+                enabled=lambda _: self.panel is not None,
             ),
             item(lambda _: get_string("agent_menu_logs"), open_logs),
             item(lambda _: get_string("agent_menu_quit"), self.quit),
