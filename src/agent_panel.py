@@ -1,5 +1,6 @@
 """The agent's local panel: a small page on this PC (127.0.0.1) to open profiles
-from their local copy and stop them while the hub is degraded or unreachable.
+from their local copy and stop them. Offline mode only: while the hub answers,
+it lists nothing and takes no action (profiles are the hub panel's then).
 
 Loopback only, and every /api call carries the token the tray's "Local panel"
 item puts in the page's address (#t=...), checked with the Host header so no
@@ -21,7 +22,7 @@ TOKEN_FILE = pathlib.Path("local-panel.json")
 TOKEN_HEADER = "X-Panel-Token"
 _TEXT = [
     "lp_title",
-    "lp_online",
+    "lp_online_only",
     "lp_open_hub",
     "lp_offline",
     "lp_signed_out",
@@ -83,10 +84,14 @@ class LocalPanel:
 
             def _allowed(self) -> bool:
                 token = self.headers.get(TOKEN_HEADER, "")
-                if self._host_ok() and secrets.compare_digest(token, panel.token):
-                    return True
-                self._json(403, {"error": get_string("lp_bad_token")})
-                return False
+                if not (self._host_ok() and secrets.compare_digest(token, panel.token)):
+                    self._json(403, {"error": get_string("lp_bad_token")})
+                    return False
+                if panel.agent.online:  # offline mode only
+                    hub = panel.agent.hub.url
+                    self._json(409, {"error": get_string("lp_online_only"), "hub": hub})
+                    return False
+                return True
 
             def do_GET(self) -> None:
                 path = urllib.parse.urlsplit(self.path).path
@@ -132,7 +137,6 @@ class LocalPanel:
     def state(self) -> dict:
         a = self.agent
         return {
-            "online": a.online,
             "signed_in": bool(a.hub.key),
             "hub": a.hub.url,
             "user": a.hub.label,
@@ -146,7 +150,7 @@ class LocalPanel:
         if name not in known:
             return get_string("lp_failed")
         if action == "/api/open":
-            if a.online or not known[name]["copy"] or known[name]["state"] != "idle":
+            if not known[name]["copy"] or known[name]["state"] != "idle":
                 return get_string("lp_failed")
             target, args = a.open_offline, (name,)
         elif action == "/api/stop":
@@ -221,7 +225,7 @@ async function call(method, path, body) {
   const r = await fetch(path, { method, headers: { "X-Panel-Token": token, "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || r.status);
+  if (!r.ok) throw Object.assign(new Error(data.error || r.status), { hub: data.hub });
   return data;
 }
 const STATE = { live: ["stamp", "lp_live"], opening: ["stamp pending", "lp_opening"],
@@ -229,15 +233,14 @@ const STATE = { live: ["stamp", "lp_live"], opening: ["stamp pending", "lp_openi
 function draw(s) {
   $("who").textContent = s.signed_in ? `${s.user} · ${s.hub}` : T.lp_signed_out;
   const note = $("note");
-  note.className = "note" + (s.online ? "" : " warn");
-  note.replaceChildren(s.online ? T.lp_online + " " : T.lp_offline,
-    s.online ? el("a", { href: s.hub, textContent: T.lp_open_hub, target: "_blank", rel: "noopener" }) : null);
+  note.className = "note warn";
+  note.textContent = T.lp_offline;
   if (!s.profiles.length) return $("list").replaceChildren(el("p", { className: "idle", textContent: T.lp_none }));
   const rows = s.profiles.map((p) => {
     const [cls, key] = STATE[p.state] || [null, "lp_idle"];
     const action = p.state === "live"
       ? el("button", { textContent: T.lp_stop, onclick: () => act("stop", p.name) })
-      : el("button", { className: "act", textContent: T.lp_open, disabled: s.online || !p.copy || p.state !== "idle",
+      : el("button", { className: "act", textContent: T.lp_open, disabled: !p.copy || p.state !== "idle",
           onclick: () => act("open", p.name) });
     return el("tr", {},
       el("td", {}, el("b", { textContent: p.name }), el("span", { className: "minor", textContent: [p.engine, p.os].filter(Boolean).join(" · ") })),
@@ -254,7 +257,13 @@ async function act(what, name) {
 }
 async function load() {
   try { draw(await call("GET", "/api/state")); }
-  catch (e) { const n = $("note"); n.className = "note err"; n.textContent = e.message; }
+  catch (e) {
+    // The hub answers again: offline mode is over, the hub's panel takes over.
+    const n = $("note");
+    n.className = e.hub ? "note" : "note err";
+    n.replaceChildren(e.message + " ", e.hub ? el("a", { href: e.hub, textContent: T.lp_open_hub, target: "_blank", rel: "noopener" }) : null);
+    $("list").replaceChildren();
+  }
 }
 load();
 setInterval(load, 3000);

@@ -1540,18 +1540,11 @@ class App:
                 if self.dev
                 else []
             ),
-            # The hub is down: open a profile from this PC's copy, synced once it is back.
-            item(
-                lambda _: get_string("agent_menu_offline"),
-                pystray.Menu(
-                    lambda: [self._offline_item(item, n) for n in self.agent.cached_names()]
-                ),
-                visible=lambda _: not self.agent.online and bool(self.agent.cached_names()),
-            ),
+            # Offline mode: the hub is unreachable, profiles open from this PC's copy.
             item(
                 lambda _: get_string("agent_menu_local_panel"),
                 lambda: webbrowser.open(self.panel.url),
-                enabled=lambda _: self.panel is not None,
+                visible=lambda _: self.panel is not None and not self.agent.online,
             ),
             item(lambda _: get_string("agent_menu_logs"), open_logs),
             item(lambda _: get_string("agent_menu_quit"), self.quit),
@@ -1564,15 +1557,6 @@ class App:
 
         self.icon.run(setup=setup)  # main thread: required on macOS
         return True
-
-    def _offline_item(self, item, name: str):
-        return item(
-            name,
-            lambda: threading.Thread(
-                target=self.agent.open_offline, args=(name,), daemon=True
-            ).start(),
-            enabled=lambda _: name not in self.agent.bl.running_profile_names(),
-        )
 
     def quit(self) -> None:
         say(get_string("agent_stopping"))

@@ -1,4 +1,4 @@
-"""The agent's local panel: loopback only, token and Host checked, opens only offline."""
+"""The agent's local panel: loopback only, token and Host checked, offline mode only."""
 
 import http.client
 import json
@@ -51,9 +51,11 @@ def test_the_local_panel_opens_copies_only_while_the_hub_is_down(tmp_path, monke
         status, body = _call(panel, "GET", "/api/state", panel.token)
         assert status == 200 and json.loads(body)["profiles"][0]["name"] == "p1"
 
-        # While the hub answers, profiles open from its panel, not here.
+        # Offline mode only: while the hub answers, nothing is listed or done here.
         agent.online = True
-        assert _call(panel, "POST", "/api/open", panel.token, body={"name": "p1"})[0] == 400
+        status, body = _call(panel, "GET", "/api/state", panel.token)
+        assert status == 409 and "profiles" not in json.loads(body)
+        assert _call(panel, "POST", "/api/open", panel.token, body={"name": "p1"})[0] == 409
         agent.online = False
         assert _call(panel, "POST", "/api/open", panel.token, body={"name": "p1"})[0] == 200
         assert _call(panel, "POST", "/api/open", panel.token, body={"name": "nope"})[0] == 400
