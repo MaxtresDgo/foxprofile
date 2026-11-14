@@ -1005,6 +1005,10 @@ class Agent:
                     "chrome_error": self.chrome_error,
                 }
             )
+            if self.hub.reachable is False:
+                # A long poll answers late: offline mode ends as soon as the hub is back.
+                with contextlib.suppress(OSError, ValueError):
+                    self.hub.call("GET", "/health", timeout=10)
             try:
                 resp = self.hub.call("GET", "/hub/poll?" + query, timeout=60)
             except (OSError, urllib.error.URLError) as e:
