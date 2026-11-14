@@ -223,9 +223,9 @@ def test_offline_opens_only_while_the_hub_is_down(tmp_path, monkeypatch):
     a = _cached_agent(tmp_path, monkeypatch)
     opened = []
     monkeypatch.setattr(a, "launch", lambda profile, offline=False: opened.append(offline))
-    a.online = True
+    a.hub.reachable = True
     a.open_offline("p1")
-    a.online = False
+    a.hub.reachable = False
     a.open_offline("p1")
     assert opened == [True]
 
@@ -260,3 +260,20 @@ def test_the_local_panel_lists_the_copies_on_this_pc(tmp_path, monkeypatch):
     assert listed["p1"]["state"] == "idle" and listed["p1"]["copy"]
     assert listed["p1"]["engine"] == "camoufox"
     assert listed["p2"]["state"] == "pending" and listed["p2"]["copy"] is None
+
+
+def test_the_hub_counts_as_down_only_after_a_failed_call(monkeypatch):
+    hub = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    assert hub.reachable is None  # not known yet: nothing opens offline
+
+    def answer(code):
+        def send(*args, **kw):
+            raise agent.urllib.error.HTTPError("u", code, "x", {}, None)
+
+        return send
+
+    for code, reachable in ((404, True), (530, False)):
+        monkeypatch.setattr(hub, "_send", answer(code))
+        with pytest.raises(agent.urllib.error.HTTPError):
+            hub.call("GET", "/hub/poll")
+        assert hub.reachable is reachable

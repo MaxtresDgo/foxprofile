@@ -206,6 +206,8 @@ class HubClient:
         self.url, self.user, self.key, self.display = url, user, key, display
         # Called on a 401: the key was revoked (or replaced by another sign-in).
         self.on_unauthorized = lambda: None
+        # Whether the last answer came from the hub; None before the first one.
+        self.reachable: bool | None = None
 
     @property
     def label(self) -> str:
@@ -214,11 +216,18 @@ class HubClient:
 
     def call(self, method: str, path: str, data=None, timeout: float = 60, raw=False, headers=None):
         try:
-            return self._send(method, path, data, timeout=timeout, raw=raw, headers=headers)
+            result = self._send(method, path, data, timeout=timeout, raw=raw, headers=headers)
         except urllib.error.HTTPError as e:
+            # A 5xx is Cloudflare's (502, 530) when the hub behind it is down.
+            self.reachable = e.code < 500
             if e.code == 401:
                 self.on_unauthorized()
             raise
+        except OSError:
+            self.reachable = False
+            raise
+        self.reachable = True
+        return result
 
     def _send(self, method, path, data=None, timeout: float = 60, raw=False, headers=None):
         headers = {
@@ -291,7 +300,11 @@ class Agent:
         self.data_root = pathlib.Path(DATA_DIR)
         self.data_root.mkdir(parents=True, exist_ok=True)
         self.cache_root = pathlib.Path("profile-cache")
-        self.online = False  # the last poll reached the hub
+
+    @property
+    def online(self) -> bool:
+        """Not known to be down: profiles open from the hub, not from local copies."""
+        return self.hub.reachable is not False
 
     def q(self, name: str) -> str:
         return urllib.parse.quote(name, safe="")
@@ -998,10 +1011,8 @@ class Agent:
                 if not (isinstance(e, urllib.error.HTTPError) and e.code == 401):
                     say(get_string("agent_unreachable", error=e))
                     self.status("agent_status_offline")
-                    self.online = False
                 time.sleep(RETRY_SECONDS)
                 continue
-            self.online = True
             if self.hub.key:
                 self.status("agent_status_connected", user=self.hub.label, host=_host(self.hub.url))
             if not resp:
