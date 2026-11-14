@@ -184,8 +184,12 @@ def test_last_tab_closing_reports_browser_closed(chrome_exe, tmp_path):
         _, port, token = next(line for line in runner.log if line.startswith("CONTROL:")).split(
             ":", 2
         )
-        # The start page is a tab too: close it, then the blank one opened after it.
-        control(int(port), token, "tab_close", index=0)
+        # Every launch opens the start page and Facebook (runner.open_tabs). A page
+        # may close itself only while its history has one entry: a new blank tab is
+        # the last one left, then it closes the way a user's last tab does.
+        tabs = control(int(port), token, "tab_new")["tabs"]
+        for _ in tabs[:-1]:
+            control(int(port), token, "tab_close", index=0)
         control(int(port), token, "evaluate", script="() => window.close()")
         runner.wait_for("BROWSER_CLOSED", timeout=30)
         assert runner.proc.wait(30) == 0
