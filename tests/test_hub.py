@@ -857,3 +857,34 @@ def test_a_launch_carries_the_stamp_of_the_copy_last_uploaded(hub, tmp_path):
     pathlib.Path("camoufox_data/shop-01/fingerprint.json").write_text("{}")
     client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
     assert bl.next_command("ana")["stamp"] != stamp
+
+
+def test_two_pcs_on_the_same_version_keep_both_until_someone_picks(hub, tmp_path):
+    client, _, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    put = "/api/v1/hub/bundle/shop-01"
+    first = client.put(put, content=_cookie_zip("shop-01", tmp_path, "v1"), headers=ana)
+    base = first.json()["stamp"]
+
+    def upload(cookie, upload_id):
+        headers = {**ana, "X-Base-Stamp": base, "X-Upload-Id": upload_id}
+        return client.put(put, content=_cookie_zip("shop-01", tmp_path, cookie), headers=headers)
+
+    # Both PCs opened version `base`; the first upload goes in...
+    assert "conflict" not in upload("pc-a", "a1").json()
+    assert upload("pc-a", "a1").json().get("conflict") is None  # its retry: no conflict
+    # ...the second one is kept apart: the hub's copy stays PC A's.
+    kept = upload("pc-b", "b1").json()["conflict"]
+    assert [c["name"] for c in json.loads(read_cookies("camoufox_data/shop-01"))] == ["pc-a"]
+    assert client.get("/api/v1/hub/me", headers=ana).json()["conflicts"] == {"shop-01": 1}
+
+    api = "/api/v1/profiles/shop-01/conflicts"
+    listed = client.get(api, headers=ana).json()
+    assert [c["id"] for c in listed["copies"]] == [kept] and listed["hub"]["by"] == "ana"
+    assert not listed["can_resolve"]
+    assert client.post(f"{api}/resolve", json={"keep": kept}, headers=ana).status_code == 403
+    assert client.post(f"{api}/resolve", json={"keep": kept}, headers=admin).status_code == 200
+    assert [c["name"] for c in json.loads(read_cookies("camoufox_data/shop-01"))] == ["pc-b"]
+    assert client.get("/api/v1/hub/me", headers=ana).json()["conflicts"] == {}
+    assert client.post(f"{api}/resolve", json={"keep": "hub"}, headers=admin).status_code == 404

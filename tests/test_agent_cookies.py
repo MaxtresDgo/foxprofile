@@ -241,3 +241,13 @@ def test_copies_of_another_account_or_unused_go(tmp_path, monkeypatch):
     monkeypatch.setattr(agent, "CACHE_DAYS", 0)
     a.prune_cache()
     assert not (a.cache_root / "p1").exists()
+
+
+def test_a_conflicting_upload_is_not_kept_as_the_hubs_copy(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    a._download("p1", {"name": "p1"}, "s1")  # opens the copy of version s1
+    assert read_meta(str(a.data_root / "p1"))["base_stamp"] == "s1"
+    monkeypatch.setattr(a, "_pack_cookies", lambda *args: None)
+    monkeypatch.setattr(a, "_upload", lambda *args: {"conflict": "c1"})
+    a._sync_now("p1")
+    assert not (a.data_root / "p1").exists() and a.cached_names() == []

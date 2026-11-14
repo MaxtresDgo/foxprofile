@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse
 from ...core.config import DATA_DIR
 from ...core.logging import get_logger
 from ...core.strings import get_string
-from ...hub import cookie_history
+from ...hub import conflicts, cookie_history
 from ...models.profile import ENGINES
 from ...services.browser import chrome_prefetch, cookies, fingerprint
 from ...services.browser.launcher import BrowserControlError, ProfileBusyError
@@ -297,6 +297,7 @@ def delete_profile(
     if (store := hub_store(request)) is not None:
         store.forget_profile(name)
         cookie_history.drop(profile.uid)  # sessions: not kept for a deleted profile
+        conflicts.drop(profile.uid)
     logger.info("API deleted profile: %s", name)
     bus.emit()
     return SuccessResponse(message=f"Profile '{name}' deleted")

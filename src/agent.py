@@ -43,6 +43,7 @@ import ipaddress  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
 import pathlib  # noqa: E402
+import secrets  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import tempfile  # noqa: E402
@@ -560,10 +561,10 @@ class Agent:
         started = time.monotonic()
         trace(name, "download.start", pc=self.identity["pc"], user=self.hub.user)
         cached = self._cache_get(name) if profile_dict is not None else None
-        size, source = 0, {}
+        size, source, base = 0, {}, stamp  # base: the hub copy this session starts from
         if cached and (offline or (stamp and cached["stamp"] == stamp)):
             result = self._cache_take(name, cached, profile_dict, stale=offline)
-            source = {"source": "cache", "stale": offline}
+            source, base = {"source": "cache", "stale": offline}, cached["stamp"]
         else:
             try:
                 result, size = self._fetch_into(name, local)
@@ -574,7 +575,7 @@ class Agent:
                     raise
                 trace(name, "download.failed_using_cache", warn=True, error=e)
                 result = self._cache_take(name, cached, profile_dict, stale=True)
-                source = {"source": "cache", "stale": True}
+                source, base = {"source": "cache", "stale": True}, cached["stamp"]
         trace(
             name,
             "download.unpacked",
@@ -589,6 +590,8 @@ class Agent:
         # For _pack_cookies after a crash: recover() has only the folder.
         engine = {"os_type": result.os_type, "engine": result.engine}
         update_meta(str(local), profile={**engine, "chrome_version": result.chrome_version})
+        # Sent with the upload: a hub copy changed since then is a conflict (hub.routes).
+        update_meta(str(local), base_stamp=base)
         try:
             self._restore_cookies(result, local, size, source)
         except IntegrityError as e:
@@ -858,10 +861,18 @@ class Agent:
         started = time.monotonic()
         trace(name, "upload.start", pc=self.identity["pc"], user=self.hub.user)
         self._pack_cookies(name, local, unexpected)
+        upload_id = secrets.token_hex(8)  # the same on every retry of this sync
         while True:
             try:
-                stamp = self._upload(name, local)
-                self._cache_put(name, local, stamp)
+                done = self._upload(name, local, upload_id)
+                if done.get("conflict"):
+                    # Both versions are on the hub now; this one is not the hub's copy.
+                    trace(name, "upload.conflict", warn=True, kept=done["conflict"])
+                    say(get_string("agent_upload_conflict", name=name))
+                    shutil.rmtree(local, ignore_errors=True)
+                    self._profiles.pop(name, None)
+                    return
+                self._cache_put(name, local, done.get("stamp"))
                 self._profiles.pop(name, None)
                 trace(name, "upload.done", seconds=round(time.monotonic() - started, 1))
                 say(get_string("agent_synced", name=name))
@@ -880,8 +891,9 @@ class Agent:
                 say(get_string("agent_upload_retry", name=name, error=e))
             time.sleep(RETRY_SECONDS)
 
-    def _upload(self, name: str, local: pathlib.Path) -> str | None:
-        """Send the profile's data; the hub's stamp of its new copy (None: older hub)."""
+    def _upload(self, name: str, local: pathlib.Path, upload_id: str = "") -> dict:
+        """Send the profile's data; the hub's answer: its copy's new `stamp`, or the
+        `conflict` it was kept as when the hub's copy changed since this one began."""
         with tempfile.TemporaryDirectory() as tmp:
             ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, include_data=True)
             if not ok:
@@ -889,6 +901,8 @@ class Agent:
             bundle = f"/hub/bundle/{self.q(name)}"
             raw = {"Content-Type": "application/octet-stream"}
             sha = {"X-Content-SHA256": file_sha256(zip_path)}
+            if base := read_meta(str(local)).get("base_stamp"):
+                sha |= {"X-Base-Stamp": base, "X-Upload-Id": upload_id or secrets.token_hex(8)}
             size = os.path.getsize(zip_path)
             parts = -(-size // PART_BYTES)
             trace(
@@ -907,12 +921,12 @@ class Agent:
                         # A profile deleted on the hub answers 404 here too.
                         f.seek(0)
                         self.hub.call("PUT", f"{bundle}?release=1", f, timeout=600, headers=sha)
-                        return None
+                        return {}
                     offset += len(part)
             done = self.hub.call(
                 "PUT", f"{bundle}?release=1&chunked=1", b"", timeout=600, headers=sha
             )
-            return (done or {}).get("stamp")
+            return done or {}
 
     def _status(self, name: str, ok: bool, error: str | None) -> None:
         body = json.dumps({"ok": ok, "error": error}).encode()
