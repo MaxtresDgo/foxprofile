@@ -336,11 +336,18 @@ class Agent:
                 self.report(force=True)
 
     def _checkpoints(self) -> None:
+        # By the wall clock, checked every 30 s: a long sleep() stops counting while
+        # the PC is suspended, and a laptop's lid would push checkpoints back.
+        last: dict[str, float] = {}
         while True:
-            time.sleep(CHECKPOINT_MIN * 60)
-            for name in self.bl.running_profile_names():
-                if name not in self._ops:  # not while it is still opening or saving
+            time.sleep(30)
+            running = self.bl.running_profile_names()
+            last = {n: t for n, t in last.items() if n in running}
+            for name in running:
+                due = time.time() - last.setdefault(name, time.time()) >= CHECKPOINT_MIN * 60
+                if due and name not in self._ops:  # not while it is opening or saving
                     self.checkpoint(name)
+                    last[name] = time.time()
 
     def checkpoint(self, name: str) -> None:
         """Keep the open profile's cookies on this PC, checked back from disk."""

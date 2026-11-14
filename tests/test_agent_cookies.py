@@ -1,5 +1,6 @@
 """The agent keeps a Chrome profile's portable cookies through every sync."""
 
+import contextlib
 import json
 import zipfile
 
@@ -142,3 +143,23 @@ def test_checkpoints_never_leave_the_pc(tmp_path):
     assert ok
     with zipfile.ZipFile(zip_path) as z:
         assert not [n for n in z.namelist() if CHECKPOINTS in n]
+
+
+def test_checkpoints_follow_the_wall_clock_per_profile(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    clock = [0.0]
+    ticks = iter(range(100))
+
+    def sleep(seconds):
+        next(ticks)  # StopIteration ends the loop
+        clock[0] += seconds
+
+    monkeypatch.setattr(agent.time, "sleep", sleep)
+    monkeypatch.setattr(agent.time, "time", lambda: clock[0])
+    monkeypatch.setattr(a.bl, "running_profile_names", lambda: {"p1"})
+    done = []
+    monkeypatch.setattr(a, "checkpoint", lambda name: done.append(clock[0]))
+    with contextlib.suppress(StopIteration):
+        a._checkpoints()
+    # 100 ticks of 30 s: first seen at 30 s, then one every 10 minutes.
+    assert done == [630.0, 1230.0, 1830.0, 2430.0]
