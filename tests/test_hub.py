@@ -248,6 +248,22 @@ def test_bundles_carry_a_sha256_and_damaged_cookies_are_refused(hub, tmp_path):
     assert bundle.headers["X-Content-SHA256"] == hashlib.sha256(bundle.content).hexdigest()
 
 
+def test_a_chrome_upload_without_its_cookie_pack_keeps_the_hub_copy(hub, tmp_path):
+    client, _, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "phone-01", "engine": "chrome"}, headers=ana)
+    put = "/api/v1/hub/bundle/phone-01"
+    bare = _zip("phone-01", {"data/Default/Cookies": b"encrypted for one PC"})
+    assert client.put(put, content=bare, headers=ana).status_code == 200  # nothing to lose yet
+    pack_cookies(str(tmp_path), '[{"name": "xs"}]')
+    gz, sha = (tmp_path / COOKIES_GZ).read_bytes(), (tmp_path / COOKIES_SHA).read_text()
+    packed = _zip("phone-01", {f"data/{COOKIES_GZ}": gz, f"data/{COOKIES_SHA}": sha})
+    assert client.put(put, content=packed, headers=ana).status_code == 200
+    # An agent that lost the profile's engine (crash, update) uploads its store alone.
+    assert client.put(put, content=bare, headers=ana).status_code == 409
+    assert (pathlib.Path("camoufox_data/phone-01") / COOKIES_GZ).read_bytes() == gz
+
+
 def test_bundle_uploads_in_pieces_survive_a_retried_piece(hub):
     client, _, _ = hub
     ana = _login(client, "ana", "anaanaanaana")

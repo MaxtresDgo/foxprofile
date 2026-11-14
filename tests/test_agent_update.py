@@ -9,6 +9,7 @@ import zipfile
 
 import pytest
 
+from src.core.strings import get_string
 from src.hub import agent_code
 from src.hub import routes as hub_routes
 from tests import test_hub
@@ -138,6 +139,24 @@ def test_open_profiles_wait_unless_an_admin_asks(hub, hub_code):
     assert client.post("/api/v1/hub/agents/bob/update", headers=admin).status_code == 200
     r = _poll(client, bob, running="p1", code="old", req="req1")
     assert r.json()["op"] == "update"
+
+
+def test_an_outdated_agent_opens_nothing_until_it_updates(hub, hub_code):
+    client, container, _ = hub
+    bob = _login(client, "bob", "bobbobbobbob")
+    for name in ("p1", "p2", "p3"):
+        container.profile_manager.add_profile(name, None, "windows", None, None)
+        container._instances["hub"].set_owner(name, "bob")
+    launch = "/api/v1/browser/{}/launch?wait=false"
+    # Its open browser keeps the update waiting: no new profile meanwhile.
+    assert _poll(client, bob, running="p1", code="old", req="req1").status_code == 204
+    r = client.post(launch.format("p2"), headers=bob)
+    assert r.status_code == 409 and r.json()["detail"] == get_string("err_agent_outdated")
+    _poll(client, bob, code="hubcode", req="req1")
+    assert client.post(launch.format("p2"), headers=bob).status_code == 202
+    # A script agent (no installer) never updates, so it is never held back.
+    _poll(client, bob, running="p2", code="old", req="")
+    assert client.post(launch.format("p3"), headers=bob).status_code == 202
 
 
 def test_other_libraries_ask_for_the_installer_once(hub, hub_code):

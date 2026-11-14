@@ -374,7 +374,7 @@ def _cookies_on_agent(request: Request, bl, profile, action: str, params: dict) 
     try:
         return bl.cookies(request.state.user["name"], profile, action, params)
     except AgentOfflineError as e:
-        raise HTTPException(status_code=409, detail=get_string("err_agent_offline")) from e
+        raise HTTPException(status_code=409, detail=get_string(e.key)) from e
 
 
 @router.get(

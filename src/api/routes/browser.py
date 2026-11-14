@@ -98,10 +98,7 @@ def launch_browser(
             try:
                 bl.dispatch(request.state.user["name"], profile)
             except AgentOfflineError as e:
-                raise HTTPException(
-                    status_code=409,
-                    detail=get_string("err_agent_offline"),
-                ) from e
+                raise HTTPException(status_code=409, detail=get_string(e.key)) from e
             started = True
         else:
             started = bl.start_thread(profile, _api_log, on_ready=_on_ready, on_stop=_on_stop)

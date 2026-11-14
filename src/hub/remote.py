@@ -19,6 +19,7 @@ from typing import Any
 from ..core.strings import get_string
 from ..models.profile import Profile
 from ..services.browser.launcher import BrowserControlError, ProfileBusyError, _LaunchResult
+from . import agent_code
 
 # An agent polls every POLL_WAIT seconds at most; silent for longer = offline.
 POLL_WAIT = 25
@@ -27,6 +28,16 @@ AGENT_TIMEOUT = POLL_WAIT + 15
 
 class AgentOfflineError(Exception):
     """The user's agent is not connected."""
+
+    key = "err_agent_offline"
+
+
+class AgentOutdatedError(AgentOfflineError):
+    """The user's installed agent runs older code than the hub: it gets nothing to
+    open until it updates (once its browsers are closed). An older agent may upload
+    profiles without their cookies."""
+
+    key = "err_agent_outdated"
 
 
 class RemoteLauncher:
@@ -67,6 +78,10 @@ class RemoteLauncher:
             raise ProfileBusyError(name)
         if not self.online(user):
             raise AgentOfflineError(user)
+        info = self.agents.get(user, {})
+        # Only installed agents (code and req) update, as in hub/routes.poll.
+        if info.get("code") and info.get("req") and info["code"] != agent_code.hub_code()[0]:
+            raise AgentOutdatedError(user)
         self._leases[name] = self._last[name] = user
 
     def dispatch(self, user: str, profile: Profile) -> None:

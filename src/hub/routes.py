@@ -53,6 +53,7 @@ from ..core.logging import get_logger
 from ..core.strings import get_string
 from ..services.profile import snapshots
 from ..services.profile.transfer import (
+    COOKIES_GZ,
     SYNC_META,
     IntegrityError,
     WrongProfileError,
@@ -680,6 +681,14 @@ def _packed(meta: dict) -> dict:
     return meta.get("packed") or {}
 
 
+def _has_cookie_pack(zip_path: str) -> bool:
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            return f"data/{COOKIES_GZ}" in z.namelist()
+    except (OSError, zipfile.BadZipFile):
+        return True  # unreadable: swap_in refuses it with its own error
+
+
 def _require_lease(request: Request, name: str, allow_free: bool = False) -> None:
     bl, user = _launcher(request), _user(request)["name"]
     holder = bl.holder(name)
@@ -878,6 +887,17 @@ async def upload_bundle(
             old or "none",
             " STALE: older than the copy it replaces" if stale else "",
         )
+        # Chrome's own cookie store is encrypted for the PC that wrote it: without
+        # the pack, the profile opens logged out everywhere else. Agents before
+        # sync.json's "profile" upload profiles left open by a crash or an update
+        # this way. 409: the agent stops retrying and keeps its copy.
+        if (
+            profile.engine == "chrome"
+            and (pathlib.Path(DATA_DIR, name) / COOKIES_GZ).is_file()
+            and not _has_cookie_pack(zip_path)
+        ):
+            logger.warning("[sync %s] hub.upload refused: no %s", name, COOKIES_GZ)
+            raise HTTPException(status_code=409, detail=get_string("err_upload_no_cookies"))
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
         if snapshots.enabled():  # the checked upload is this version's snapshot
             snapshots.upload_later(profile, zip_path)
