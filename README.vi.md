@@ -254,6 +254,7 @@ Mọi cấu hình đều không bắt buộc. Muốn đổi thì sao chép `.env
 | `FOXPROFILE_EXTENSIONS_DIR` | `extensions` | File của các extension và bản đã giải nén |
 | `FOXPROFILE_SNAPSHOTS` | `3` | Số ngày snapshot giữ lại cho mỗi profile, mỗi ngày một bản (bản mới thay bản cùng ngày); `0` để tắt |
 | `FOXPROFILE_SNAPSHOT_S3_BUCKET` | *(trống: tắt)* | Bucket S3 (NAS chạy RustFS, MinIO, AWS) lưu snapshot profile; `FOXPROFILE_SNAPSHOT_S3_ENDPOINT`, `_ACCESS_KEY`, `_SECRET_KEY`, `_REGION` mặc định dùng giá trị `FOXPROFILE_S3_*`; cần `boto3` (`requirements-hub.txt`). Xem [docs/HUB.md](docs/HUB.md) |
+| `FOXPROFILE_COOKIE_HISTORY` | `20` | Hub: số gói cookie giữ lại cho mỗi profile, mỗi lần tải lên một gói, để khôi phục gói còn dùng được (quản trị viên và trưởng nhóm, trong hộp thoại Cookie của profile); `0` để tắt. Xem [docs/HUB.md](docs/HUB.md) |
 | `FOXPROFILE_LOG_DIR` | `logs` | Thư mục log |
 | `FOXPROFILE_LOG_LEVEL` | `INFO` | Mức log |
 | `FOXPROFILE_PROXY_TIMEOUT` | `10` | Thời gian chờ khi kiểm tra proxy (giây) |

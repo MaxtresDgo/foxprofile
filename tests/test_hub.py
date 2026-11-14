@@ -786,3 +786,56 @@ def test_admins_keep_saved_proxies_and_see_which_profiles_use_them(hub):
     assert client.delete(f"{api}/{sid}", headers=admin).status_code == 200
     assert client.delete(f"{api}/{sid}", headers=admin).status_code == 404
     assert [r[2] for r in rows()] == [["shop-01"], ["shop-02"]]
+
+
+def _cookie_zip(name, tmp_path, *cookie_names):
+    folder = tmp_path / f"pack-{secrets.token_hex(3)}"
+    folder.mkdir()
+    pack_cookies(str(folder), json.dumps([{"domain": ".x.com", "name": n} for n in cookie_names]))
+    files = {f"data/{f}": (folder / f).read_bytes() for f in (COOKIES_GZ, COOKIES_SHA)}
+    return _zip(name, files)
+
+
+def test_each_upload_keeps_its_cookies_and_leads_restore_them(hub, tmp_path):
+    client, container, admin = hub
+    api = "/api/v1/profiles/shop-01/cookie-history"
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    for names in (("sid", "csrf", "lang"), ("lang",)):
+        upload = _cookie_zip("shop-01", tmp_path, *names)
+        assert (
+            client.put("/api/v1/hub/bundle/shop-01", content=upload, headers=ana).status_code == 200
+        )
+
+    listed = client.get(api, headers=ana).json()
+    newest, first = listed["entries"]
+    assert (newest["cookies"], first["cookies"]) == (1, 3)
+    assert newest["suspicious"] and not first["suspicious"] and newest["by"] == "ana"
+    # The owner sees it; restoring takes an admin or a lead of the profile's group.
+    assert not listed["can_restore"]
+    assert client.post(f"{api}/{first['id']}/restore", headers=ana).status_code == 403
+
+    store = container.hub_store
+    store.add_group("sales")
+    store.set_member("sales", "bob", "member")
+    store.set_profile_group("shop-01", "sales")
+    bob = _login(client, "bob", "bobbobbobbob")
+    assert client.post(f"{api}/{first['id']}/restore", headers=bob).status_code == 403
+    store.set_member("sales", "bob", "lead")
+    assert client.get(api, headers=bob).json()["can_restore"]
+    assert client.post(f"{api}/nope/restore", headers=bob).status_code == 404
+    r = client.post(f"{api}/{first['id']}/restore", headers=bob)
+    assert r.status_code == 200 and r.json()["cookies"] == 3
+    restored = json.loads(read_cookies("camoufox_data/shop-01"))
+    assert [c["name"] for c in restored] == ["sid", "csrf", "lang"]
+
+    # Not while it is open somewhere.
+    container.browser_launcher.touch("bob", set())
+    client.post("/api/v1/browser/shop-01/launch?wait=false", headers=bob)
+    assert client.post(f"{api}/{first['id']}/restore", headers=admin).status_code == 409
+    container.browser_launcher.release("shop-01", "bob")
+
+    # Sessions are not kept for a deleted profile.
+    folder = next(pathlib.Path("cookie-history").iterdir())
+    assert client.delete("/api/v1/profiles/shop-01", headers=admin).status_code == 200
+    assert not folder.exists()

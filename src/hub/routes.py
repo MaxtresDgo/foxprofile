@@ -61,7 +61,7 @@ from ..services.profile.transfer import (
     read_meta,
     swap_in,
 )
-from . import agent_code, installers, platform_auth
+from . import agent_code, cookie_history, installers, platform_auth
 from .remote import POLL_WAIT
 from .store import HubError
 
@@ -879,6 +879,7 @@ async def upload_bundle(
             " STALE: older than the copy it replaces" if stale else "",
         )
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
+        await run_in_threadpool(_keep_cookies, profile, name, _user(request)["name"])
         if snapshots.enabled():  # the checked upload is this version's snapshot
             snapshots.upload_later(profile, zip_path)
     finally:
@@ -887,6 +888,22 @@ async def upload_bundle(
         _launcher(request).release(name, _user(request)["name"])
     logger.info("Synced %s from %s", name, _user(request)["name"])
     return {"name": name, "released": release}
+
+
+def _keep_cookies(profile, name: str, by: str) -> None:
+    """The upload's cookies into the history. Never fails an upload already swapped in."""
+    try:
+        entry = cookie_history.add(profile.uid, os.path.join(DATA_DIR, name), by)
+    except (OSError, ValueError) as e:
+        logger.warning("[sync %s] hub.cookie_history failed: %s", name, e)
+        return
+    if entry:
+        logger.info(
+            "[sync %s] hub.cookie_history cookies=%d source=%s",
+            name,
+            entry["cookies"],
+            entry["source"],
+        )
 
 
 def _swap_in(zip_path: str, tmp: str, name: str, data_root: pathlib.Path) -> None:

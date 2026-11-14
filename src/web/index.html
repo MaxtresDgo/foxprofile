@@ -651,6 +651,7 @@ const I18N = {
     backups: "Sao lưu", backups_hint: "Snapshot của mọi profile trên NAS. Profile mồ côi là profile đã xoá: khôi phục lại hoặc xoá snapshot của nó.", backups_sub: "{n} profile · {s} có snapshot · {orphans} mồ côi", backups_search: "Tìm profile", snapshot_view: "Xem snapshot", snapshot_hide: "Ẩn snapshot", snapshot_put_back_this: "Khôi phục từ bản này", backups_group: "Lọc theo nhóm", snapshot_orphans: "Mồ côi", snapshot_saved_of: "Đã lưu snapshot của {name}", snapshots_none_any: "NAS chưa có snapshot nào.",
     snapshot_count: "{n} snapshot", snapshot_newest: "mới nhất {when}", snapshot_orphan: "mồ côi", snapshot_put_back: "Khôi phục profile", snapshot_put_back_as: "Khôi phục với tên",
     snapshot_put_back_done: "Đã khôi phục profile {name}", snapshot_delete_confirm: "Xoá vĩnh viễn {n} snapshot của {name} trên NAS?", snapshot_deleted: "Đã xoá snapshot của {name}",
+    cookie_history: "Lịch sử cookie", cookie_history_none: "Chưa có gói nào. Mỗi lần đồng bộ sẽ giữ một gói.", cookie_src_close: "lúc đóng", cookie_src_checkpoint: "checkpoint", cookie_src_history: "đã khôi phục", cookie_suspicious: "ít hơn một nửa gói trước", cookie_restore: "Khôi phục", cookie_restore_confirm: "Khôi phục {n} cookie của {name} từ gói lúc {when}? Lần mở tiếp theo sẽ nạp chúng.", cookie_restored: "Đã khôi phục cookie: lần mở tiếp theo sẽ nạp chúng",
     snapshots: "Snapshot", snapshots_hint: "bản sao dữ liệu trình duyệt trên NAS", snapshots_none: "Chưa có snapshot nào. Mỗi lần đồng bộ sẽ tự lưu một bản.",
     snapshot_create: "Tạo snapshot", snapshot_restore: "Khôi phục", snapshot_saved: "Đã lưu snapshot", snapshot_restored: "Đã khôi phục. Trạng thái trước đó được lưu thành snapshot.",
     snapshot_confirm: "Khôi phục {name} về bản lúc {when}? Dữ liệu hiện tại được lưu thành snapshot trước; tài khoản đã lưu không bị ảnh hưởng.",
@@ -763,6 +764,7 @@ const I18N = {
     backups: "Backups", backups_hint: "Every profile's snapshots on the NAS. Orphans are deleted profiles: put one back or delete its snapshots.", backups_sub: "{n} profiles · {s} with snapshots · {orphans} orphans", backups_search: "Search profiles", snapshot_view: "View snapshots", snapshot_hide: "Hide snapshots", snapshot_put_back_this: "Put back from this one", backups_group: "Filter by group", snapshot_orphans: "Orphans", snapshot_saved_of: "Snapshot of {name} saved", snapshots_none_any: "No snapshots on the NAS yet.",
     snapshot_count: "{n} snapshots", snapshot_newest: "newest {when}", snapshot_orphan: "orphan", snapshot_put_back: "Put back profile", snapshot_put_back_as: "Put back as",
     snapshot_put_back_done: "Profile {name} is back", snapshot_delete_confirm: "Delete the {n} snapshots of {name} from the NAS for good?", snapshot_deleted: "Snapshots of {name} deleted",
+    cookie_history: "Cookie history", cookie_history_none: "No packs yet. Each sync keeps one.", cookie_src_close: "on close", cookie_src_checkpoint: "checkpoint", cookie_src_history: "restored", cookie_suspicious: "under half of the one before", cookie_restore: "Restore", cookie_restore_confirm: "Restore the {n} cookies of {name} from {when}? The next open loads them.", cookie_restored: "Cookies restored: the next open loads them",
     snapshots: "Snapshots", snapshots_hint: "copies of the browser data on the NAS", snapshots_none: "No snapshots yet. Each sync saves one.",
     snapshot_create: "Save snapshot", snapshot_restore: "Restore", snapshot_saved: "Snapshot saved", snapshot_restored: "Restored. The previous state was saved as a snapshot.",
     snapshot_confirm: "Restore {name} to the copy from {when}? The current data is saved as a snapshot first; saved accounts are not touched.",
@@ -875,6 +877,7 @@ const I18N = {
     backups: "Respaldos", backups_hint: "Los snapshots de todos los profiles en el NAS. Los huérfanos son profiles borrados: recupera uno o borra sus snapshots.", backups_sub: "{n} profiles · {s} con snapshots · {orphans} huérfanos", backups_search: "Buscar profiles", snapshot_view: "Ver snapshots", snapshot_hide: "Ocultar snapshots", snapshot_put_back_this: "Recuperar desde esta", backups_group: "Filtrar por grupo", snapshot_orphans: "Huérfanos", snapshot_saved_of: "Snapshot de {name} guardado", snapshots_none_any: "Aún no hay snapshots en el NAS.",
     snapshot_count: "{n} snapshots", snapshot_newest: "el más reciente {when}", snapshot_orphan: "huérfano", snapshot_put_back: "Recuperar profile", snapshot_put_back_as: "Recuperar como",
     snapshot_put_back_done: "Profile {name} recuperado", snapshot_delete_confirm: "¿Borrar para siempre los {n} snapshots de {name} del NAS?", snapshot_deleted: "Snapshots de {name} borrados",
+    cookie_history: "Historial de cookies", cookie_history_none: "Aún no hay paquetes. Cada sync guarda uno.", cookie_src_close: "al cerrar", cookie_src_checkpoint: "checkpoint", cookie_src_history: "restaurado", cookie_suspicious: "menos de la mitad que el anterior", cookie_restore: "Restaurar", cookie_restore_confirm: "¿Restaurar las {n} cookies de {name} del {when}? La siguiente apertura las carga.", cookie_restored: "Cookies restauradas: la siguiente apertura las carga",
     snapshots: "Snapshots", snapshots_hint: "copias de los datos del navegador en el NAS", snapshots_none: "Aún no hay snapshots. Cada sync guarda uno.",
     snapshot_create: "Guardar snapshot", snapshot_restore: "Restaurar", snapshot_saved: "Snapshot guardado", snapshot_restored: "Restaurado. El estado anterior quedó guardado como snapshot.",
     snapshot_confirm: "¿Restaurar {name} a la copia del {when}? Los datos actuales se guardan antes como snapshot; las cuentas guardadas no se tocan.",
@@ -2128,6 +2131,31 @@ function openCookies(p) {
       actions.push(b);
       return b;
     };
+    // Hub: the cookie packs kept on each upload; admins and group leads put one back.
+    const history = h("div");
+    const loadHistory = async () => {
+      let res;
+      try { res = await api("GET", `/profiles/${enc(p.name)}/cookie-history`); } catch { return history.replaceChildren(); }
+      const when = (e) => new Date(e.ts * 1000).toLocaleString(lang);
+      const restore = async (e) => {
+        if (!(await confirmDialog(t("cookie_restore_confirm", { n: e.cookies, name: p.name, when: when(e) }), t("cookie_restore"), true))) return;
+        await run(async () => {
+          await api("POST", `/profiles/${enc(p.name)}/cookie-history/${e.id}/restore`);
+          toast(t("cookie_restored"));
+          await loadHistory();
+        });
+      };
+      history.replaceChildren(
+        h("div", { class: "field" }, h("label", {}, t("cookie_history"))),
+        ...(res.entries.length ? res.entries.map((e) => h("div", { class: "acct" },
+          h("div", { class: "acct-head" },
+            h("span", { class: "stack" },
+              h("b", {}, `${when(e)} · ${t("cookie_src_" + e.source)}`, e.suspicious ? h("span", { class: "tag" }, t("cookie_suspicious")) : null),
+              h("span", { class: "minor data" }, [`${e.cookies} cookies`, e.by, e.pc, e.sites.map(([d, n]) => `${d} ${n}`).join(", ")].filter(Boolean).join(" · "))),
+            res.can_restore ? h("span", { class: "acct-actions" }, h("button", { type: "button", class: "btn btn-act", onclick: () => restore(e) }, t("cookie_restore"))) : null)))
+          : [h("p", { class: "minor" }, t("cookie_history_none"))]));
+    };
+    if (hub) loadHistory();
     return h("div", {},
       modalHead(t("cookies"), `${p.name} · ${t("cookie_hint")}`, close),
       h("div", { class: "modal-body" },
@@ -2135,6 +2163,7 @@ function openCookies(p) {
           choice("download", t("export_json"), t("export_json_hint"), () => exportAs("json")),
           choice("download", t("export_txt"), t("export_txt_hint"), () => exportAs("netscape")),
           choice("upload", t("import"), t("import_hint"), () => file.click())), file,
+        history,
         fpSection,
         h("div", { class: "choice" },
           choice("fingerprint", t("reset_fp"), t("reset_fp_hint"), async () => {
