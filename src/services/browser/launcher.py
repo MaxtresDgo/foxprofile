@@ -65,6 +65,8 @@ class BrowserLauncher:
         self._launch_results: dict[str, _LaunchResult] = {}
         self._busy: set[str] = set()
         self._controls: dict[str, tuple[int, str]] = {}
+        # Profiles whose browser said BROWSER_CLOSED: closed by the user, not crashed.
+        self._clean_closes: set[str] = set()
         # Unpacked extension folders a profile loads (Container wires the
         # catalogue; a hub agent, what the hub sent with the launch).
         self.extensions: Callable[[Profile], list[str]] = lambda profile: []
@@ -138,6 +140,7 @@ class BrowserLauncher:
                 return False
             if profile.name in self._busy:
                 raise ProfileBusyError(profile.name)
+            self._clean_closes.discard(profile.name)
             # Reserve the profile until the process is registered, so two
             # concurrent launches cannot both spawn a browser.
             self._busy.add(profile.name)
@@ -278,6 +281,12 @@ class BrowserLauncher:
             ) from e
         return body["result"]
 
+    def closed_cleanly(self, profile_name: str) -> bool:
+        """Whether the last session's browser announced its close (BROWSER_CLOSED):
+        False after a crash or a kill, which leave its stores half written."""
+        with self._lock:
+            return profile_name in self._clean_closes
+
     def running_profile_names(self) -> set[str]:
         with self._lock:
             stale = [n for n, p in self._active_sessions.items() if p.poll() is not None]
@@ -341,6 +350,8 @@ class BrowserLauncher:
                     continue
                 if msg == "BROWSER_CLOSED":
                     logger.info("Browser close detected for profile: %s", name)
+                    with self._lock:
+                        self._clean_closes.add(name)
                     notify_stopped()
                     terminate(proc, name, timeout=1)
                     continue

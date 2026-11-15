@@ -104,6 +104,9 @@ S3_PREFIX = f"fox-profiles/{S3_ENV}/installers/"
 # must be named here (cookies go into it); endpoint, keys and region fall back to
 # S3_*. One per day (its last), for the last SNAPSHOTS days. SNAPSHOTS=0 turns them off too.
 SNAPSHOTS_KEEP = int(_env("SNAPSHOTS", "3"))
+# Hub: the last COOKIE_HISTORY cookie packs of each profile (hub/cookie_history.py),
+# to restore one that worked. 0 turns the history off.
+COOKIE_HISTORY = max(0, int(_env("COOKIE_HISTORY", "20")))
 SNAPSHOT_S3_ENDPOINT = _env("SNAPSHOT_S3_ENDPOINT", "").rstrip("/") or S3_ENDPOINT
 SNAPSHOT_S3_BUCKET = _env("SNAPSHOT_S3_BUCKET", "")
 SNAPSHOT_S3_ACCESS_KEY = _env("SNAPSHOT_S3_ACCESS_KEY", "") or S3_ACCESS_KEY

@@ -26,6 +26,8 @@ from .routes import (
     automation_router,
     browser_router,
     chrome_router,
+    conflicts_router,
+    cookie_history_router,
     extensions_router,
     mcp_setup_router,
     page_router,
@@ -123,6 +125,8 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     app.include_router(extensions_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(snapshots_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(snapshots_bucket_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(cookie_history_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(conflicts_router, prefix=API_PREFIX, dependencies=protected)
     app.router.routes.append(mcp_route)
     if container.hub:
         # Browsers live on the operators' PCs; page actions relay through their agents.

@@ -277,6 +277,7 @@ Everything is optional. To override defaults, copy `.env.example` to `.env`.
 | `FOXPROFILE_EXTENSIONS_DIR` | `extensions` | The extensions' files, and their unpacked copies |
 | `FOXPROFILE_SNAPSHOTS` | `3` | Days of snapshots kept per profile in the snapshot bucket, one per day (each new one replaces that day's); `0` turns them off |
 | `FOXPROFILE_SNAPSHOT_S3_BUCKET` | *(empty: off)* | S3 bucket (a NAS running RustFS, MinIO, AWS) for profile snapshots; `FOXPROFILE_SNAPSHOT_S3_ENDPOINT`, `_ACCESS_KEY`, `_SECRET_KEY`, `_REGION` default to their `FOXPROFILE_S3_*` values; needs `boto3` (`requirements-hub.txt`). See [docs/HUB.md](docs/HUB.md) |
+| `FOXPROFILE_COOKIE_HISTORY` | `20` | Hub: cookie packs kept per profile, one per upload, to restore one that worked (admins and group leads, in the profile's Cookies dialog); `0` turns the history off. See [docs/HUB.md](docs/HUB.md) |
 | `FOXPROFILE_LOG_DIR` | `logs` | Log directory |
 | `FOXPROFILE_LOG_LEVEL` | `INFO` | Log level |
 | `FOXPROFILE_PROXY_TIMEOUT` | `10` | Proxy check timeout (seconds) |

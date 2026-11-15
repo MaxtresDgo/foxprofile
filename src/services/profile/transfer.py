@@ -3,6 +3,8 @@ import hashlib
 import json
 import os
 import pathlib
+import secrets
+import time
 import zipfile
 from datetime import datetime
 
@@ -19,6 +21,9 @@ from ..browser.fingerprint import CHROME_PERSONA_FILE
 
 logger = get_logger("profile.transfer")
 
+# The agent's cookie checkpoints of a running profile (save_checkpoint): they
+# never leave the PC, and go with the profile dir once it is uploaded.
+CHECKPOINTS = "checkpoints"
 # Browser caches: rebuilt on demand, often hundreds of MB. Never exported.
 _CACHE_DIRS = {"cache2", "startupCache", "Cache", "Code Cache", "GPUCache", "GrShaderCache"}
 
@@ -86,6 +91,100 @@ def read_cookies(profile_dir: str) -> str | None:
         raise IntegrityError(f"{COOKIES_GZ}: {e}") from e
 
 
+def data_stamp(profile_dir: str) -> str:
+    """Changes whenever a file of the dir does: names, sizes and times, nothing read.
+    An agent keeps the stamp of what it uploaded; the same stamp on the next launch
+    means the hub's copy is still exactly that, so its local copy can open."""
+    digest = hashlib.sha256()
+    for root, dirs, files in os.walk(profile_dir):
+        dirs.sort()
+        for name in sorted(files):
+            path = os.path.join(root, name)
+            st = os.stat(path)
+            rel = os.path.relpath(path, profile_dir)
+            digest.update(f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\n".encode())
+    return digest.hexdigest()[:32]
+
+
+def _checkpoint_index(folder: pathlib.Path) -> list[dict]:
+    try:
+        index = json.loads((folder / "index.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return index if isinstance(index, list) else []
+
+
+def _write_atomic(path: pathlib.Path, data: bytes) -> None:
+    """A power cut leaves the old file or the new one, never half of it."""
+    part = path.with_name(path.name + ".part")
+    with open(part, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(part, path)
+
+
+def _checkpoint_problem(path: pathlib.Path, sha: str, floor: int) -> str:
+    """Why the checkpoint on disk cannot be trusted, "" when it can."""
+    try:
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != sha:
+            return "sha256 mismatch"
+        items = json.loads(gzip.decompress(data).decode("utf-8"))
+    except (OSError, EOFError, ValueError) as e:  # UnicodeDecodeError is a ValueError
+        return f"unreadable: {e}"
+    if not isinstance(items, list) or not items:
+        return "no cookies"
+    if len(items) * 2 < floor:
+        return f"{len(items)} cookies, under half of the last verified ({floor})"
+    return ""
+
+
+def save_checkpoint(profile_dir: str, text: str) -> dict:
+    """Keep a running profile's cookies (extension JSON) in CHECKPOINTS and check
+    them back from disk: "verified" only if they read back whole and are not under
+    half of the last verified ones. Keeps the newest and the last verified."""
+    folder = pathlib.Path(profile_dir, CHECKPOINTS)
+    # Not parents=True: a profile already uploaded and removed must not come back.
+    folder.mkdir(exist_ok=True)
+    index = _checkpoint_index(folder)
+    data = gzip.compress(text.encode("utf-8"))
+    ts = time.time()
+    entry = {
+        # Unique even within one clock tick (Windows' is ~15 ms).
+        "file": f"{int(ts * 1000)}-{secrets.token_hex(3)}.json.gz",
+        "ts": ts,
+        "cookies": len(json.loads(text)),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "verified": False,
+        "reason": "",
+    }
+    last = next((e for e in reversed(index) if e.get("verified")), None)
+    _write_atomic(folder / entry["file"], data)
+    _write_atomic(folder / "index.json", json.dumps([*index, entry]).encode())
+    entry["reason"] = _checkpoint_problem(
+        folder / entry["file"], entry["sha256"], last["cookies"] if last else 0
+    )
+    entry["verified"] = not entry["reason"]
+    keep = [e for e in (last, entry) if e is not None and (e is entry or not entry["verified"])]
+    _write_atomic(folder / "index.json", json.dumps(keep).encode())
+    for f in folder.iterdir():
+        if f.name != "index.json" and f.name not in {e["file"] for e in keep}:
+            f.unlink(missing_ok=True)
+    return entry
+
+
+def last_verified(profile_dir: str) -> tuple[dict, str] | None:
+    """(entry, text) of the newest verified checkpoint that still reads back whole:
+    the last one if it passed its check, else the one before. None if there is none."""
+    folder = pathlib.Path(profile_dir, CHECKPOINTS)
+    for entry in reversed(_checkpoint_index(folder)):
+        path = folder / str(entry.get("file"))
+        if entry.get("verified") and not _checkpoint_problem(path, entry.get("sha256", ""), 0):
+            return entry, gzip.decompress(path.read_bytes()).decode("utf-8")
+    return None
+
+
 def export_to_zip(
     profile: Profile,
     profile_data_dir: str,
@@ -104,6 +203,8 @@ def export_to_zip(
             if include_data and pathlib.Path(profile_data_dir).exists():
                 for root, dirs, files in os.walk(profile_data_dir):
                     dirs[:] = [d for d in dirs if d not in _CACHE_DIRS]
+                    if root == profile_data_dir and CHECKPOINTS in dirs:
+                        dirs.remove(CHECKPOINTS)
                     for file in files:
                         file_path = os.path.join(root, file)
                         arcname = os.path.join(

@@ -8,6 +8,7 @@ uploads the data when the browser closes, which ends the lease.
 from __future__ import annotations
 
 import contextlib
+import os
 import queue
 import threading
 import time
@@ -16,9 +17,12 @@ from collections import defaultdict
 from collections.abc import Callable, Iterator
 from typing import Any
 
+from ..core.config import DATA_DIR
 from ..core.strings import get_string
 from ..models.profile import Profile
 from ..services.browser.launcher import BrowserControlError, ProfileBusyError, _LaunchResult
+from ..services.profile.transfer import data_stamp
+from . import agent_code
 
 # An agent polls every POLL_WAIT seconds at most; silent for longer = offline.
 POLL_WAIT = 25
@@ -27,6 +31,16 @@ AGENT_TIMEOUT = POLL_WAIT + 15
 
 class AgentOfflineError(Exception):
     """The user's agent is not connected."""
+
+    key = "err_agent_offline"
+
+
+class AgentOutdatedError(AgentOfflineError):
+    """The user's installed agent runs older code than the hub: it gets nothing to
+    open until it updates (once its browsers are closed). An older agent may upload
+    profiles without their cookies."""
+
+    key = "err_agent_outdated"
 
 
 class RemoteLauncher:
@@ -67,14 +81,20 @@ class RemoteLauncher:
             raise ProfileBusyError(name)
         if not self.online(user):
             raise AgentOfflineError(user)
+        info = self.agents.get(user, {})
+        # Only installed agents (code and req) update, as in hub/routes.poll.
+        if info.get("code") and info.get("req") and info["code"] != agent_code.hub_code()[0]:
+            raise AgentOutdatedError(user)
         self._leases[name] = self._last[name] = user
 
     def dispatch(self, user: str, profile: Profile) -> None:
         """Lease the profile to `user` and ask their agent to launch it."""
+        # What the agent's local copy must match to open without a download.
+        stamp = data_stamp(os.path.join(DATA_DIR, profile.name))
         with self._lock:
             self._lease(user, profile.name)
             self._results[profile.name] = _LaunchResult()
-            command = {"op": "launch", "profile": profile.to_dict()}
+            command = {"op": "launch", "profile": profile.to_dict(), "stamp": stamp}
             extras = {"extensions": self.extensions(profile), "details": self.details(profile)}
             self._queues[user].put({**command, **extras})
 

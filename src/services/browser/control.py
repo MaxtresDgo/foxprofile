@@ -444,6 +444,10 @@ class PageController:
 
     # --- sync: record on the leader, replay on the followers -------------
 
+    async def cookies(self) -> list[dict[str, Any]]:
+        """The live session's cookies, for the hub agent's checkpoints."""
+        return await self._context.cookies()
+
     async def quit(self) -> dict[str, Any]:
         """Close the browser the way its window does, so it writes its cookies to disk."""
         await self._context.close()
@@ -543,6 +547,7 @@ class PageController:
         "record_stop",
         "replay",
         "arrange",
+        "cookies",
         "quit",
     )
 
