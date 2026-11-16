@@ -22,6 +22,11 @@ logger = get_logger("browser.cookies")
 _TOOL = os.path.join(pathlib.Path(__file__).parent, "cookie_tool.py")
 _PROJECT_ROOT = str(pathlib.Path(__file__).resolve().parents[3])
 _TIMEOUT = 120
+# Chrome holds a profile dir for a few seconds after its window closes: a tool run
+# then fails with "Failed to create a ProcessSingleton". Waited out this long.
+_LOCKED = "ProcessSingleton"
+_LOCK_WAIT = 30
+_LOCK_RETRY = 2
 
 _SAMESITE_TO_EXT = {"Strict": "strict", "Lax": "lax", "None": "no_restriction"}
 _SAMESITE_FROM_EXT = {
@@ -65,6 +70,28 @@ def _call_tool(
     env["PYTHONPATH"] = _PROJECT_ROOT + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
     )
+    deadline = time.monotonic() + _LOCK_WAIT
+    while True:
+        try:
+            return _run_tool(action, profile_name, os_type, stdin, engine, version, env)
+        except CookieError as e:
+            if _LOCKED not in str(e) or time.monotonic() >= deadline:
+                raise
+            logger.info(
+                "%s's browser still holds its profile: cookie %s again", profile_name, action
+            )
+            time.sleep(_LOCK_RETRY)
+
+
+def _run_tool(
+    action: str,
+    profile_name: str,
+    os_type: str,
+    stdin: str,
+    engine: str,
+    version: str | None,
+    env: dict,
+) -> dict:
     try:
         proc = subprocess.run(
             [sys.executable, _TOOL, action, profile_name, os_type, engine, version or ""],

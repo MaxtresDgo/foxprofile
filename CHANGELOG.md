@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thay đổi
+- Xuất/nhập cookie của profile Chrome ngay sau khi đóng trình duyệt không còn thất bại với "Failed to create a ProcessSingleton": Chrome còn giữ thư mục profile vài giây sau khi cửa sổ đóng, nên công cụ cookie thử lại tối đa 30 giây. Trước đây lần đóng đó không đóng gói được cookie mới (phiên ngắn hơn 10 phút cũng không có checkpoint để thay).
 - Hub từ chối (409) bản tải lên của profile Chrome không có `cookies.json.gz` khi bản trên hub có: agent cũ (trước `sync.json`) tải lên như vậy những profile còn mở lúc bị tắt đột ngột hoặc lúc tự cập nhật, và profile bị đăng xuất trên máy khác. Agent giữ bản cục bộ và ngừng thử lại; bản trên hub giữ nguyên.
 - Agent đã cài mà chạy code cũ hơn hub thì không được mở profile (409, kể cả công cụ cookie) cho đến khi tự cập nhật, việc này diễn ra khi trình duyệt trên máy đó đã đóng hết. Agent chạy từ mã nguồn (không có installer) không bị chặn.
 - Cookie của profile Chrome không còn mất khi đổi máy: agent giữ `cookies.json.gz` của lần đóng trước cho đến khi lần đóng này đóng gói xong (xuất lỗi thì tải lên bản tốt gần nhất, không phải không có gì); nạp cookie lỗi thì lần đóng gói gộp lại những cookie trình duyệt chưa nhận được; profile còn lại sau khi agent bị tắt đột ngột vẫn được đóng gói (engine được ghi trong `sync.json`); một cookie bị Chrome từ chối không còn làm hỏng cả lần nạp, các cookie khác vẫn được nạp và cookie bị từ chối được ghi vào log.
