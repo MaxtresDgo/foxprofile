@@ -5,7 +5,7 @@
 ## [Unreleased]
 
 ### Thay đổi
-- Báo cáo tài khoản ở hub: người dùng không phải quản trị viên (`foxprofile:admin`) chỉ báo cáo được **Yêu cầu video selfie**; extension chỉ hiện trạng thái đó và hub từ chối (403) các trạng thái khác, giống trạng thái profile trong Army. Quản trị viên vẫn báo cáo được mọi trạng thái. Lệnh `launch` cho agent có thêm `details.report_statuses`.
+- Báo cáo tài khoản ở hub: người dùng không phải quản trị viên (`foxprofile:admin`) chỉ báo cáo được **Xem xét** (trước đây là "Yêu cầu video selfie"; khoá vẫn là `videoselfie`); extension chỉ hiện trạng thái đó và hub từ chối (403) các trạng thái khác, giống trạng thái profile trong Army. Quản trị viên vẫn báo cáo được mọi trạng thái. Lệnh `launch` cho agent có thêm `details.report_statuses`.
 - Xuất/nhập cookie của profile Chrome ngay sau khi đóng trình duyệt không còn thất bại với "Failed to create a ProcessSingleton": Chrome còn giữ thư mục profile vài giây sau khi cửa sổ đóng, nên công cụ cookie thử lại tối đa 30 giây. Trước đây lần đóng đó không đóng gói được cookie mới (phiên ngắn hơn 10 phút cũng không có checkpoint để thay).
 - Hub từ chối (409) bản tải lên của profile Chrome không có `cookies.json.gz` khi bản trên hub có: agent cũ (trước `sync.json`) tải lên như vậy những profile còn mở lúc bị tắt đột ngột hoặc lúc tự cập nhật, và profile bị đăng xuất trên máy khác. Agent giữ bản cục bộ và ngừng thử lại; bản trên hub giữ nguyên.
 - Agent đã cài mà chạy code cũ hơn hub thì không được mở profile (409, kể cả công cụ cookie) cho đến khi tự cập nhật, việc này diễn ra khi trình duyệt trên máy đó đã đóng hết. Agent chạy từ mã nguồn (không có installer) không bị chặn.
