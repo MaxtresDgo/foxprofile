@@ -61,7 +61,8 @@ async function init() {
   for (const account of accounts) add($("account"), account.id, account.username);
   if (!accounts.length) { add($("account"), "", words.unknown); $("account").required = false; }
   add($("status"), "", words.choose);
-  for (const status of ["inhabilitado", "suspendido", "videoselfie", "codigo"]) add($("status"), status, words[status]);
+  // Without foxprofile:admin the hub sends only "videoselfie" (and refuses the rest).
+  for (const status of config.statuses) add($("status"), status, words[status]);
   $("report-form").hidden = false;
   let attempt = null;
   $("report-form").addEventListener("input", () => {

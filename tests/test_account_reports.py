@@ -28,7 +28,8 @@ def payload(letter="a", **fields):
     return {
         "request_id": letter * 32,
         "platform": "facebook",
-        "status": "suspendido",
+        # The one status hub users without admin may report (statuses_for).
+        "status": "videoselfie",
         "note": "Checkpoint",
         **fields,
     }
@@ -72,6 +73,9 @@ def test_hub_reports_respect_visibility_and_agent_lease(hub, monkeypatch):
     assert client.post(base, json=payload(), headers=agent).status_code == 403
     container.browser_launcher.touch("ana", set())
     container.browser_launcher.dispatch("ana", container.profile_manager.profiles["shop"])
+    launch = container.browser_launcher._queues["ana"].get_nowait()
+    assert launch["details"]["report_statuses"] == ["videoselfie"]
+    assert client.post(base, json=payload(status="suspendido"), headers=agent).status_code == 403
     assert client.post(base, json=payload(), headers=agent).status_code == 200
     assert client.get("/api/v1/account-reports", headers=bob).json() == []
     assert client.get("/api/v1/account-reports", headers=agent).status_code == 403
@@ -95,6 +99,10 @@ def test_hub_reports_respect_visibility_and_agent_lease(hub, monkeypatch):
         client.post(base + "/" + "b" * 32 + "/review", headers=army).json()["reviewed_by"] == "ana"
     )
     assert client.post(base, json=payload("d"), headers=army).status_code == 403
+    # Admins (foxprofile:admin) report every status.
+    assert (
+        client.post(base, json=payload("e", status="suspendido"), headers=admin).status_code == 200
+    )
 
 
 def test_extension_bridge_agent_hub_round_trip(hub, monkeypatch):

@@ -60,7 +60,9 @@ La detección de la red facilita el formulario; el usuario confirma el estado.
 
 El reporte contiene `platform`, `account_id` opcional, `status` y `note`.
 Los únicos estados admitidos son `inhabilitado`, `suspendido`, `videoselfie` y `codigo`
-(mismas claves que el estado de perfil del panel Army).
+(mismas claves que el estado de perfil del panel Army). En el hub, quien no es
+admin (`foxprofile:admin`) solo reporta `videoselfie`: la extensión solo muestra
+ese y el hub rechaza los demás con 403 (`reports.statuses_for`).
 El servidor determina perfil autorizado, identidad y fechas; no confía en esos
 valores si llegan desde el formulario.
 

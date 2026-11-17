@@ -13,6 +13,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+STATUSES = ("inhabilitado", "suspendido", "videoselfie", "codigo")
+
+
+def statuses_for(role: str) -> list[str]:
+    """What a hub user may report: admins (foxprofile:admin) every status, everyone
+    else only Videoselfie, the same rule as Army's profile status."""
+    return list(STATUSES) if role == "admin" else ["videoselfie"]
+
 
 class ReportInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
