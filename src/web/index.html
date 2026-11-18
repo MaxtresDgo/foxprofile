@@ -1418,15 +1418,17 @@ function bulkBar() {
     h("button", { class: "btn btn-line", onclick: () => stopSync(s.leader) }, icon("stop", true), t("sync_stop"))));
   const progress = bulkProgress();
   if (!names.length) return h("div", { class: "bulk" }, progress, chips);
+  // Bulk edit and delete are for hub admins only (operators still edit or delete one by one).
+  const admin = !hub || me?.role === "admin";
   return h("div", { class: "bulk" },
     h("span", { class: "n" }, t("selected", { n: names.length })),
     h("button", { class: "btn btn-act", onclick: () => bulk("launch"), disabled: !!bulkRun }, icon("play", true), t("bulk_launch")),
     h("button", { class: "btn btn-line", onclick: () => bulk("stop") }, icon("stop", true), t("bulk_stop")),
-    h("button", { class: "btn btn-line", onclick: openBulkEdit }, icon("edit", true), t("bulk_edit")),
+    admin ? h("button", { class: "btn btn-line", onclick: openBulkEdit }, icon("edit", true), t("bulk_edit")) : null,
     h("button", { class: "btn btn-line", onclick: openRunSteps }, icon("steps", true), t("run_steps")),
     h("button", { class: "btn btn-line", onclick: openSync }, icon("sync", true), t("sync")),
     h("button", { class: "btn btn-line", onclick: arrangeWindows }, icon("grid", true), t("arrange")),
-    h("button", { class: "btn btn-line", onclick: () => bulk("delete") }, icon("trash", true), t("bulk_delete")),
+    admin ? h("button", { class: "btn btn-line", onclick: () => bulk("delete") }, icon("trash", true), t("bulk_delete")) : null,
     progress, chips,
     h("button", { class: "btn btn-ghost", style: "margin-left:auto", onclick: () => { selected.clear(); render(); } }, t("clear_sel")));
 }
