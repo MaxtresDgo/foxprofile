@@ -3,10 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from ...core.strings import get_string
 from ...hub import army_events
 from ...hub.store import KEY_PREFIX
 from ...services.profile.accounts import AccountsLocked
-from ...services.profile.reports import ReportConflict, ReportInput, submit_report
+from ...services.profile.reports import ReportConflict, ReportInput, statuses_for, submit_report
 from ..auth import _presented_token, can_see, hub_store
 from ..dependencies import get_profile_manager
 from ..helpers import require_profile
@@ -70,6 +71,8 @@ def create_report(
             raise HTTPException(403, "This key cannot submit account reports")
         if request.app.state.container.browser_launcher.holder(name) != _actor(request):
             raise HTTPException(403, "The agent does not hold this profile")
+    if store and body.status not in statuses_for(request.state.user["role"]):
+        raise HTTPException(403, get_string("err_report_status"))
     try:
         receipt = submit_report(pm, name, body, _actor(request))
     except AccountsLocked as e:

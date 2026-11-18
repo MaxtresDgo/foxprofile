@@ -22,7 +22,7 @@ La detección de la red facilita el formulario; el usuario confirma el estado.
 3. El formulario muestra el perfil y la red. Si hay varias cuentas guardadas de
    esa red, obliga a elegir una. Si no hay ninguna, permite reportar el perfil y
    la red sin crear credenciales ni afirmar qué usuario está conectado.
-4. El operador elige «Inhabilitado», «Suspendido», «Videoselfie» o «Código de
+4. El operador elige «Inhabilitado», «Suspendido», «Revisión» o «Código de
    teléfono/SMS/WhatsApp» y puede agregar
    una nota de hasta 1.000 caracteres. Enviar requiere una acción explícita.
 5. Solo se muestra «Reporte enviado» después de confirmar su persistencia. Si
@@ -60,7 +60,9 @@ La detección de la red facilita el formulario; el usuario confirma el estado.
 
 El reporte contiene `platform`, `account_id` opcional, `status` y `note`.
 Los únicos estados admitidos son `inhabilitado`, `suspendido`, `videoselfie` y `codigo`
-(mismas claves que el estado de perfil del panel Army).
+(mismas claves que el estado de perfil del panel Army). En el hub, quien no es
+admin (`foxprofile:admin`) solo reporta `videoselfie`: la extensión solo muestra
+ese y el hub rechaza los demás con 403 (`reports.statuses_for`).
 El servidor determina perfil autorizado, identidad y fechas; no confía en esos
 valores si llegan desde el formulario.
 

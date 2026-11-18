@@ -1,4 +1,5 @@
 import json
+import subprocess
 import time
 
 import pytest
@@ -158,3 +159,23 @@ def test_export_rejects_unknown_format():
 def test_non_numeric_expiry_is_treated_as_session():
     [c] = cookies.parse_cookies(json.dumps([_ext_cookie(expirationDate="session")]))
     assert c["expires"] > time.time() + 300 * 24 * 3600
+
+
+def test_the_cookie_tool_waits_for_chrome_to_let_go_of_the_profile(monkeypatch):
+    locked = (
+        'RESULT:{"error": "Error: Failed to create a ProcessSingleton for your profile directory."}'
+    )
+    answers = iter([locked, locked, 'RESULT:{"imported": 3}'])
+    monkeypatch.setattr(
+        cookies.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, next(answers), ""),
+    )
+    monkeypatch.setattr(cookies.time, "sleep", lambda s: None)
+    assert cookies._call_tool("import", "p1", "windows")["imported"] == 3
+    # Other errors, and a lock that outlasts the wait, are not retried.
+    for first in ('RESULT:{"error": "No valid cookies"}', locked):
+        monkeypatch.setattr(cookies, "_LOCK_WAIT", 0)
+        answers = iter([first, 'RESULT:{"imported": 3}'])
+        with pytest.raises(cookies.CookieError):
+            cookies._call_tool("import", "p1", "windows")

@@ -239,6 +239,8 @@ def test_copies_of_another_account_or_unused_go(tmp_path, monkeypatch):
 
     a = _cached_agent(tmp_path, monkeypatch)
     monkeypatch.setattr(agent, "CACHE_DAYS", 0)
+    kept_at = json.loads((a.cache_root / "p1.json").read_text())["ts"]
+    monkeypatch.setattr(agent.time, "time", lambda: kept_at)  # same tick, as on Windows (~15 ms)
     a.prune_cache()
     assert not (a.cache_root / "p1").exists()
 

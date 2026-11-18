@@ -26,6 +26,7 @@ from ...core.config import DATA_DIR
 from ...core.strings import current_language, get_string, set_language
 from ...models.profile import Profile
 from ...utils.proxy_parser import parse_proxy
+from ..profile.reports import STATUSES
 from ..profile.transfer import read_meta, update_meta
 from .extensions import chrome_id
 
@@ -93,6 +94,7 @@ def current(name: str, proxy: str = "", os_type: str = "") -> dict:
         "group": data.get("group") or "",
         "accounts": data.get("accounts") or [],
         "report_accounts": data.get("report_accounts") or [],
+        "report_statuses": data.get("report_statuses") or [],
         "report": data.get("report"),
         "proxy": _proxy_kind(proxy),
         "os": os_type,
@@ -165,6 +167,8 @@ def write_extension(tag: dict[str, str], engine: str) -> str | None:
             "profile": tag["name"],
             "lang": current_language(),
             "accounts": tag.get("report_accounts", []),
+            # The hub's statuses_for(); a launch without them (local runner) offers all.
+            "statuses": tag.get("report_statuses") or list(STATUSES),
         }
         (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     return str(folder)

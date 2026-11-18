@@ -67,8 +67,9 @@ class RemoteLauncher:
         self.agent_codes: dict[str, tuple[str, float]] = {}
         # The extensions a profile loads, sent with its launch (Container wires it).
         self.extensions: Callable[[Profile], list[dict]] = lambda profile: []
-        # Group and accounts for the start page (label.details()), sent the same way.
-        self.details: Callable[[Profile], dict] = lambda profile: {}
+        # Group and accounts for the start page (label.details()) and what the
+        # launching user may report, sent the same way.
+        self.details: Callable[[Profile, str], dict] = lambda profile, user: {}
 
     # --- hub side --------------------------------------------------------------
 
@@ -95,7 +96,10 @@ class RemoteLauncher:
             self._lease(user, profile.name)
             self._results[profile.name] = _LaunchResult()
             command = {"op": "launch", "profile": profile.to_dict(), "stamp": stamp}
-            extras = {"extensions": self.extensions(profile), "details": self.details(profile)}
+            extras = {
+                "extensions": self.extensions(profile),
+                "details": self.details(profile, user),
+            }
             self._queues[user].put({**command, **extras})
 
     def _call(self, user: str, command: dict, timeout: float) -> Any:

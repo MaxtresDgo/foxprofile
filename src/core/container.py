@@ -51,7 +51,11 @@ class Container:
             remote.extensions = lambda p: store.for_profile(
                 p.name, p.engine, self.hub_store.profile_groups.get(p.name)
             )
-            remote.details = lambda p: self._details(p, self.hub_store.profile_groups.get(p.name))
+            remote.details = lambda p, user: self._details(
+                p,
+                self.hub_store.profile_groups.get(p.name),
+                self.hub_store.users.get(user, {}).get("role", ""),
+            )
             return remote
         from ..services.browser.launcher import BrowserLauncher
 
@@ -71,15 +75,17 @@ class Container:
                 raise ValueError("Profile changed")
             return submit_report(pm, profile.name, body, "")
 
-    def _details(self, profile, group: str | None) -> dict:
-        """The start page's group and accounts (no secrets); a locked store shows none."""
+    def _details(self, profile, group: str | None, role: str = "admin") -> dict:
+        """The start page's group and accounts (no secrets; a locked store shows none)
+        and the statuses the extension offers. Outside the hub there is one user, an admin."""
         from ..services.browser import label
+        from ..services.profile.reports import statuses_for
 
         try:
             accounts = self.profile_manager.accounts.list(profile.name)
         except Exception:
             accounts = []
-        return label.details(group, accounts)
+        return {**label.details(group, accounts), "report_statuses": statuses_for(role)}
 
     @property
     def extensions(self):
