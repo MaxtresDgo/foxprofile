@@ -679,7 +679,7 @@ class Agent:
         old = time.time() - CACHE_DAYS * 86400
         for record in self.cache_root.glob("*.json"):
             meta = self._cache_get(record.stem)
-            if everything or meta is None or meta.get("ts", 0) < old:
+            if everything or meta is None or meta.get("ts", 0) <= old:  # Windows: ~15 ms ticks
                 shutil.rmtree(self.cache_root / record.stem, ignore_errors=True)
                 record.unlink(missing_ok=True)
 
