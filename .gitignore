@@ -201,3 +201,4 @@ agent.json
 agent.lock
 # Chrome engine build bundled by the agent installers
 chrome_engine/builds/
+.DS_Store

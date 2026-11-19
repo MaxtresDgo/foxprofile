@@ -270,3 +270,33 @@ def test_an_older_build_refuses_newer_data(monkeypatch, tmp_path):
     eng = ChromeEngine(tmp_path, platform="linux", version="139.0.7258.154")
     with pytest.raises(EngineError, match="last opened by Chromium 148.0.7778.215"):
         asyncio.run(eng.start())
+
+
+def _start_until_browser(eng, monkeypatch):
+    import playwright.async_api as pw
+
+    class Fake:
+        async def start(self):
+            raise RuntimeError("stop before the browser")
+
+    monkeypatch.setattr(pw, "async_playwright", lambda: Fake())
+    with pytest.raises(RuntimeError, match="stop before the browser"):
+        asyncio.run(eng.start())
+
+
+def test_geo_locale_is_kept_across_launches(tmp_path, monkeypatch):
+    from chrome_engine.geo import ExitGeo
+
+    picks = iter(["es-US", "en-US"])
+    monkeypatch.setattr(
+        engine_mod,
+        "lookup",
+        lambda url: ExitGeo("203.0.113.5", "America/Chicago", next(picks), country="US"),
+    )
+    locales = []
+    for _ in range(2):
+        eng = ChromeEngine(tmp_path / "p", executable=__file__, proxy="http://127.0.0.1:9")
+        _start_until_browser(eng, monkeypatch)
+        locales.append(eng.persona.locale)
+    assert locales == ["es-US", "es-US"]
+    assert "--lang=es-US" in eng.args

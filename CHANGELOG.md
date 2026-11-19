@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### Thay đổi
+- Engine Chrome không còn là thử nghiệm: bỏ nhãn "experimental"/"thử nghiệm" trong app, web panel, API và MCP. README có mục "Giới hạn đã biết" (font lấy từ máy, kích thước màn hình thật khi chạy có cửa sổ, không có Widevine, ghim bản 148, WebRTC khi có proxy).
+- Locale tự động được chọn một lần cho mỗi quốc gia rồi giữ cố định theo profile (file `geo_locale.json` trong thư mục profile), trên cả Camoufox và Chrome. Trước đây locale bị chọn lại ngẫu nhiên ở mỗi lần mở, nên cùng một tài khoản có thể hôm nay là `en-US`, hôm sau là `es-US`. Locale này đi kèm khi xuất profile và bị xoá khi tạo fingerprint mới.
+- Kiểm tra IP không còn cảnh báo "locale ngẫu nhiên"; khi kiểm tra theo profile (`/profiles/{name}/ip-check`, MCP `check_profile_ip`) kết quả hiện locale mà profile đang giữ.
 - Web panel ở hub: nút **Sửa** và **Xoá** trên thanh các profile đã chọn (sửa/xoá hàng loạt) chỉ hiện cho quản trị viên; người dùng khác vẫn sửa hoặc xoá từng profile như trước.
 - Báo cáo tài khoản ở hub: người dùng không phải quản trị viên (`foxprofile:admin`) chỉ báo cáo được **Xem xét** (trước đây là "Yêu cầu video selfie"; khoá vẫn là `videoselfie`); extension chỉ hiện trạng thái đó và hub từ chối (403) các trạng thái khác, giống trạng thái profile trong Army. Quản trị viên vẫn báo cáo được mọi trạng thái. Lệnh `launch` cho agent có thêm `details.report_statuses`.
 - Xuất/nhập cookie của profile Chrome ngay sau khi đóng trình duyệt không còn thất bại với "Failed to create a ProcessSingleton": Chrome còn giữ thư mục profile vài giây sau khi cửa sổ đóng, nên công cụ cookie thử lại tối đa 30 giây. Trước đây lần đóng đó không đóng gói được cookie mới (phiên ngắn hơn 10 phút cũng không có checkpoint để thay).
@@ -77,6 +80,7 @@
 - Xuất profile ZIP bỏ qua thư mục cache của trình duyệt.
 
 ### Sửa
+- CI: kiểm tra timezone của Chrome engine không còn báo sai khi hệ điều hành dùng tz database mới (Linux gần đây đã bỏ các tên cũ như `Asia/Saigon`, `Asia/Calcutta`, `Europe/Kiev`). Các tên cũ được quy về tên chuẩn trước khi so sánh, không còn phụ thuộc hệ thống còn giữ tên cũ hay không.
 - Web panel: **Mở** hàng loạt mở từng nhóm 3 profile cho đến hết danh sách, và **Dừng** chỉ đóng những profile đã mở nên danh sách vẫn tiếp tục mở phần còn lại. Giờ thanh chọn hiện tiến độ ("Đang mở 23/100") với nút **Huỷ** để không mở thêm (các profile đang mở dở vẫn mở xong); bấm **Dừng** trong lúc đang mở sẽ huỷ việc mở trước rồi đóng cả những profile vừa mở. Không thể bắt đầu thêm một lần mở hàng loạt khi lần trước chưa xong.
 - Nút quay lại (API `POST /browser/{name}/page/back`, web panel) báo `Timeout 30000ms exceeded` trên các trang như Facebook dù đã quay lại: nó chờ sự kiện `load`, mà trang tải ảnh và video mãi không xong. Giờ nó chờ nội dung trang (`domcontentloaded`); thanh địa chỉ của trình xem cũng vậy.
 - Profile Android (engine Chrome) không còn bị tràn khỏi màn hình: trên Windows, chiều cao trang được thu lại để cửa sổ vừa vùng làm việc của màn hình chính (trừ thanh tác vụ, theo tỉ lệ DPI) và cửa sổ được đặt ở giữa màn hình. `screen` mà trang thấy vẫn là màn hình của điện thoại; trang ngắn hơn màn hình đúng như các thanh của Chrome trên điện thoại (412x915 → 412x839).
@@ -112,6 +116,8 @@
 - Agent chỉ cài code cập nhật và bộ cài mới từ hub chạy `https://` (hoặc `127.0.0.1`/`localhost` để thử), và từ chối bộ cài bị chuyển hướng sang `http://`: trước đây ai ở cùng mạng LAN cũng có thể đưa code của mình cho agent của mọi máy. Hub chạy `http://` vẫn hoạt động, nhưng agent chỉ báo và phải cài bản mới bằng tay.
 - Đăng nhập hub tự kiểm tra quyền `foxprofile:access` (`FOXPROFILE_AUTH_ACCESS_PERMISSION`), không chỉ tin vào nền tảng định danh; admin luôn vào được.
 - Dữ liệu profile gửi lên hub khi lease đã hết chỉ được nhận từ người giữ profile gần nhất, và agent không thể nhận lại profile của người khác bằng `running=`. Mỗi lần tải lên tối đa `FOXPROFILE_HUB_MAX_BUNDLE_MB` (mặc định 4096 MB), vượt quá trả về 413.
+### Phụ thuộc
+- Nâng `camoufox` lên `>=0.5.9`, `tzdata` lên `>=2026.6`; `flet` lên `>=1.1.2` (đã chạy thử app desktop với bản mới). Dev: `pytest` `>=9.2.0`, `ruff` `>=0.17.4`.
 
 ## [2.3.1] - 2026-10-09
 
@@ -157,7 +163,8 @@
 
 Phát hành đầu tiên của FoxProfile: vân tay cố định theo profile, proxy riêng, xuất/nhập cookie (JSON và Netscape), REST API, giao diện tiếng Việt/tiếng Anh.
 
-[Unreleased]: https://github.com/chienbm98/foxprofile/compare/v2.3.1...HEAD
+[Unreleased]: https://github.com/chienbm98/foxprofile/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/chienbm98/foxprofile/compare/v2.3.1...v2.4.0
 [2.3.1]: https://github.com/chienbm98/foxprofile/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/chienbm98/foxprofile/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/chienbm98/foxprofile/compare/v2.1.0...v2.2.0

@@ -505,4 +505,7 @@ def check_profile_ip(
     Goes out through the profile's proxy to Cloudflare, ipinfo and ip-api (~10s).
     """
     profile = require_profile(name, pm)
-    return geo_check_here_or_on_agent(request, bl, profile.proxy, profile.timezone, profile.locale)
+    data_dir = os.path.join(os.getcwd(), DATA_DIR, profile.name)
+    return geo_check_here_or_on_agent(
+        request, bl, profile.proxy, profile.timezone, profile.locale, data_dir
+    )
