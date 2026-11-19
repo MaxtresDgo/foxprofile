@@ -117,6 +117,8 @@
 - Đăng nhập hub tự kiểm tra quyền `foxprofile:access` (`FOXPROFILE_AUTH_ACCESS_PERMISSION`), không chỉ tin vào nền tảng định danh; admin luôn vào được.
 - Dữ liệu profile gửi lên hub khi lease đã hết chỉ được nhận từ người giữ profile gần nhất, và agent không thể nhận lại profile của người khác bằng `running=`. Mỗi lần tải lên tối đa `FOXPROFILE_HUB_MAX_BUNDLE_MB` (mặc định 4096 MB), vượt quá trả về 413.
 ### Phụ thuộc
+- Nâng `camoufox` lên `>=0.5.9` (trình duyệt Camoufox 158; agent tự tải bản mới ~1,3 GB lần đầu chạy), `tzdata` lên `>=2026.6`, `aiohttp` lên `>=3.14.5`, `fastapi` lên `>=0.162.0`. Agent đã cài cần bộ cài mới (`installer_needed`).
+- `flet` (app desktop) chuyển sang `requirements-desktop.txt` và nâng lên `>=1.1.2`: agent, hub và server không cần nó nữa, nên bộ cài agent nhẹ hơn. Chạy app desktop từ mã nguồn: `pip install -r requirements-desktop.txt`.
 - Dev: `pytest` `>=9.2.0`, `ruff` `>=0.17.4`, `httpx` `>=0.28.1`. `requirements.txt` giữ nguyên để agent đã cài tự cập nhật mà không cần bộ cài mới.
 
 ## [2.3.1] - 2026-10-09

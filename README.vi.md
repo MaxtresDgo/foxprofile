@@ -90,7 +90,8 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows
 source .venv/bin/activate       # Linux/macOS
 
-pip install -r requirements.txt
+pip install -r requirements-desktop.txt
+# Chỉ chạy server, hub hoặc agent (không cần app desktop): requirements.txt là đủ
 python -m camoufox fetch
 ```
 

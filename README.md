@@ -90,7 +90,8 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows
 source .venv/bin/activate       # Linux/macOS
 
-pip install -r requirements.txt
+pip install -r requirements-desktop.txt
+# requirements.txt alone is enough for the server, hub and agent (no desktop app)
 python -m camoufox fetch
 ```
 

@@ -4,11 +4,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 COPY requirements.txt requirements-hub.txt ./
-# The desktop UI (flet) is not needed on the hub; requirements-hub.txt is (installers
-# in an S3 bucket). requirements.txt stays: agents compare theirs with it.
-RUN grep -v '^flet' requirements.txt > /tmp/req.txt \
-    && pip install --no-cache-dir -r /tmp/req.txt -r requirements-hub.txt \
-    && rm /tmp/req.txt
+# requirements-hub.txt: installers in an S3 bucket. The desktop UI (flet) lives in
+# requirements-desktop.txt and is not needed here.
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-hub.txt
 
 COPY src ./src
 COPY chrome_engine ./chrome_engine

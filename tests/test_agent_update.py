@@ -728,3 +728,21 @@ def test_an_installer_redirected_to_plain_http_is_not_run(tmp_path, monkeypatch)
     a.install_update()
     assert started == [] and not (tmp_path / "installer" / "evil.pkg").exists()
     assert notes == [agent.get_string("agent_update_needs_https")] and not a.updating
+
+
+def test_agents_hub_and_server_run_without_flet():
+    """The installers ship requirements.txt, which has no flet (the desktop app's
+    requirements-desktop.txt does): nothing but src.ui may load it."""
+    import subprocess
+
+    code = (
+        "import sys\n"
+        "import src.agent, src.agent_logs, src.agent_panel, src.agent_wall\n"
+        "import src.server, src.hub.routes, src.mcp_server.server\n"
+        "assert not [m for m in sys.modules if m.split('.')[0] == 'flet'], 'flet loaded'\n"
+    )
+    root = pathlib.Path(__file__).resolve().parents[1]
+    r = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    lines = (root / "requirements.txt").read_text().splitlines()
+    assert not [line for line in lines if line.startswith("flet")]
