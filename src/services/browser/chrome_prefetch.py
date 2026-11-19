@@ -123,13 +123,13 @@ def downgrade(pm, name: str, version: str, here: bool = True) -> None:
     from ..profile import snapshots
     from ..profile.transfer import COOKIES_GZ, COOKIES_SHA
     from . import cookies
-    from .fingerprint import CHROME_PERSONA_FILE
+    from .fingerprint import IDENTITY_FILES
     from .session import TABS_FILE
 
     profile = pm.profiles[name]
     old = profile.chrome_version
     folder = pathlib.Path(DATA_DIR) / name
-    keep = {CHROME_PERSONA_FILE, TABS_FILE, COOKIES_GZ, COOKIES_SHA}
+    keep = {*IDENTITY_FILES, TABS_FILE, COOKIES_GZ, COOKIES_SHA}
     chromium = [p for p in folder.iterdir() if p.name not in keep] if folder.is_dir() else []
     if here and not is_installed(version):
         raise DowngradeError(get_string("err_chrome_build_missing", version=version))
