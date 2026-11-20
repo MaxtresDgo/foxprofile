@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thay đổi
+- Nhập từ AdsPower: profile có tên trùng với một profile khác chỉ khác chữ hoa/thường (`Profile 1` và `profile 1`) nhận số AdsPower phía sau (`profile 1-<số>`). Trước đây danh sách báo mãi là chưa nhập, còn nhập lại thì trả về "đã có" mà không tạo gì.
 - Web panel ở hub: nút **Sửa** và **Xoá** trên thanh các profile đã chọn (sửa/xoá hàng loạt) chỉ hiện cho quản trị viên; người dùng khác vẫn sửa hoặc xoá từng profile như trước.
 - Báo cáo tài khoản ở hub: người dùng không phải quản trị viên (`foxprofile:admin`) chỉ báo cáo được **Xem xét** (trước đây là "Yêu cầu video selfie"; khoá vẫn là `videoselfie`); extension chỉ hiện trạng thái đó và hub từ chối (403) các trạng thái khác, giống trạng thái profile trong Army. Quản trị viên vẫn báo cáo được mọi trạng thái. Lệnh `launch` cho agent có thêm `details.report_statuses`.
 - Xuất/nhập cookie của profile Chrome ngay sau khi đóng trình duyệt không còn thất bại với "Failed to create a ProcessSingleton": Chrome còn giữ thư mục profile vài giây sau khi cửa sổ đóng, nên công cụ cookie thử lại tối đa 30 giây. Trước đây lần đóng đó không đóng gói được cookie mới (phiên ngắn hơn 10 phút cũng không có checkpoint để thay).
