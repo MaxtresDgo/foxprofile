@@ -18,7 +18,7 @@ This is a public MIT-licensed repository (`github.com/chienbm98/foxprofile`). Ev
 ## Commands
 
 ```bash
-pip install -r requirements-dev.txt     # dev deps (runtime deps live in requirements.txt)
+pip install -r requirements-dev.txt     # dev deps (runtime deps: requirements.txt; desktop app adds flet in requirements-desktop.txt)
 python -m camoufox fetch                # download the browser; needed only to actually launch profiles
 
 python -m src.main                      # desktop app + API on 127.0.0.1:8000

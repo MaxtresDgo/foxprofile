@@ -25,9 +25,8 @@ from .dialogs.mcp_guide import open_mcp_guide
 from .handlers import AppHandlers
 from .refs import UIRefs
 from .state import ITEMS_PER_PAGE, AppState
-from .theme import COLORS, configure_page
-from .theme.colors import FONT_SEMIBOLD
-from .theme.page import ASSETS_DIR
+from .theme.colors import COLORS, FONT_SEMIBOLD
+from .theme.page import ASSETS_DIR, configure_page
 
 logger = get_logger("app")
 
