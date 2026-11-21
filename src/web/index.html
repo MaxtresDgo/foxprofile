@@ -239,6 +239,9 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-sunk); border-radius: 10px 10px 0 0; }
 .bulk .n { font-weight: 600; margin-right: 6px; }
 .bulk .btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 14px; color: var(--ink-2); font-size: 13px; }
+.pager .btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.pager input { width: 76px; height: 32px; font-size: 13px; margin-right: 12px; }
 .sync-chip { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
 .results { margin: 10px 0 0; padding: 0; list-style: none; font-size: 12.5px; max-height: 180px; overflow: auto; }
 .results li { padding: 3px 0; overflow-wrap: anywhere; }
@@ -675,7 +678,8 @@ const I18N = {
     sync_hint: "Click, gõ phím, chọn và Enter/Tab/Escape ở profile chính được lặp lại ở tab đang mở của các profile khác khi chúng ở cùng trang web.",
     sync_need_two: "Chọn ít nhất hai profile đang chạy", syncing: "Đang đồng bộ {leader} → {n} profile", sync_stop: "Dừng đồng bộ",
     sync_started: "Đã bắt đầu đồng bộ từ {leader}", sync_stopped: "Đã dừng đồng bộ: {leader}",
-    select_all: "Chọn tất cả", select_row: "Chọn {name}",
+    page_size: "Mỗi trang", select_page: "Chọn cả trang này", select_all_n: "Chọn tất cả {n}", select_row: "Chọn {name}",
+    page_range: "{a}–{b} / {n}", page_prev: "‹ Trước", page_next: "Sau ›",
     confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile", bulk_edit: "Sửa", bulk_edit_title: "Sửa {n} profile", bulk_edit_hint: "Đánh dấu các trường cần đổi; các trường khác giữ nguyên giá trị của từng profile. Để trống sẽ bỏ proxy, hoặc đưa timezone và locale về tự động.", bulk_edit_nothing: "Hãy đánh dấu ít nhất một trường cần đổi", bulk_failed: "Lỗi ({n}): {names}", bulk_count: "Số lượng", bulk_create_n: "Tạo {n} profile", bulk_from: "Bắt đầu từ số", bulk_badge: "Dùng số đó làm số trên badge", bulk_preview: "Sẽ tạo từ {first} đến {last}", bulk_creating: "Đang tạo {done}/{total}", created_n: "Đã tạo {n} profile", updated_n: "Đã cập nhật {n} profile",
     login_side: "Server này chạy FoxProfile. Đăng nhập bằng API token để quản lý profile từ xa.",
     login_hint: "Nhập API token (biến FOXPROFILE_API_TOKEN) của server.", token: "API token", login: "Đăng nhập",
@@ -788,7 +792,8 @@ const I18N = {
     sync_hint: "Clicks, typing, selects and Enter/Tab/Escape in the leader are repeated in the other profiles' active tab while they are on the same site.",
     sync_need_two: "Select at least two running profiles", syncing: "Syncing {leader} → {n} profile(s)", sync_stop: "Stop sync",
     sync_started: "Sync started from {leader}", sync_stopped: "Sync stopped: {leader}",
-    select_all: "Select all", select_row: "Select {name}",
+    page_size: "Per page", select_page: "Select this page", select_all_n: "Select all {n}", select_row: "Select {name}",
+    page_range: "{a}–{b} of {n}", page_prev: "‹ Previous", page_next: "Next ›",
     confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}", bulk_edit: "Edit", bulk_edit_title: "Edit {n} profiles", bulk_edit_hint: "Tick the fields to change; the rest keep each profile's own value. An empty field removes the proxy, or puts timezone and locale back on automatic.", bulk_edit_nothing: "Tick at least one field to change", bulk_failed: "Failed ({n}): {names}", bulk_count: "How many", bulk_create_n: "Create {n} profiles", bulk_from: "Starting number", bulk_badge: "Use that number on the badge", bulk_preview: "Creates {first} to {last}", bulk_creating: "Creating {done} of {total}", created_n: "Created {n} profiles", updated_n: "Updated {n} profiles",
     login_side: "This server runs FoxProfile. Log in with the API token to manage profiles remotely.",
     login_hint: "Enter the server's API token (FOXPROFILE_API_TOKEN).", token: "API token", login: "Log in",
@@ -901,7 +906,8 @@ const I18N = {
     sync_hint: "Los clics, lo que se escribe, los select y Enter/Tab/Escape en el profile principal se repiten en la pestaña activa de los demás profiles mientras estén en el mismo sitio.",
     sync_need_two: "Selecciona al menos dos profiles en ejecución", syncing: "Sincronizando {leader} → {n} profile(s)", sync_stop: "Detener sincronización",
     sync_started: "Sincronización iniciada desde {leader}", sync_stopped: "Sincronización detenida: {leader}",
-    select_all: "Seleccionar todos", select_row: "Seleccionar {name}",
+    page_size: "Por página", select_page: "Seleccionar esta página", select_all_n: "Seleccionar los {n}", select_row: "Seleccionar {name}",
+    page_range: "{a}–{b} de {n}", page_prev: "‹ Anterior", page_next: "Siguiente ›",
     confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}", bulk_edit: "Editar", bulk_edit_title: "Editar {n} profiles", bulk_edit_hint: "Marca los campos que quieres cambiar; los demás conservan el valor de cada profile. Un campo vacío quita el proxy, o devuelve timezone y locale a automático.", bulk_edit_nothing: "Marca al menos un campo para cambiar", bulk_failed: "Con error ({n}): {names}", bulk_count: "Cantidad", bulk_create_n: "Crear {n} profiles", bulk_from: "Desde el número", bulk_badge: "Usar ese número en la insignia", bulk_preview: "Se crean de {first} a {last}", bulk_creating: "Creando {done} de {total}", created_n: "{n} profiles creados", updated_n: "{n} profiles actualizados",
     login_side: "Este servidor ejecuta FoxProfile. Inicia sesión con el token de la API para gestionar los profiles a distancia.",
     login_hint: "Introduce el token de la API del servidor (FOXPROFILE_API_TOKEN).", token: "Token de la API", login: "Iniciar sesión",
@@ -999,8 +1005,12 @@ const BULK_CREATE_MAX = 200;     // profiles per "create several" round
 let builds = null;               // GET /chrome/builds: the browser PC's Chrome engine builds
 let snapshotsOn = false;         // /info: a snapshot bucket is set
 let hub = false, me = null;      // hub mode: browsers open on each operator's PC
-let filter = "all";
-let scope = store.get("foxprofile.group");  // hub: null = all groups, "" = no group, else a group name
+// The list's state (search, filter, group, page, page size) lives in the address, so a
+// reload or a shared link shows the same page; render() writes it back (syncUrl).
+const urlState = new URLSearchParams(location.search);
+let filter = urlState.get("filter") || "all";  // checked against FILTERS once they exist
+// hub: null = all groups, "" = no group, else a group name
+let scope = urlState.has("group") ? urlState.get("group") : store.get("foxprofile.group");
 const busy = new Map();          // name -> "starting" | "stopping"
 const failed = new Map();        // name -> error message of the last failed launch
 const liveSince = new Map();     // name -> Date the profile was first seen running
@@ -1171,6 +1181,29 @@ function visible() {
   return profiles.filter((p) => inGroup(p, scope) && pass(p) && (!q || [p.name, p.proxy, p.number, p.remark].some((v) => (v || "").toLowerCase().includes(q))));
 }
 
+if (!FILTERS.some((f) => f[0] === filter)) filter = "all";
+const clampSize = (v) => Math.min(500, Math.max(1, parseInt(v, 10) || 10));
+let pageSize = clampSize(urlState.get("size") || store.get("foxprofile.pageSize"));
+let pageAt = Math.max(0, (parseInt(urlState.get("page"), 10) || 1) - 1);  // reset by search, filter and group; render() clamps it
+function pager(n, pages) {
+  const go = (d) => { pageAt += d; render(); $("sheet").scrollIntoView({ block: "start" }); };
+  // Any size from 1 to 500; the list only suggests the usual ones. A new size keeps the
+  // first row of the current page on screen.
+  const size = h("input", { id: "page-size", type: "number", min: 1, max: 500, list: "page-sizes", value: pageSize, onchange: (e) => {
+    const next = clampSize(e.target.value);
+    pageAt = Math.floor(pageAt * pageSize / next);
+    pageSize = next;
+    store.set("foxprofile.pageSize", String(next));
+    render();
+  } });
+  return h("div", { class: "pager" },
+    h("label", { for: "page-size" }, t("page_size")), size,
+    h("datalist", { id: "page-sizes" }, [10, 20, 50, 100].map((v) => h("option", { value: v }))),
+    t("page_range", { a: pageAt * pageSize + 1, b: Math.min(n, (pageAt + 1) * pageSize), n }),
+    h("button", { class: "btn btn-line", disabled: pageAt === 0, onclick: () => go(-1) }, t("page_prev")),
+    h("button", { class: "btn btn-line", disabled: pageAt >= pages - 1, onclick: () => go(1) }, t("page_next")));
+}
+
 let lastRender = "";
 function render() {
   const q = $("search").value.trim();
@@ -1178,10 +1211,17 @@ function render() {
   // another group leaves it, so bulk actions never reach rows the user cannot see.
   for (const name of [...selected]) if (!profiles.some((p) => p.name === name && inGroup(p, scope))) selected.delete(name);
   const shown = visible();
+  const pages = Math.max(1, Math.ceil(shown.length / pageSize));
+  // Not before the first load: an empty list would throw away the page from the address.
+  if (profiles.length) pageAt = Math.min(pageAt, pages - 1);
+  const slice = shown.slice(pageAt * pageSize, (pageAt + 1) * pageSize);
+  syncUrl(q);
+  // Changing the page size rebuilds its box; keep the cursor in it after Enter or the arrows.
+  const sizeFocused = document.activeElement?.id === "page-size";
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
-  const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, accountReports, [...running].sort(), [...busy], [...failed], [...selected].sort(),
-    [...justLanded], syncs, builds, shown.map((p) => fingerprints[p.name] || null),
+  const key = JSON.stringify([lang, q, filter, scope, pageAt, pageSize, profiles, me, accountsOf, accountReports, [...running].sort(), [...busy], [...failed], [...selected].sort(),
+    [...justLanded], syncs, builds, slice.map((p) => fingerprints[p.name] || null),
     bulkRun && [bulkRun.action, bulkRun.done, bulkRun.total, bulkRun.cancelled]]);
   if (key === lastRender) return;
   lastRender = key;
@@ -1197,22 +1237,37 @@ function render() {
   const sheet = $("sheet");
   sheet.replaceChildren();
   if (!profiles.length) return sheet.append(emptyState(false));
-  if (selected.size || syncs.length) sheet.append(bulkBar());
-  sheet.append(headRow(shown));
+  if (selected.size || syncs.length) sheet.append(bulkBar(shown));
+  sheet.append(headRow(slice));
   if (!shown.length) sheet.append(emptyState(true, q));
-  for (const p of shown) sheet.append(row(p));
+  for (const p of slice) sheet.append(row(p));
+  if (shown.length) sheet.append(pager(shown.length, pages));
+  if (sizeFocused) $("page-size").focus();
   justLanded.clear();
+}
+
+function syncUrl(q) {
+  const s = new URLSearchParams();
+  if (q) s.set("q", q);
+  if (filter !== "all") s.set("filter", filter);
+  if (scope !== null) s.set("group", scope);
+  if (pageAt) s.set("page", String(pageAt + 1));
+  s.set("size", String(pageSize));
+  const url = `${location.pathname}?${s}${location.hash}`;
+  // ponytail: replaceState, so Back leaves the panel instead of stepping through pages; pushState if that is wanted.
+  if (url !== location.pathname + location.search + location.hash) history.replaceState(null, "", url);
 }
 
 function renderFilters() {
   const nav = $("filters");
   nav.replaceChildren(h("div", { class: "nav-title" }, t("filters")),
     ...FILTERS.map(([id, label, pass]) => h("button", { class: filter === id ? "active" : "", "aria-pressed": String(filter === id),
-      onclick: () => { filter = id; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, scope) && pass(p)).length)))));
+      onclick: () => { filter = id; pageAt = 0; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, scope) && pass(p)).length)))));
 }
 
 function setScope(g) {
   scope = g;
+  pageAt = 0;
   store.set("foxprofile.group", g);
 }
 function renderGroupPick() {
@@ -1248,7 +1303,7 @@ function emptyState(filtered, q = "") {
 
 function headRow(shown) {
   const all = shown.length > 0 && shown.every((p) => selected.has(p.name));
-  const box = h("input", { type: "checkbox", "aria-label": t("select_all"), onchange: (e) => {
+  const box = h("input", { type: "checkbox", "aria-label": t("select_page"), title: t("select_page"), onchange: (e) => {
     shown.forEach((p) => (e.target.checked ? selected.add(p.name) : selected.delete(p.name))); render(); } });
   box.checked = all;
   box.indeterminate = !all && shown.some((p) => selected.has(p.name));
@@ -1406,8 +1461,10 @@ function bulkProgress() {
     run.cancelled ? null : h("button", { class: "btn btn-line", onclick: () => { run.cancelled = true; render(); } }, t("cancel")));
 }
 
-function bulkBar() {
+// shown: every profile that passes the search, filter and group, on all pages.
+function bulkBar(shown) {
   const names = [...selected];
+  const rest = shown.filter((p) => !selected.has(p.name));
   // A running sync stays visible (and stoppable) with nothing selected.
   const chips = syncs.map((s) => h("span", { class: "sync-chip", title: Object.entries(s.errors).map(([n, e]) => `${n}: ${e}`).join("\n") },
     icon("sync", true), t("syncing", { leader: s.leader, n: s.followers.length }),
@@ -1419,6 +1476,7 @@ function bulkBar() {
   const admin = !hub || me?.role === "admin";
   return h("div", { class: "bulk" },
     h("span", { class: "n" }, t("selected", { n: names.length })),
+    rest.length ? h("button", { class: "btn btn-ghost", onclick: () => { rest.forEach((p) => selected.add(p.name)); render(); } }, t("select_all_n", { n: shown.length })) : null,
     h("button", { class: "btn btn-act", onclick: () => bulk("launch"), disabled: !!bulkRun }, icon("play", true), t("bulk_launch")),
     h("button", { class: "btn btn-line", onclick: () => bulk("stop") }, icon("stop", true), t("bulk_stop")),
     admin ? h("button", { class: "btn btn-line", onclick: openBulkEdit }, icon("edit", true), t("bulk_edit")) : null,
@@ -3326,7 +3384,8 @@ $("group-list").onkeydown = (e) => {
   const next = e.key === "ArrowDown" ? document.activeElement.nextElementSibling : document.activeElement.previousElementSibling;
   (next || (e.key === "ArrowUp" ? $("group-q") : null))?.focus();
 };
-$("search").oninput = render;
+$("search").value = urlState.get("q") || "";
+$("search").oninput = () => { pageAt = 0; render(); };
 document.querySelectorAll("[data-lang]").forEach((b) => { b.onclick = () => { lang = b.dataset.lang; store.set("foxprofile.lang", lang); applyI18n(); lastRender = ""; render(); }; });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
