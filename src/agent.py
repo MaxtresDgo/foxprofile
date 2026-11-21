@@ -1098,7 +1098,8 @@ class Agent:
                 with open(target, "wb") as f:
                     shutil.copyfileobj(r, f)
             tried.write_text(stamp, encoding="utf-8")
-            if system == "windows":
+            # By OS, not `system`: a dev agent's is "windows-dev".
+            if sys.platform == "win32":
                 flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
                 subprocess.Popen(
                     ["msiexec", "/i", str(target.resolve()), "/passive", "/norestart"],
