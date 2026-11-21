@@ -31,7 +31,7 @@ pytest                                  # tests + chrome_engine/tests; real-brow
 pytest tests/test_validation.py::test_parse_proxy_with_auth   # single test
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint plus pytest on Windows/macOS/Linux × Python 3.10/3.12. `tests/e2e/*.py` are manual scripts against a real FoxProfile (browser + network) and are not part of pytest; see `tests/e2e/README.md`, and point them at a scratch `FOXPROFILE_DATA_DIR` / `FOXPROFILE_PROFILES_FILE`.
+CI (`.github/workflows/ci.yml`) runs lint plus pytest on Windows/Linux × Python 3.10/3.12 (no macOS runners). `tests/e2e/*.py` are manual scripts against a real FoxProfile (browser + network) and are not part of pytest; see `tests/e2e/README.md`, and point them at a scratch `FOXPROFILE_DATA_DIR` / `FOXPROFILE_PROFILES_FILE`.
 
 Run everything from the repo root: `profiles.json`, `camoufox_data/`, `logs/` and `.env` are resolved relative to the working directory.
 
