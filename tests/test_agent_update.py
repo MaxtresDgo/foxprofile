@@ -196,6 +196,7 @@ class _Resp(io.BytesIO):
     def __init__(self, data: bytes, url: str):
         super().__init__(data)
         self.url = url
+        self.headers = {"Content-Length": str(len(data))}
 
     def geturl(self) -> str:
         return self.url
@@ -228,7 +229,12 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
     a = agent.Agent(hub_client, notify=notes.append)  # before Popen is faked: it names the PC
     monkeypatch.setattr(urllib.request, "urlopen", urlopen)
     monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    sent = []
+    monkeypatch.setattr(a, "report", lambda force=False: sent.append(a.activity()))
     a.install_update()
+    # The panel saw the download's progress, then the installer opening.
+    assert {"state": "installing", "pct": 100} in sent
+    assert sent[-1] == {"state": "installer_opened"}
     # Downloaded without the agent's key (a presigned bucket URL must not get it), then opened.
     assert fetched == [("https://hub.example.com/api/v1/hub/installers/macos", None)]
     pkg = tmp_path / "installer" / "FoxProfileAgent-2.4.0-macos.pkg"
@@ -241,6 +247,15 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
     # Asked from the panel ("Update agent"): run again, e.g. after a cancelled Installer.
     a.install_update(force=True)
     assert len(started) == 2
+    # A failed download is shown in the panel, with why, until the next try.
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *a, **kw: (_ for _ in ()).throw(OSError("boom"))
+    )
+    a.install_update(force=True)
+    assert sent[-1] == {"state": "installer_failed", "error": "boom"}
+    listing.clear()
+    a.install_update(force=True)
+    assert sent[-1]["error"] == agent.get_string("agent_installer_missing")
 
 
 def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
@@ -513,7 +528,12 @@ def test_agent_activity_reaches_the_panel_and_expires(hub):
         "/api/v1/hub/agent/status", json={"state": "downloading", "pct": 40}, headers=ana
     )
     assert r.status_code == 200
-    assert me()["agent_activity"] == {"state": "downloading", "pct": 40, "profile": None}
+    assert me()["agent_activity"] == {
+        "state": "downloading",
+        "pct": 40,
+        "profile": None,
+        "error": None,
+    }
     # Silent for too long: the panel stops showing it.
     container.browser_launcher.agents["ana"]["activity"]["at"] -= hub_routes.ACTIVITY_TTL + 1
     assert me()["agent_activity"] is None
@@ -770,7 +790,12 @@ def test_a_plain_http_hub_cannot_push_code_or_installers(tmp_path, monkeypatch):
     a.update("abc")
     a.update("abc")  # the next poll: no second notice
     a.install_update()
-    assert calls == [] and started == [] and not a.restart and not a.updating
+    # Nothing fetched; only the panel is told why (agent/status).
+    # (sent from a thread: maybe not yet)
+    assert (
+        set(calls) <= {"/hub/agent/status"} and started == [] and not a.restart and not a.updating
+    )
+    assert a.installer["state"] == "installer_failed"
     assert notes == [agent.get_string("agent_update_needs_https")] * 2
 
 
