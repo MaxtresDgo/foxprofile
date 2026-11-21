@@ -78,7 +78,17 @@ def list_profiles(
     else:
         items = _here(lambda: adspower.AdsPower(body.port, body.api_key).profiles())
     hub = hub_store(request)
+    held = {n.casefold() for n in pm.profiles}
     for item in items:
+        # Another profile holds the name in other case (Perfil 1 vs perfil 1): add_profile
+        # refuses it, so this one gets its AdsPower number, as the bulk imports did.
+        target = item["target"]
+        if (
+            target not in pm.profiles
+            and target.casefold() in held
+            and item.get("no") not in (None, "")
+        ):
+            item["target"] = f"{target}-{item['no']}"
         item["exists"] = item["target"] in pm.profiles
         if hub is not None and item.get("group"):
             item["hub_group"] = group_name_for(item["group"])
