@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thay đổi
+- Hộp thoại **Agent** của web panel chỉ tải lên một bộ cài mỗi lần: các nút **Tải lên bộ cài** bị tắt trong lúc tải và thông báo ghi tên tệp (`Đang tải lên {name}… {pct}%`). Trước đây hai lần tải lên cùng lúc ghi chung một thông báo nên phần trăm nhảy tới lui. Đóng rồi mở lại hộp thoại vẫn thấy tiến độ của lần đang tải.
 - Hub: khi agent cần bộ cài mới (thư viện đã đổi), thanh bên của web panel hiện "có bản cập nhật agent" cùng nút **Cập nhật agent**: agent tự tải và chạy bộ cài đúng kênh (dev/prod) ngay khi các profile đang mở được đóng, kể cả khi bộ cài đó đã chạy một lần. Trong lúc chờ, mở profile báo lỗi nói rõ cần bộ cài mới thay vì "đóng profile để tự cập nhật".
 - Hub: trong lúc agent tự cập nhật bộ cài, dòng "Máy của bạn" trên web panel hiện tiến trình: đang tải bộ cài (kèm %), đang cài (nhắc đồng ý khi máy hỏi quyền), hoặc lý do thất bại (lỗi tải, hub chưa có bộ cài cho hệ điều hành đó, hub không có https) cùng nút **Cập nhật agent** để thử lại.
 - Installer MSI cho Windows: cài bản mới đè lên bản cũ không còn lỗi 2753 và không còn để lại bản cài hỏng (thiếu `pythonw.exe`, `python312.dll`…). Bản cũ giờ được gỡ sau khi cài xong bản mới (`RemoveExistingProducts` sau `InstallExecute`, vì wixl bỏ qua `MajorUpgrade/@Schedule`), và agent được khởi động theo đường dẫn thay vì `FileKey`.

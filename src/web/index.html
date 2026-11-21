@@ -745,7 +745,7 @@ const I18N = {
     agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
     agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · bản dev", agents_macos_dev: "macOS · bản dev", agents_no_file: "Chưa có bộ cài",
-    agents_download: "Tải về", agents_upload: "Tải lên bộ cài", agents_uploading: "Đang tải lên… {pct}%", agents_uploaded: "Đã tải lên {name}",
+    agents_download: "Tải về", agents_upload: "Tải lên bộ cài", agents_uploading: "Đang tải lên {name}… {pct}%", agents_uploaded: "Đã tải lên {name}",
     agents_upload_failed: "Không tải lên được bộ cài", agents_upload_cors: "Trình duyệt không tải lên được bucket. Kiểm tra quy tắc CORS của bucket (cho phép PUT từ địa chỉ panel này) và proxy phía trước bucket.", agents_upload_etag: "Bucket không cho trình duyệt đọc ETag: thêm ExposeHeaders: [\"ETag\"] vào quy tắc CORS.", agents_list: "Agent đã kết nối", agents_none: "Chưa có agent nào kết nối từ khi hub khởi động.",
     agents_hub_code: "Phiên bản code của hub: {code}", agents_running: "{n} profile đang mở", agents_refresh: "Làm mới", agents_online: "đang kết nối", agents_offline: "mất kết nối",
     agents_update_now: "Cập nhật ngay", agents_update_hint: "Đóng các profile đang mở trên máy đó và cập nhật agent", agents_update_queued: "Sẽ cập nhật trong vài giây",
@@ -859,7 +859,7 @@ const I18N = {
     agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
     agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · dev build", agents_macos_dev: "macOS · dev build", agents_no_file: "No installer yet",
-    agents_download: "Download", agents_upload: "Upload installer", agents_uploading: "Uploading… {pct}%", agents_uploaded: "{name} uploaded",
+    agents_download: "Download", agents_upload: "Upload installer", agents_uploading: "Uploading {name}… {pct}%", agents_uploaded: "{name} uploaded",
     agents_upload_failed: "The installer could not be uploaded", agents_upload_cors: "The browser could not upload to the bucket. Check the bucket\u2019s CORS rule (PUT from this panel\u2019s address) and the proxy in front of the bucket.", agents_upload_etag: "The bucket hides the ETag from the browser: add ExposeHeaders: [\"ETag\"] to its CORS rule.", agents_list: "Connected agents", agents_none: "No agent has connected since the hub started.",
     agents_hub_code: "Hub code version: {code}", agents_running: "{n} profiles open", agents_refresh: "Refresh", agents_online: "connected", agents_offline: "offline",
     agents_update_now: "Update now", agents_update_hint: "Closes the profiles open on that PC and updates its agent", agents_update_queued: "Updating in a few seconds",
@@ -973,7 +973,7 @@ const I18N = {
     agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
     agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene profiles abiertos.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · build dev", agents_macos_dev: "macOS · build dev", agents_no_file: "Todavía no hay instalador",
-    agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo… {pct}%", agents_uploaded: "{name} subido",
+    agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo {name}… {pct}%", agents_uploaded: "{name} subido",
     agents_upload_failed: "No se pudo subir el instalador", agents_upload_cors: "El navegador no pudo subir al bucket. Revisa la regla CORS del bucket (PUT desde la dirección de este panel) y el proxy que tenga delante.", agents_upload_etag: "El bucket no deja al navegador leer el ETag: añade ExposeHeaders: [\"ETag\"] a su regla CORS.", agents_list: "Agentes conectados", agents_none: "Ningún agente se ha conectado desde que arrancó el hub.",
     agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} profiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
     agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los profiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
@@ -2569,6 +2569,11 @@ function openUsers() {
 
 // --- Agents: installers for new PCs, and (admins) each PC's version -------------
 // Installed agents update themselves to the hub's code (src/hub/agent_code.py).
+// The installer upload in progress, if any: one at a time, since every row reports
+// into the same message (two at once made the percentage jump back and forth). It
+// outlives the dialog: reopened, the dialog shows its progress and stays locked.
+// `say` and `refresh` belong to the dialog open now.
+let installerUpload = null;
 function openAgents() {
   modal((close) => {
     const admin = me.role === "admin";
@@ -2576,13 +2581,17 @@ function openAgents() {
     const msg = h("div", { class: "msg", role: "status" });
     const say = (text, cls = "info") => { msg.className = "msg " + cls; msg.textContent = text; };
     const mb = (n) => (n / 1048576).toFixed(0) + " MB";
+    const progress = (pct) => {
+      installerUpload.pct = pct;
+      installerUpload.say(t("agents_uploading", { name: installerUpload.name, pct }));
+    };
     // One PUT, with progress (XHR): resolves with the response's ETag. `done` is
     // what earlier PUTs of this upload already sent.
     const put = (url, body, headers, done, total) => new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", url);
       Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
-      xhr.upload.onprogress = (e) => say(t("agents_uploading", { pct: Math.floor(100 * (done + e.loaded) / total) }));
+      xhr.upload.onprogress = (e) => progress(Math.floor(100 * (done + e.loaded) / total));
       xhr.onload = () => {
         if (xhr.status < 300) return resolve(xhr.getResponseHeader("ETag"));
         let detail = `${t("agents_upload_failed")} (${xhr.status})`;
@@ -2593,11 +2602,24 @@ function openAgents() {
       xhr.send(body);
     });
     const upload = async (platform, file) => {
+      if (installerUpload) return;
+      installerUpload = { name: file.name, pct: 0, say, refresh: loadInstallers };
+      installs.querySelectorAll("[data-upload]").forEach((b) => { b.disabled = true; });
+      try {
+        await uploadInstaller(platform, file);
+      } finally {
+        const { refresh } = installerUpload;
+        installerUpload = null;
+        refresh();  // unlocks the buttons, and lists the new file
+      }
+    };
+    const uploadInstaller = async (platform, file) => {
+      const say = (...args) => installerUpload.say(...args);  // the dialog open now
       // The hub says where to PUT: its own route, or a bucket through a presigned
       // URL per part (proxies such as Cloudflare refuse bodies over 100 MB).
       let target;
       try { target = await api("POST", `/hub/installers/${platform}/upload-url?name=${enc(file.name)}&size=${file.size}`); } catch (e) { return say(e.message, "err"); }
-      say(t("agents_uploading", { pct: 0 }));
+      progress(0);
       const done = { name: file.name, upload_id: target.upload_id };
       try {
         if (!target.direct) {
@@ -2620,7 +2642,6 @@ function openAgents() {
         return say(e.message || t(target.direct ? "agents_upload_cors" : "agents_upload_failed"), "err");
       }
       say(t("agents_uploaded", { name: file.name }), "ok");
-      loadInstallers();
     };
     const loadInstallers = async () => {
       let files;
@@ -2636,7 +2657,7 @@ function openAgents() {
           h("div", { class: "sub" }, f ? `${f.name} · ${mb(f.size)}` : t("agents_no_file")),
           h("div", { class: "acts" },
             f ? h("a", { class: "btn btn-act", href: `/api/v1/hub/installers/${platform}`, download: f.name }, icon("download", true), t("agents_download")) : null,
-            admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => pick.click() }, icon("upload", true), t("agents_upload")) : null,
+            admin ? h("button", { type: "button", class: "btn btn-line", "data-upload": true, disabled: !!installerUpload, onclick: () => pick.click() }, icon("upload", true), t("agents_upload")) : null,
             pick));
       }));
     };
@@ -2660,6 +2681,10 @@ function openAgents() {
     };
     loadInstallers();
     if (admin) loadAgents();
+    if (installerUpload) {  // started in an earlier dialog: report here from now on
+      Object.assign(installerUpload, { say, refresh: loadInstallers });
+      progress(installerUpload.pct);
+    }
     return h("div", {},
       modalHead(t("agents_title"), null, close),
       h("div", { class: "modal-body" },
