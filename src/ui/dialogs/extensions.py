@@ -219,5 +219,6 @@ def open_extensions_dialog(
         ),
     )
     dlg = ft.AlertDialog(modal=True, bgcolor=COLORS["card_bg"])
-    page.show_dialog(dlg)
+    # Filled before it is shown: flet >= 1.1 refuses an empty AlertDialog.
     show_list()
+    page.show_dialog(dlg)

@@ -468,6 +468,16 @@ def test_proxy_checks_run_on_the_callers_pc(hub):
     r = client.get("/api/v1/profiles/shop-01/ip-check", headers=ana)
     assert r.status_code == 200 and r.json()["exit_ip"] == "203.0.113.7"
 
+    # The agent cannot see the locale the profile keeps: the hub's copy of it can.
+    from chrome_engine.geo import remembered_locale
+    from src.core.config import DATA_DIR
+
+    remembered_locale(pathlib.Path(DATA_DIR, "shop-01"), "VN", "en-VN")
+    geo.locale = None
+    _fake_agent(client, ana, geo_reply)
+    r = client.get("/api/v1/profiles/shop-01/ip-check", headers=ana)
+    assert r.json()["locale"] == "en-VN" and r.json()["locale_pinned"] is False
+
     _fake_agent(client, ana, lambda cmd: {"ok": False, "error": "On ana's PC: boom", "status": 502})
     r = client.post("/api/v1/proxy/geo-check", json={"proxy": proxy}, headers=ana)
     assert r.status_code == 502 and r.json()["detail"] == "On ana's PC: boom"

@@ -25,10 +25,17 @@
 
 ![FoxProfile](docs/images/en/main.png)
 
-FoxProfile manages anti-detect browser profiles: each profile is a separate identity with its own device fingerprint, cookies, proxy, timezone and locale. The default browser is [Camoufox](https://github.com/daijro/camoufox), a Firefox build that spoofs fingerprints at the engine level; an experimental Chrome engine based on [fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium) is also available. It is a self-hosted alternative, on your machine or a VPS, to paid anti-detect browsers such as GoLogin, GPM or MoreLogin.
+FoxProfile manages anti-detect browser profiles: each profile is a separate identity with its own device fingerprint, cookies, proxy, timezone and locale. The default browser is [Camoufox](https://github.com/daijro/camoufox), a Firefox build that spoofs fingerprints at the engine level; a Chrome engine based on [fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium) is also available. It is a self-hosted alternative, on your machine or a VPS, to paid anti-detect browsers such as GoLogin, GPM or MoreLogin.
+
+## Support
+
+FoxProfile is free and open source, built in my spare time, and will stay that way. If it saves you time or money, you can buy me a coffee; it goes toward bug fixes, keeping up with upstream browser releases and faster replies on issues.
+
+<a href="https://buymeacoffee.com/chienbm98"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" /></a>
 
 ## Contents
 
+- [Support](#support)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
@@ -36,7 +43,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - [Server mode and web panel](#server-mode-and-web-panel)
 - [MCP: let AI agents drive the browser](#mcp-let-ai-agents-drive-the-browser)
 - [Run steps and sync](#run-steps-and-sync)
-- [Chrome engine (experimental)](#chrome-engine-experimental)
+- [Chrome engine](#chrome-engine)
 - [Migrating from AdsPower](#migrating-from-adspower)
 - [Cookies and fingerprints](#cookies-and-fingerprints)
 - [Browser extensions](#browser-extensions)
@@ -44,7 +51,6 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 - [REST API](#rest-api)
 - [Development](#development)
 - [Contributing](#contributing)
-- [Support](#support)
 - [Responsible use](#responsible-use)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
@@ -52,7 +58,7 @@ FoxProfile manages anti-detect browser profiles: each profile is a separate iden
 ## Features
 
 - **Persistent per-profile fingerprint.** The first launch generates a device (screen, GPU, CPU cores, fonts, canvas/audio noise) and stores it; later launches reuse the same device. Generate a new one on demand.
-- **Two engines.** Camoufox (Firefox, default) or Chrome (fingerprint-chromium, experimental), chosen when the profile is created. Each Chrome profile picks its Chromium build (up to 20 pinned versions) and can move to any other one (an older one resets its browser data, keeping the cookies).
+- **Two engines.** Camoufox (Firefox, default) or Chrome (fingerprint-chromium), chosen when the profile is created. Each Chrome profile picks its Chromium build (up to 20 pinned versions) and can move to any other one (an older one resets its browser data, keeping the cookies).
 - **Sessions that stick.** History, cookies and logins live in the profile directory; the tabs that were open are reopened on the next launch.
 - **Per-profile proxy**: HTTP/HTTPS/SOCKS4/SOCKS5, with or without auth, including the `host:port:user:pass` format, plus a proxy checker.
 - **Timezone and locale** follow the exit IP or can be pinned per profile. **Check IP** compares the exit IP across Cloudflare, ipinfo and ip-api and warns about country/timezone mismatches and datacenter IPs.
@@ -100,15 +106,15 @@ On Windows you can also double-click `run_foxprofile.bat`. The app opens the man
 
 ## Timezone, locale and Check IP
 
-By default, every Camoufox launch looks up the exit IP (through the profile's proxy) and sets the timezone, locale, geolocation and WebRTC IP from it. Worth knowing:
+By default, every launch looks up the exit IP (through the profile's proxy) and sets the timezone, locale and geolocation from it, on both engines; Camoufox also reports that IP over WebRTC. Worth knowing:
 
-- **The automatic locale is drawn at random on every launch**, weighted by how many people speak each language in the IP's country. A French IP gives `fr-FR` roughly 60% of the time and `en-FR`, `es-FR`… otherwise. An account whose language changes between sessions looks suspicious, so pin the locale per profile.
+- **The automatic locale is picked once per country and then kept.** The first launch from a country draws it weighted by how many people speak each language there (a French IP gives `fr-FR` roughly 60% of the time, `en-FR`, `es-FR`… otherwise), and the profile keeps that locale on every later launch until its proxy moves to another country. Pin the locale if you want a specific one. "New fingerprint" also forgets the kept locale.
 - **GeoIP databases disagree.** Cloudflare may place an IP in one country and Google in another, and Camoufox may pick a same-offset timezone with a different name (a Vietnamese IP gets `Asia/Bangkok` rather than `Asia/Ho_Chi_Minh`).
 - **Datacenter IPs get captchas** whatever the browser looks like. For Cloudflare-protected sites a residential or mobile proxy matters more than any other setting.
 
 ![Create profile dialog](docs/images/en/profile-dialog.png)
 
-The profile dialog has **Timezone** (IANA name, e.g. `Asia/Ho_Chi_Minh`) and **Locale** (e.g. `vi-VN`) fields; blank means follow the IP. **Check IP** resolves the exit IP through the proxy, compares it with Cloudflare, ipinfo and ip-api, and warns about country or timezone mismatches, datacenter IPs, proxies that leave over different IPv4/IPv6 addresses, and a locale left on random.
+The profile dialog has **Timezone** (IANA name, e.g. `Asia/Ho_Chi_Minh`) and **Locale** (e.g. `vi-VN`) fields; blank means follow the IP. **Check IP** resolves the exit IP through the proxy, compares it with Cloudflare, ipinfo and ip-api, and warns about country or timezone mismatches, datacenter IPs and proxies that leave over different IPv4/IPv6 addresses. Run from a profile (API or MCP `check_profile_ip`), it also shows the locale that profile keeps.
 
 ## Server mode and web panel
 
@@ -201,11 +207,19 @@ Steps: `navigate <url>`, `back`, `click <selector>`, `type <selector> | <text>`,
 
 Over the API: `POST /api/v1/automation/run` with `{"profiles": [...], "script": "..."}` (or JSON `steps`), and `POST` / `GET` / `DELETE /api/v1/automation/sync`. The MCP tool `run_steps` runs scripts too; sync is only for people, not for MCP.
 
-## Chrome engine (experimental)
+## Chrome engine
 
 Besides Camoufox (Firefox), a profile can run on the **Chrome** engine: a Chromium build with fingerprint spoofing patched in C++ ([fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium), BSD-3 license). Pick it in **Engine** when creating a profile; it cannot be changed afterwards. Each Chrome profile runs one **Chrome build**: FoxProfile pins up to 20 fingerprint-chromium versions (currently 129 to 150), since some sites only work on specific ones. The profile dialog lists the builds available for the OS of the PC that runs the browser (in hub mode, your agent's PC); 148 is the default. A build (~130-410 MB depending on the OS and version, fetched from fingerprint-chromium's GitHub releases and verified by SHA-256) must be installed before its profiles open: the Launch button stays disabled and an **Install** button next to it downloads the build and shows the progress (on a local machine, creating a profile already starts it in the background). Later a stopped profile can move to a **newer** build, or back to an **older** one: Chromium cannot read data a newer version wrote, so going back resets the browser data (history, local storage, passwords saved in the browser, extension data) and carries over the cookies, fingerprint, proxy and saved tabs (`POST /profiles/{name}/chrome-downgrade`; a snapshot is taken first when snapshots are on). In hub mode the agent loads the cookies it saved on the profile's last close the next time it opens it. **Settings › Browsers** lists every build for that PC, named like "Chrome 150 (20261002)" after its upstream release day, with a **Download** button. To fetch a build by hand: `python -m chrome_engine fetch --version 139.0.7258.154`. The agent installers (MSI, macOS pkg) include the default build.
 
-Pick the OS of the machine running FoxProfile: a persona of another OS leaks the machine's fonts, and a Linux persona on Windows/macOS is refused because WebGL reveals the real GPU. Supported: Windows x64, macOS Apple Silicon, Linux x64 (untested). Details and test results (in Vietnamese): [chrome_engine/README.md](chrome_engine/README.md).
+Pick the OS of the machine running FoxProfile: a persona of another OS leaks the machine's fonts, and a Linux persona on Windows/macOS is refused because WebGL reveals the real GPU. Supported: Windows x64, macOS Apple Silicon, Linux x64 (fewer tests on real hardware so far). Details and test results (in Vietnamese): [chrome_engine/README.md](chrome_engine/README.md).
+
+Known limitations:
+
+- **Fonts come from the machine.** A persona of another OS shows the machine's fonts, which is why it should use the machine's OS. A macOS host also gives a Windows persona 0px overlay scrollbars.
+- **A visible window reports the real monitor size.** fingerprint-chromium 148 ignores its screen-size switches, so profiles on one machine share that screen size; hidden (headless) browsers report 1920x1080.
+- **No Widevine.** The build is based on ungoogled-chromium, so DRM video (streaming services) does not play, and a page can check for it.
+- **It trails the current Chrome by a few versions.** FoxProfile pins fingerprint-chromium 148 because 150 crashes when a page draws emoji on a canvas.
+- **WebRTC behind a proxy sends no UDP at all**, the same policy as the WebRTC Leak Prevent extension: no address leaks, but WebRTC calls only work through a TURN server over TCP.
 
 **Android (phone) profiles.** With the Chrome engine, the OS can also be **Android**: the profile presents a phone (an Android Chrome User-Agent, matching client hints and `navigator.platform`, a phone screen, touch and a coarse pointer) on any Windows or Mac. It exists to carry Android profiles over from other anti-detect browsers with the User-Agent sites already know. Known gaps: the PC's desktop fonts are visible to font probes, the WebGL renderer is a desktop GPU, and `navigator.platform` inside web workers is the PC's.
 
@@ -387,12 +401,6 @@ Contributions of all kinds are welcome: bug reports, feature ideas, docs, transl
 - Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 If FoxProfile is useful to you, consider giving it a ⭐ on GitHub.
-
-## Support
-
-FoxProfile is free and open source, built in my spare time, and will stay that way. If it saves you time or money, you can buy me a coffee; it goes toward bug fixes, keeping up with upstream browser releases and faster replies on issues.
-
-<a href="https://buymeacoffee.com/chienbm98"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" /></a>
 
 ## Responsible use
 
