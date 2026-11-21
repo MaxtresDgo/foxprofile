@@ -107,9 +107,9 @@ uv run -q --no-project -p 3.12 python -m compileall -q -j0 "$stage/app" "$stage/
 (cd "$stage" && find . -type f | sed 's|^\./||' | sort) |
     wixl-heat --prefix "" --var var.Stage --component-group Payload \
         --directory-ref INSTALLDIR --win64 > "$build/payload.wxs"
-# The id wixl-heat gave pythonw.exe, for the StartAgent custom action.
-pythonw=$(sed -n 's|.*File Id="\([^"]*\)".*Source="$(var.Stage)/python/pythonw.exe".*|\1|p' "$build/payload.wxs")
-: "${pythonw:?pythonw.exe is missing from the payload}"
-wixl -a x64 -D Win64=yes -D Version="$version" -D Stage="$stage" -D PythonW="$pythonw" \
+# The StartAgent custom action runs python\pythonw.exe by path.
+grep -q 'Source="$(var.Stage)/python/pythonw.exe"' "$build/payload.wxs" ||
+    { echo "pythonw.exe is missing from the payload" >&2; exit 1; }
+wixl -a x64 -D Win64=yes -D Version="$version" -D Stage="$stage" \
     -o "$root/dist/FoxProfileAgent-$version$suffix.msi" "$here/foxprofile-agent.wxs" "$build/payload.wxs"
 echo "dist/FoxProfileAgent-$version$suffix.msi"

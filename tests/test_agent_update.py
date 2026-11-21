@@ -275,6 +275,42 @@ def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
     assert started == [["open", str((tmp_path / "installer" / listing[1]["name"]).resolve())]]
 
 
+def test_dev_agents_on_windows_run_the_msi_with_msiexec(tmp_path, monkeypatch):
+    """A dev agent's platform is "windows-dev": it must still go through msiexec,
+    not macOS's `open` (which fails on Windows with WinError 2)."""
+    import subprocess
+    import urllib.request
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent.sys, "platform", "win32")
+    # Windows-only constants, so the test also runs on Linux CI.
+    monkeypatch.setattr(subprocess, "DETACHED_PROCESS", 8, raising=False)
+    monkeypatch.setattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 512, raising=False)
+    monkeypatch.setattr(agent_code, "installed_requirements", lambda: "req0")
+    listing = [
+        {"platform": "windows-dev", "name": "FoxProfileAgent-2.4.0-dev.msi", "size": 3, "time": 1.0}
+    ]
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(
+        hub_client,
+        "call",
+        lambda m, path, data=None, **kw: listing if path == "/hub/installers" else None,
+    )
+    started, notes = [], []
+    a = agent.Agent(hub_client, notify=notes.append)
+    a.dev = True
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda r, timeout=None: _Resp(b"msi", r.full_url)
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    a.install_update()
+    msi = str((tmp_path / "installer" / listing[0]["name"]).resolve())
+    assert started == [["msiexec", "/i", msi, "/passive", "/norestart"]]
+    assert notes[-1] == agent.get_string("agent_installer_opened")
+
+
 def test_admin_can_offer_the_installer_again(hub, hub_code):
     client, container, admin = hub
     ana = _login(client, "ana", "anaanaanaana")

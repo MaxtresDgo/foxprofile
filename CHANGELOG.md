@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### Thay đổi
+- Installer MSI cho Windows: cài bản mới đè lên bản cũ không còn lỗi 2753 và không còn để lại bản cài hỏng (thiếu `pythonw.exe`, `python312.dll`…). Bản cũ giờ được gỡ sau khi cài xong bản mới (`RemoveExistingProducts` sau `InstallExecute`, vì wixl bỏ qua `MajorUpgrade/@Schedule`), và agent được khởi động theo đường dẫn thay vì `FileKey`.
+- Agent dev trên Windows tự cài bộ cài mới bằng `msiexec`: trước đây nó chạy lệnh `open` của macOS (nền tảng của nó là `windows-dev`, không phải `windows`) và báo "[WinError 2]", rồi không thử lại bộ cài đó nữa.
 - Engine Chrome không còn là thử nghiệm: bỏ nhãn "experimental"/"thử nghiệm" trong app, web panel, API và MCP. README có mục "Giới hạn đã biết" (font lấy từ máy, kích thước màn hình thật khi chạy có cửa sổ, không có Widevine, ghim bản 148, WebRTC khi có proxy).
 - Locale tự động được chọn một lần cho mỗi quốc gia rồi giữ cố định theo profile (file `geo_locale.json` trong thư mục profile), trên cả Camoufox và Chrome. Trước đây locale bị chọn lại ngẫu nhiên ở mỗi lần mở, nên cùng một tài khoản có thể hôm nay là `en-US`, hôm sau là `es-US`. Locale này đi kèm khi xuất profile và bị xoá khi tạo fingerprint mới.
 - Kiểm tra IP không còn cảnh báo "locale ngẫu nhiên"; khi kiểm tra theo profile (`/profiles/{name}/ip-check`, MCP `check_profile_ip`) kết quả hiện locale mà profile đang giữ.
