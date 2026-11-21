@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thay đổi
+- Hub: khi agent cần bộ cài mới (thư viện đã đổi), thanh bên của web panel hiện "có bản cập nhật agent" cùng nút **Cập nhật agent**: agent tự tải và chạy bộ cài đúng kênh (dev/prod) ngay khi các profile đang mở được đóng, kể cả khi bộ cài đó đã chạy một lần. Trong lúc chờ, mở profile báo lỗi nói rõ cần bộ cài mới thay vì "đóng profile để tự cập nhật".
 - Installer MSI cho Windows: cài bản mới đè lên bản cũ không còn lỗi 2753 và không còn để lại bản cài hỏng (thiếu `pythonw.exe`, `python312.dll`…). Bản cũ giờ được gỡ sau khi cài xong bản mới (`RemoveExistingProducts` sau `InstallExecute`, vì wixl bỏ qua `MajorUpgrade/@Schedule`), và agent được khởi động theo đường dẫn thay vì `FileKey`.
 - Agent dev trên Windows tự cài bộ cài mới bằng `msiexec`: trước đây nó chạy lệnh `open` của macOS (nền tảng của nó là `windows-dev`, không phải `windows`) và báo "[WinError 2]", rồi không thử lại bộ cài đó nữa.
 - Engine Chrome không còn là thử nghiệm: bỏ nhãn "experimental"/"thử nghiệm" trong app, web panel, API và MCP. README có mục "Giới hạn đã biết" (font lấy từ máy, kích thước màn hình thật khi chạy có cửa sổ, không có Widevine, ghim bản 148, WebRTC khi có proxy).

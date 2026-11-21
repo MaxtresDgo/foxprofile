@@ -165,6 +165,9 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--cover-muted); }
 .agent.on { color: var(--cover-ink); }
 .agent.on::before { background: var(--ok); border-color: var(--ok); }
+/* Needs the new installer: a square, not a dot, so it reads without colour. */
+.agent.update { color: var(--cover-ink); }
+.agent.update::before { border-radius: 2px; border-color: var(--cover-ink); }
 .agent { align-items: flex-start; }
 .agent::before { flex: none; margin-top: 5px; }
 .agent .agent-text { display: flex; flex-direction: column; min-width: 0; }
@@ -578,6 +581,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
     <div class="rail-foot">
       <div class="agent hidden" id="agent-status" role="status"></div>
       <button class="rail-link hidden" id="agent-get-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="agent_get"></span></button>
+      <button class="rail-link hidden" id="agent-update-btn"><svg class="i"><use href="#i-sync"/></svg><span data-t="agent_update"></span></button>
       <button class="rail-link" id="settings-btn"><svg class="i"><use href="#i-settings"/></svg><span data-t="settings"></span></button>
       <button class="rail-link hidden" id="logout-btn"><svg class="i"><use href="#i-logout"/></svg><span data-t="logout"></span></button>
     </div>
@@ -735,7 +739,7 @@ const I18N = {
     agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
     agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
     agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
-    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_connecting: "Máy của bạn: đang kết nối với agent…", agent_connect_failed: "Không kết nối được với agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
+    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_connecting: "Máy của bạn: đang kết nối với agent…", agent_connect_failed: "Không kết nối được với agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.", agent_installer: "Máy của bạn: có bản cập nhật", agent_update: "Cập nhật agent", agent_update_started: "Agent đang tải bộ cài mới trên máy của bạn…", agent_update_wait: "Agent sẽ cập nhật ngay khi bạn đóng các profile đang mở",
     agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
     agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · bản dev", agents_macos_dev: "macOS · bản dev", agents_no_file: "Chưa có bộ cài",
@@ -849,7 +853,7 @@ const I18N = {
     agent_authorize: "Authorize", agent_switch: "Switch account",
     agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
     agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
-    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_connecting: "Your PC: connecting to the agent…", agent_connect_failed: "Could not connect to the agent", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
+    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_connecting: "Your PC: connecting to the agent…", agent_connect_failed: "Could not connect to the agent", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.", agent_installer: "Your PC: update available", agent_update: "Update agent", agent_update_started: "Your agent is downloading its new installer…", agent_update_wait: "Your agent updates as soon as you close the profiles you have open",
     agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
     agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · dev build", agents_macos_dev: "macOS · dev build", agents_no_file: "No installer yet",
@@ -963,7 +967,7 @@ const I18N = {
     agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
     agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
     agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
-    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_connecting: "Tu PC: conectando con el agente…", agent_connect_failed: "No se pudo conectar con el agente", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
+    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_connecting: "Tu PC: conectando con el agente…", agent_connect_failed: "No se pudo conectar con el agente", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.", agent_installer: "Tu PC: actualización disponible", agent_update: "Actualizar agente", agent_update_started: "Tu agente está descargando su instalador nuevo…", agent_update_wait: "Tu agente se actualizará en cuanto cierres los perfiles abiertos",
     agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
     agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene profiles abiertos.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · build dev", agents_macos_dev: "macOS · build dev", agents_no_file: "Todavía no hay instalador",
@@ -2480,19 +2484,23 @@ function renderMe(who) {
   const connecting = me.agent_connecting && !act;
   if (agentWasConnecting && !me.agent_connecting && !me.agent_online && !act) toast(t("agent_connect_failed"), true);
   agentWasConnecting = me.agent_connecting;
-  const main = act && !me.agent_online ? "agent_preparing"
+  // Needs the new installer (hub/routes.me): the hub opens nothing until it is installed.
+  const installer = me.agent_installer && !act;
+  const main = act && !me.agent_online ? "agent_preparing" : installer ? "agent_installer"
     : me.agent_online ? (me.agent_running ? "agent_on_n" : "agent_on") : connecting ? "agent_connecting" : "agent_off";
   const detail = !act ? null
     : act.state === "downloading" && act.build ? t("act_installing_build", { version: act.build, pct: act.pct == null ? "…" : act.pct })
     : act.state === "downloading" ? t(act.pct == null ? "act_downloading" : "act_downloading_pct", { pct: act.pct })
     : t("act_" + act.state, { name: act.profile || "" });
-  el.classList.toggle("on", me.agent_online && !act);
+  el.classList.toggle("on", me.agent_online && !act && !installer);
+  el.classList.toggle("update", installer);
   el.classList.toggle("busy", !!act || connecting);
   el.replaceChildren(h("span", { class: "agent-text" },
     h("span", {}, `${firstName(me)} · ${t(main, { n: me.agent_running })}`),
     detail ? h("span", { class: "agent-detail" }, detail) : null));
   el.title = me.name;
   $("agent-get-btn").classList.toggle("hidden", me.agent_online || !!act || connecting);
+  $("agent-update-btn").classList.toggle("hidden", !installer);
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
@@ -3354,6 +3362,11 @@ $("backups-btn").onclick = () => showPage("backups-page");
 $("backups-q").oninput = drawBackups;
 $("backups-group").onchange = drawBackups;
 $("agent-get-btn").onclick = openAgentDownload;
+// The agent fetches and runs its own channel's installer (agent.install_update).
+$("agent-update-btn").onclick = async () => {
+  try { toast(t((await api("POST", "/hub/me/agent-update")).running ? "agent_update_wait" : "agent_update_started")); }
+  catch (e) { toast(e.message, true); }
+};
 $("settings-btn").onclick = () => showSettings(true);
 $("general-btn").onclick = () => showPage("general-page");
 document.querySelectorAll("[data-theme-pick]").forEach((b) => {

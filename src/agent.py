@@ -1048,15 +1048,16 @@ class Agent:
                     say(get_string("agent_update_skipped_dev", code=resp["code"]))
             elif resp["op"] == "installer_needed":
                 if self.follow_updates:
-                    threading.Thread(target=self.install_update, daemon=True).start()
+                    force = bool(resp.get("force"))
+                    threading.Thread(target=self.install_update, args=(force,), daemon=True).start()
                 else:
                     self.notify(get_string("agent_installer_needed"))
 
-    def install_update(self) -> None:
+    def install_update(self, force: bool = False) -> None:
         """New libraries need the new installer: download the hub's and run it. It
         stops this agent and starts the new one (Windows asks for admin rights; on
         macOS the operator clicks through Installer). An installer already run once
-        is not run again: the hub may still offer an old one."""
+        is not run again (unless `force`, asked from the panel): the hub may still offer an old one."""
         system = {"win32": "windows", "darwin": "macos"}.get(sys.platform)
         if system is not None and self.dev:
             system += "-dev"
@@ -1074,7 +1075,9 @@ class Agent:
         item = offered.get(system)
         stamp = f"{item['name']}:{item['size']}:{item['time']}" if item else ""
         tried = pathlib.Path("installer-tried.txt")
-        if not item or (tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp):
+        if not item or (
+            not force and tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp
+        ):
             self.notify(get_string("agent_installer_needed"))
             return
         say(get_string("agent_installer_downloading"))
