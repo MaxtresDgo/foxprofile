@@ -158,6 +158,8 @@ def me(request: Request) -> dict:
         "agent_activity": _activity(bl, user["name"]),
         "agent_running": bl.agents.get(user["name"], {}).get("running", 0),
         "agent_connecting": _connecting(bl, user["name"]),
+        # Its PC needs the new installer: the panel offers it and no profile opens meanwhile.
+        "agent_installer": bl.online(user["name"]) and _needs_installer(bl, user["name"]),
         "leases": {n: u for n, u in bl.leases().items() if store.can(user, n)},
         "syncing": sorted(n for n in _syncing(bl) if store.can(user, n)),
         "owners": {n: u for n, u in store.owners.items() if store.can(user, n)},
@@ -178,6 +180,26 @@ def _conflicts(request: Request, store, user: dict) -> dict[str, int]:
         for p in pm.list_profiles()
         if p.uid in waiting and store.can(user, p.name)
     }
+
+
+def _needs_installer(bl, user: str) -> bool:
+    hub_code = agent_code.hub_code()[0]
+    return (
+        _agent_state(bl.agents.get(user, {}), hub_code, agent_code.hub_requirements())
+        == "installer"
+    )
+
+
+@router.post("/me/agent-update")
+def update_my_agent(request: Request) -> dict:
+    """The panel's "Update agent": the caller's agent downloads and runs the new
+    installer on its next poll once its browsers are closed, even if it was told before."""
+    user, bl = _user(request)["name"], _launcher(request)
+    if not _needs_installer(bl, user):
+        raise HTTPException(status_code=409, detail=get_string("err_no_agent_update"))
+    bl.agents[user].pop("told", None)
+    bl.agents[user]["force"] = True
+    return {"running": bl.agents[user].get("running", 0)}
 
 
 @router.post("/me/key")
@@ -521,7 +543,8 @@ def _agent_update(bl, user: str, hub_code: str, busy: bool) -> dict | None:
             return None
         bl.update_now.discard(user)
         info["told"] = hub_code
-        return {"op": "installer_needed"}
+        # Asked from the panel: run it even if this installer was run once already.
+        return {"op": "installer_needed", **({"force": True} if info.pop("force", None) else {})}
     if not forced and (
         busy or time.monotonic() - info.get("offered", -UPDATE_RETRY) < UPDATE_RETRY
     ):

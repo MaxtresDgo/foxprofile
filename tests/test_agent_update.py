@@ -238,6 +238,9 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
     a.install_update()
     assert len(started) == 1 and len(fetched) == 1
     assert notes[-1] == agent.get_string("agent_installer_needed")
+    # Asked from the panel ("Update agent"): run again, e.g. after a cancelled Installer.
+    a.install_update(force=True)
+    assert len(started) == 2
 
 
 def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
@@ -273,6 +276,25 @@ def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
     a.install_update()
     assert fetched == ["https://hub.example.com/api/v1/hub/installers/macos-dev"]
     assert started == [["open", str((tmp_path / "installer" / listing[1]["name"]).resolve())]]
+
+
+def test_panel_offers_the_installer_and_nothing_opens_meanwhile(hub, hub_code):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    for name in ("shop-01", "shop-02"):
+        client.post("/api/v1/profiles", json={"name": name}, headers=ana)
+    assert client.post("/api/v1/hub/me/agent-update", headers=ana).status_code == 409
+    assert _poll(client, ana, code="old", req="req0", running="shop-01").status_code == 204
+    assert client.get("/api/v1/hub/me", headers=ana).json()["agent_installer"] is True
+    r = client.post("/api/v1/browser/shop-02/launch?wait=false", headers=ana)
+    assert r.status_code == 409 and r.json()["detail"] == get_string("err_agent_installer")
+    # The button waits for closed browsers, then runs the installer even if run before.
+    assert client.post("/api/v1/hub/me/agent-update", headers=ana).json() == {"running": 1}
+    assert _poll(client, ana, code="old", req="req0", running="shop-01").status_code == 204
+    r = _poll(client, ana, code="old", req="req0")
+    assert r.json() == {"op": "installer_needed", "force": True}
+    _poll(client, ana, code="hubcode", req="req1")
+    assert client.get("/api/v1/hub/me", headers=ana).json()["agent_installer"] is False
 
 
 def test_admin_can_offer_the_installer_again(hub, hub_code):

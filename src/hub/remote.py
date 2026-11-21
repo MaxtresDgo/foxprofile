@@ -43,6 +43,12 @@ class AgentOutdatedError(AgentOfflineError):
     key = "err_agent_outdated"
 
 
+class AgentInstallerError(AgentOutdatedError):
+    """Outdated with other libraries: only the new installer brings it up to date."""
+
+    key = "err_agent_installer"
+
+
 class RemoteLauncher:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -85,6 +91,8 @@ class RemoteLauncher:
         info = self.agents.get(user, {})
         # Only installed agents (code and req) update, as in hub/routes.poll.
         if info.get("code") and info.get("req") and info["code"] != agent_code.hub_code()[0]:
+            if info["req"] != agent_code.hub_requirements():
+                raise AgentInstallerError(user)
             raise AgentOutdatedError(user)
         self._leases[name] = self._last[name] = user
 

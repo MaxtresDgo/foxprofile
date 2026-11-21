@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thay đổi
+- Hub: khi agent cần bộ cài mới (thư viện đã đổi), thanh bên của web panel hiện "có bản cập nhật agent" cùng nút **Cập nhật agent**: agent tự tải và chạy bộ cài đúng kênh (dev/prod) ngay khi các profile đang mở được đóng, kể cả khi bộ cài đó đã chạy một lần. Trong lúc chờ, mở profile báo lỗi nói rõ cần bộ cài mới thay vì "đóng profile để tự cập nhật".
 - Engine Chrome không còn là thử nghiệm: bỏ nhãn "experimental"/"thử nghiệm" trong app, web panel, API và MCP. README có mục "Giới hạn đã biết" (font lấy từ máy, kích thước màn hình thật khi chạy có cửa sổ, không có Widevine, ghim bản 148, WebRTC khi có proxy).
 - Locale tự động được chọn một lần cho mỗi quốc gia rồi giữ cố định theo profile (file `geo_locale.json` trong thư mục profile), trên cả Camoufox và Chrome. Trước đây locale bị chọn lại ngẫu nhiên ở mỗi lần mở, nên cùng một tài khoản có thể hôm nay là `en-US`, hôm sau là `es-US`. Locale này đi kèm khi xuất profile và bị xoá khi tạo fingerprint mới.
 - Kiểm tra IP không còn cảnh báo "locale ngẫu nhiên"; khi kiểm tra theo profile (`/profiles/{name}/ip-check`, MCP `check_profile_ip`) kết quả hiện locale mà profile đang giữ.
