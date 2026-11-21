@@ -278,6 +278,8 @@ class Agent:
         self.chrome_installs: dict[str, int] = {}
         self.chrome_error = ""  # "<version> <error>" of the last failed one, for the panel
         self.updating = False
+        # The new installer (install_update): its download, opened, or why it failed.
+        self.installer: dict | None = None
         self._ops: dict[str, str] = {}  # profile -> "opening" | "syncing"
         # Profiles downloaded by this run: their os_type and engine open the
         # browser that packs the cookies when they are uploaded.
@@ -322,6 +324,12 @@ class Agent:
     def activity(self) -> dict:
         if self.updating:
             return {"state": "updating"}
+        inst = self.installer
+        # Opened: until the installer restarts this agent; a cancelled one stops showing.
+        if inst and not (
+            inst["state"] == "installer_opened" and time.monotonic() - inst["at"] > 600
+        ):
+            return {k: v for k, v in inst.items() if k != "at"}
         if self.browser_download is not None:
             pct = self.browser_download if self.browser_download >= 0 else None
             return {"state": "downloading", "pct": pct}
@@ -1066,22 +1074,25 @@ class Agent:
             return
         if not _secure(self.hub.url):
             self.notify(get_string("agent_update_needs_https"))
+            self._installer_failed(get_string("agent_update_needs_https"))
             return
         try:
             offered = {i["platform"]: i for i in self.hub.call("GET", "/hub/installers") or []}
         except (OSError, urllib.error.URLError, ValueError) as e:
-            say(get_string("agent_installer_failed", error=e))
+            self._installer_failed(e)
             return
         item = offered.get(system)
         stamp = f"{item['name']}:{item['size']}:{item['time']}" if item else ""
         tried = pathlib.Path("installer-tried.txt")
-        if not item or (
-            not force and tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp
-        ):
+        if not item:
+            self.notify(get_string("agent_installer_needed"))
+            self._installer_failed(get_string("agent_installer_missing"))
+            return
+        if not force and tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp:
             self.notify(get_string("agent_installer_needed"))
             return
         say(get_string("agent_installer_downloading"))
-        self.updating = True
+        self.installer = {"state": "installing", "pct": None}
         self.report()
         target = pathlib.Path("installer") / pathlib.PurePath(item["name"]).name
         try:
@@ -1094,9 +1105,17 @@ class Agent:
                 # The bucket's redirect must not drop to plain http either.
                 if not _secure(r.geturl()):
                     self.notify(get_string("agent_update_needs_https"))
+                    self._installer_failed(get_string("agent_update_needs_https"))
                     return
+                total, done = int(r.headers.get("Content-Length") or 0), 0
                 with open(target, "wb") as f:
-                    shutil.copyfileobj(r, f)
+                    while chunk := r.read(1 << 20):
+                        f.write(chunk)
+                        done += len(chunk)
+                        if total:
+                            pct = min(100, done * 100 // total)
+                            self.installer = {"state": "installing", "pct": pct}
+                            self.report()  # sent only when the percentage changes
             tried.write_text(stamp, encoding="utf-8")
             # By OS, not `system`: a dev agent's is "windows-dev".
             if sys.platform == "win32":
@@ -1109,12 +1128,17 @@ class Agent:
             else:
                 subprocess.Popen(["open", str(target.resolve())])
         except (OSError, urllib.error.URLError) as e:
-            say(get_string("agent_installer_failed", error=e))
+            self._installer_failed(e)
             return
-        finally:
-            self.updating = False
-            self.report()
+        self.installer = {"state": "installer_opened", "at": time.monotonic()}
+        self.report()
         self.notify(get_string("agent_installer_opened"))
+
+    def _installer_failed(self, error) -> None:
+        """Logged here and shown in the panel's "Your PC" line until the next try."""
+        say(get_string("agent_installer_failed", error=error))
+        self.installer = {"state": "installer_failed", "error": str(error)[:300]}
+        self.report()
 
     def update(self, code: str) -> None:
         """Unpack the hub's code for the installer's hook to load, then restart."""

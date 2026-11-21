@@ -338,8 +338,18 @@ ACTIVITY_TTL = 30
 
 
 class AgentStatus(BaseModel):
-    state: Literal["ready", "downloading", "updating", "opening", "syncing"]
+    state: Literal[
+        "ready",
+        "downloading",
+        "updating",
+        "opening",
+        "syncing",
+        "installing",  # the new installer (agent.install_update)
+        "installer_opened",
+        "installer_failed",
+    ]
     pct: int | None = Field(None, ge=0, le=100)
+    error: str | None = Field(None, max_length=300)
     profile: str | None = Field(None, max_length=200)
     syncing: list[str] = Field(default_factory=list, max_length=1000)
 
@@ -349,7 +359,7 @@ def _activity(bl, user: str) -> dict | None:
     seen = bl.agents.get(user, {}).get("activity")
     if not seen or seen["state"] == "ready" or time.monotonic() - seen["at"] > ACTIVITY_TTL:
         return None
-    return {k: seen[k] for k in ("state", "pct", "profile")}
+    return {k: seen.get(k) for k in ("state", "pct", "profile", "error")}
 
 
 # How long the panel says "connecting" after an agent is authorized; past that
