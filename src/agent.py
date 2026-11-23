@@ -155,6 +155,10 @@ CHECKPOINT_SECONDS = 20
 CACHE_DAYS = 30
 CACHE_MAX_GB = 20
 CACHE_MIN_FREE_GB = 2
+# Seconds a restarted agent waits for the one before it to let go of agent.lock,
+# and that Quit gives the tray before the process ends anyway (App.quit).
+RESTART_WAIT = 30
+QUIT_GRACE = 10
 ICON = pathlib.Path(__file__).parent / "assets" / "icon.png"
 
 
@@ -1396,15 +1400,23 @@ class Agent:
         self.status("agent_status_updating")
         self.updating = True
         self.report()
+        started = time.monotonic()
+        logger.info("[update] downloading code %s from %s", code, self.hub.url)
         try:
-            with self.hub.call("GET", "/hub/agent/code", timeout=300, raw=True) as resp:
+            # A few MB: 60 s without a byte means the hub is not sending it.
+            with self.hub.call("GET", "/hub/agent/code", timeout=60, raw=True) as resp:
                 data = resp.read()
+            took = time.monotonic() - started
+            logger.info("[update] downloaded %d bytes in %.1f s", len(data), took)
             agent_code.unpack(data, code, pathlib.Path.cwd())
         except (OSError, ValueError, zipfile.BadZipFile) as e:
+            took = time.monotonic() - started
+            logger.warning("[update] failed after %.1f s: %s", took, e)
             say(get_string("agent_update_failed", error=e))
             self.updating = False
             self.report()
             return
+        logger.info("[update] unpacked %s: restarting", code)
         self.restart = True
 
 
@@ -1444,8 +1456,17 @@ def _save_credentials(creds: dict) -> None:
         CREDENTIALS.chmod(0o600)
 
 
-def _single_instance():
-    """A held lock file, or None when another agent already runs from this folder."""
+def _single_instance(wait: float = 0):
+    """A held lock file, or None when another agent already runs from this folder.
+    `wait`: seconds to keep trying, for a restarted agent whose previous process
+    is still on its way out."""
+    deadline = time.monotonic() + wait
+    while (lock := _try_lock()) is None and time.monotonic() < deadline:
+        time.sleep(0.5)
+    return lock
+
+
+def _try_lock():
     f = open("agent.lock", "a")  # noqa: SIM115 - held for the process lifetime
     try:
         if os.name == "nt":
@@ -1776,9 +1797,32 @@ class App:
             # Speak the hub's language unless this PC picked one.
             with contextlib.suppress(OSError, ValueError):
                 set_language(_request(self.client.url + "/api/v1/info").get("language", ""))
-        self.agent.run()
-        if self.icon is not None:  # updated: leave the tray, main() restarts
-            self.icon.stop()
+        while True:  # run() returns once an update is unpacked
+            self.agent.run()
+            self.restart_now()  # returns only if the updated agent could not start
+
+    def restart_now(self) -> None:
+        """Start the updated agent and end this one, from this thread: not through
+        the tray's loop, which once did not stop after an update (23-nov), so the
+        agent neither restarted nor quit and stopped polling. The new process waits
+        for this one's lock (main, RESTART_WAIT)."""
+        logger.info("[restart] closing the browsers")
+        self.wall.close()  # its own process: _exit_now would leave it behind
+        self.agent.bl.shutdown_all()  # what was open uploads on the next start
+        try:
+            child = _restart()
+        except OSError:
+            logger.exception("[restart] the updated agent did not start; this one goes on")
+            self.agent.restart = self.agent.updating = False
+            self.agent.report()
+            return
+        if self.icon is not None:
+            with contextlib.suppress(Exception):
+                self.icon.visible = False  # no dead icon left in the tray
+        logger.info(
+            "[restart] started the updated agent (pid %s); pid %s exits", child.pid, os.getpid()
+        )
+        _exit_now()
 
     def run_tray(self) -> bool:
         """Run in the tray until Quit; False when this system has no tray."""
@@ -1837,6 +1881,11 @@ class App:
 
     def quit(self) -> None:
         say(get_string("agent_stopping"))
+        # Out even if the tray's loop does not end (it once did not, 23-nov):
+        # nothing is lost, what was open uploads on the next start (recover).
+        timer = threading.Timer(QUIT_GRACE, _exit_now, args=("[quit] still running: exiting",))
+        timer.daemon = True
+        timer.start()
         if self.signin is not None:
             self.signin.close()
         self.wall.close()
@@ -1888,7 +1937,12 @@ def main() -> None:
     parser.add_argument("--console", action="store_true", help="Stay in the terminal, no tray")
     args = parser.parse_args()
     setup_logging(LOG_DIR)
-    lock = _single_instance()
+    restarted = os.environ.pop(RESTARTED, "") == "1"
+    started = time.monotonic()
+    lock = _single_instance(wait=RESTART_WAIT if restarted else 0)
+    if restarted:
+        took = time.monotonic() - started
+        logger.info("[restart] pid %s started, lock %s after %.1f s", os.getpid(), bool(lock), took)
     if lock is None:
         say(get_string("agent_already_running"))
         return
@@ -1902,18 +1956,28 @@ def main() -> None:
         say(get_string("agent_stopping"))
     finally:
         app.agent.bl.shutdown_all()
-    if app.agent.restart:
-        lock.close()  # the new process takes it
-        _restart()
 
 
-def _restart() -> None:
+# Set for the agent _restart() starts: it waits for this one's lock.
+RESTARTED = "FOXPROFILE_AGENT_RESTARTED"
+
+
+def _restart() -> subprocess.Popen:
     """Start this agent again, with the code the update unpacked (the installer's
     hook picks it). Its own session, so launchd ending this job does not end it."""
+    env = {**os.environ, RESTARTED: "1"}
     if os.name == "nt":
-        subprocess.Popen(sys.orig_argv, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-    else:
-        subprocess.Popen(sys.orig_argv, start_new_session=True)
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP
+        return subprocess.Popen(sys.orig_argv, env=env, creationflags=flags)
+    return subprocess.Popen(sys.orig_argv, env=env, start_new_session=True)
+
+
+def _exit_now(why: str = "") -> None:
+    """End the process at once: no thread or loop (the tray's) can hold it."""
+    if why:
+        logger.warning(why)
+    logging.shutdown()
+    os._exit(0)
 
 
 if __name__ == "__main__":

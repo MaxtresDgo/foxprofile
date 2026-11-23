@@ -829,3 +829,44 @@ def test_agents_hub_and_server_run_without_flet():
     assert r.returncode == 0, r.stderr
     lines = (root / "requirements.txt").read_text().splitlines()
     assert not [line for line in lines if line.startswith("flet")]
+
+
+def test_a_restarted_agent_waits_for_the_previous_ones_lock(tmp_path, monkeypatch):
+    import threading
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    previous = agent._try_lock()
+    assert previous is not None
+    assert agent._single_instance() is None  # a second agent: no wait
+    threading.Timer(0.5, previous.close).start()  # the previous one exits
+    assert agent._single_instance(wait=5) is not None
+
+
+def test_an_update_restarts_without_the_tray(tmp_path, monkeypatch):
+    """23-nov: the tray did not stop after an update, so the agent hung."""
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    app = agent.App("https://hub.example.com", {}, True)
+    steps = []
+    monkeypatch.setattr(app.agent.bl, "shutdown_all", lambda: steps.append("browsers"))
+
+    class Child:
+        pid = 4321
+
+    monkeypatch.setattr(agent, "_restart", lambda: steps.append("start") or Child())
+    monkeypatch.setattr(agent, "_exit_now", lambda why="": steps.append("exit"))
+    app.restart_now()
+    assert steps == ["browsers", "start", "exit"]
+
+    # The new agent did not start: this one goes on, ready for the next offer.
+    def fail():
+        raise OSError("no python")
+
+    steps.clear()
+    app.agent.restart = app.agent.updating = True
+    monkeypatch.setattr(agent, "_restart", fail)
+    app.restart_now()
+    assert steps == ["browsers"] and not app.agent.restart and not app.agent.updating
