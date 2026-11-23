@@ -77,9 +77,10 @@ class RemoteLauncher:
         # Requests waiting for an agent's answer: id -> (user, event, answer).
         self._pending: dict[str, tuple[str, threading.Event, dict]] = {}
         # Agent updates (hub/agent_code.py, hub/routes.poll): what each user's agent
-        # reported on its last poll, and who an admin asked to update right away.
+        # reported on its last poll, and who was asked to update.
         self.agents: dict[str, dict] = {}
         self.update_now: set[str] = set()
+        self.install_newer: dict[str, str] = {}  # user -> requested installer slot
         # When each user last authorized an agent: the panel says "connecting" for a while.
         self.authorized: dict[str, float] = {}
         # One-time codes the panel hands an agent for its key: code -> (user, expiry).

@@ -108,7 +108,7 @@ from src.core.config import (  # noqa: E402
 from src.core.container import Container  # noqa: E402
 from src.core.logging import get_logger, setup_logging  # noqa: E402
 from src.core.strings import current_language, get_string, set_language  # noqa: E402
-from src.hub import agent_code  # noqa: E402
+from src.hub import agent_code, installers  # noqa: E402
 from src.hub.agent_auth import SignIn, pc_name  # noqa: E402
 from src.models.profile import Profile  # noqa: E402
 from src.services.browser import chrome_prefetch, cookies  # noqa: E402
@@ -1255,6 +1255,7 @@ class Agent:
                 {
                     "running": running,
                     **self.identity,
+                    "installer_platform": self.installer_platform if self.follow_updates else "",
                     "chrome_builds": builds,
                     "chrome_error": self.chrome_error,
                 }
@@ -1306,19 +1307,28 @@ class Agent:
             elif resp["op"] == "installer_needed":
                 if self.follow_updates:
                     force = bool(resp.get("force"))
-                    threading.Thread(target=self.install_update, args=(force,), daemon=True).start()
+                    newer = bool(resp.get("newer"))
+                    threading.Thread(
+                        target=self.install_update,
+                        args=(force,),
+                        kwargs={"newer": newer},
+                        daemon=True,
+                    ).start()
                 else:
                     self.notify(get_string("agent_installer_needed"))
 
-    def install_update(self, force: bool = False) -> None:
-        """New libraries need the new installer: download the hub's and run it. It
+    @property
+    def installer_platform(self) -> str:
+        system = {"win32": "windows", "darwin": "macos"}.get(sys.platform, "")
+        return system + "-dev" if system and self.dev else system
+
+    def install_update(self, force: bool = False, *, newer: bool = False) -> None:
+        """Download and run the hub's installer for this agent's slot. It
         stops this agent and starts the new one (Windows asks for admin rights; on
         macOS the operator clicks through Installer). An installer already run once
         is not run again (unless `force`, asked from the panel): the hub may still offer an old one."""
-        system = {"win32": "windows", "darwin": "macos"}.get(sys.platform)
-        if system is not None and self.dev:
-            system += "-dev"
-        if system is None or not agent_code.installed_requirements():
+        system = self.installer_platform
+        if not system or not agent_code.installed_requirements():
             self.notify(get_string("agent_installer_needed"))
             return
         if not _secure(self.hub.url):
@@ -1337,6 +1347,8 @@ class Agent:
             self.notify(get_string("agent_installer_needed"))
             self._installer_failed(get_string("agent_installer_missing"))
             return
+        if newer and not installers.newer_version(system, item["name"], self.identity["ver"]):
+            return
         if not force and tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp:
             self.notify(get_string("agent_installer_needed"))
             return
@@ -1349,6 +1361,8 @@ class Agent:
             # Public, and from a bucket a redirect to a presigned URL that must not
             # get this agent's key.
             url = f"{self.hub.url}/api/v1/hub/installers/{system}"
+            if newer:
+                url += "?" + urllib.parse.urlencode({"name": item["name"]})
             request = urllib.request.Request(url, headers={"User-Agent": "FoxProfile-Agent"})
             with urllib.request.urlopen(request, timeout=600) as r:
                 # The bucket's redirect must not drop to plain http either.
