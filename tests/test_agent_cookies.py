@@ -501,3 +501,14 @@ def test_an_earlier_agents_folders_move_to_the_new_place(tmp_path, monkeypatch):
     assert (mine / "perfiles" / "p2").is_dir() and not (tmp_path / "camoufox_data").exists()
     assert (mine / "cache" / "ana" / "p1").is_dir() and a.cached_names() == ["p1"]
     assert not old.exists()
+
+
+def test_a_pc_without_copies_yet_starts_polling(tmp_path, monkeypatch):
+    """A first start in FoxProfiles finds no cache folder (3.0.123 stopped polling there)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent, "DATA_DIR", str(tmp_path / "FoxProfiles" / "braya" / "perfiles"))
+    a = agent.Agent(agent.HubClient("https://hub.example.com", "ana", "fpk_x"))
+    assert a.cache_base.is_dir()  # made at the start, next to perfiles
+    a.cache_base.rmdir()  # deleted by hand: still no reason to stop
+    a.recover()  # uploads what is left, then prunes the copies: none yet
+    assert a.cached_names() == []

@@ -410,6 +410,7 @@ class Agent:
             else pathlib.Path("profile-cache")
         )
         self._cache_root: pathlib.Path | None = None
+        self.cache_base.mkdir(parents=True, exist_ok=True)  # next to perfiles from the start
         move_old_layout(self.data_root, self.cache_base)
 
     @property
@@ -876,7 +877,8 @@ class Agent:
         disk has under CACHE_MIN_FREE_GB free."""
         old = time.time() - CACHE_DAYS * 86400
         # Other accounts' copies on this PC go by age only (their sessions, unused).
-        others = self.cache_base.iterdir() if self._cache_root is None else ()
+        mine = self._cache_root is None and self.cache_base.is_dir()  # none saved yet
+        others = self.cache_base.iterdir() if mine else ()
         for folder in [f for f in others if f.is_dir() and f != self.cache_root]:
             for record in folder.glob("*.json"):
                 with contextlib.suppress(OSError, ValueError):
@@ -1236,7 +1238,12 @@ class Agent:
 
     def run(self) -> None:
         self.report(force=True)  # clears what a previous run left on the hub
-        self.recover()
+        try:
+            self.recover()
+        except Exception:
+            # Logged, not fatal: without the loop below the agent never polls,
+            # while its tray still says connected.
+            logger.exception("Recovering what a previous run left failed")
         while not self.restart:
             running = ",".join(sorted(self.bl.running_profile_names()))
             builds = ",".join(fetch_installed_versions()) if self.identity["chrome_os"] else ""
