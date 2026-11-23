@@ -9,6 +9,7 @@ import zipfile
 
 import pytest
 
+from src.core import config
 from src.core.strings import get_string
 from src.hub import agent_code
 from src.hub import routes as hub_routes
@@ -181,6 +182,61 @@ def test_agents_list_shows_each_installers_own_version(hub, hub_code, tmp_path, 
     assert agent_code.installed_version() == "3.0.41"
 
 
+@pytest.mark.parametrize(
+    ("platform", "version", "available"),
+    [
+        ("macos-dev", "3.0.116", "3.0.125"),
+        ("macos-dev", "3.0.125", ""),
+        ("macos-dev", "3.0.126", ""),
+        ("macos", "3.0.116", ""),
+        ("windows-dev", "3.0.116", ""),
+        ("", "3.0.116", ""),  # agents that do not yet report their channel
+    ],
+)
+def test_panel_detects_a_newer_installer_for_the_agents_slot(
+    hub, hub_code, monkeypatch, platform, version, available
+):
+    monkeypatch.setattr(config, "S3_BUCKET", "")
+    monkeypatch.setattr(config, "HUB_FILE", "hub.json")
+    client, _, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    params = dict(code="hubcode", req="req1", ver=version, installer_platform=platform)
+    assert _poll(client, ana, **params).status_code == 204
+    before = client.get("/api/v1/hub/me", headers=ana).json()
+    assert before["agent_installer"] is False
+    for slot, name in (
+        ("macos", "FoxProfileAgent-3.0.115-macos.pkg"),
+        ("macos-dev", "FoxProfileAgent-3.0.125-dev-macos.pkg"),
+    ):
+        path = f"/api/v1/hub/installers/{slot}?name={name}"
+        assert client.put(path, content=b"pkg", headers=admin).is_success
+
+    assert _poll(client, ana, **params).status_code == 204
+    info = client.get("/api/v1/hub/agents", headers=admin).json()["agents"][0]
+    assert info["state"] == ("installer_available" if available else "current")
+    assert info["installer_version"] == available
+    assert client.get("/api/v1/hub/me", headers=ana).json()["agent_installer"] is bool(available)
+
+    if available:
+        assert client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana).is_success
+        assert (
+            client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana).status_code == 202
+        )
+        assert client.post("/api/v1/hub/me/agent-update", headers=ana).is_success
+        assert _poll(client, ana, running="shop-01", **params).status_code == 204
+        assert _poll(client, ana, **params).json() == {
+            "op": "installer_needed",
+            "force": True,
+            "newer": True,
+        }
+        assert _poll(client, ana, **params).status_code == 204
+        assert client.post("/api/v1/hub/agents/ana/update", headers=admin).is_success
+        assert _poll(client, ana, **params).json()["newer"] is True
+        download = "/api/v1/hub/installers/macos-dev?name=FoxProfileAgent-3.0.125-dev-macos.pkg"
+        assert client.get(download).content == b"pkg"
+        assert client.get(download.replace(".125-", ".126-")).status_code == 404
+
+
 def test_the_installer_waits_for_closed_browsers(hub, hub_code):
     client, container, admin = hub
     ana = _login(client, "ana", "anaanaanaana")
@@ -291,6 +347,58 @@ def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
     a.install_update()
     assert fetched == ["https://hub.example.com/api/v1/hub/installers/macos-dev"]
     assert started == [["open", str((tmp_path / "installer" / listing[1]["name"]).resolve())]]
+
+
+def test_agent_reports_its_installer_slot_and_downloads_only_a_newer_package(tmp_path, monkeypatch):
+    import subprocess
+    import urllib.parse
+    import urllib.request
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent.sys, "platform", "darwin")
+    monkeypatch.setattr(agent_code, "INSTALLED", tmp_path)
+    (tmp_path / "BUILD").write_text("b1")
+    (tmp_path / "CHANNEL").write_text("dev")
+    (tmp_path / "VERSION").write_text("3.0.116")
+    (tmp_path / "requirements.txt").write_text("")
+    app = agent.App("https://hub.example.com", {}, agent._is_dev())
+    a = app.agent
+    item = {
+        "platform": "macos-dev",
+        "name": "FoxProfileAgent-3.0.115-dev-macos.pkg",
+        "size": 3,
+        "time": 1.0,
+    }
+    fetched, started = [], []
+
+    def call(method, path, data=None, **kwargs):
+        if path == "/hub/installers":
+            return [item]
+        if path.startswith("/hub/poll?"):
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
+            assert query["installer_platform"] == ["macos-dev"]
+            a.restart = True
+
+    def fetch(request, timeout):
+        fetched.append(request.full_url)
+        return _Resp(b"pkg", request.full_url)
+
+    monkeypatch.setattr(a.hub, "call", call)
+    monkeypatch.setattr(urllib.request, "urlopen", fetch)
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    a.run()
+    assert a.restart
+    a.install_update(force=True, newer=True)
+    assert fetched == []
+
+    item["name"] = "FoxProfileAgent-3.0.125-dev-macos.pkg"
+    a.install_update(force=True, newer=True)
+    assert fetched == [
+        f"https://hub.example.com/api/v1/hub/installers/macos-dev?name={item['name']}"
+    ]
+    assert started == [["open", str((tmp_path / "installer" / item["name"]).resolve())]]
 
 
 def test_panel_offers_the_installer_and_nothing_opens_meanwhile(hub, hub_code):
@@ -421,6 +529,23 @@ def _listed(stub, platform, *names):
     ]
     expected = {"Bucket": "fox", "Prefix": f"fox-profiles/dev/installers/{platform}/"}
     stub.add_response("list_objects_v2", {"Contents": contents} if contents else {}, expected)
+
+
+def test_an_s3_upload_refreshes_the_cached_installer_slot(bucket, monkeypatch):
+    from src.hub import installers
+
+    monkeypatch.setattr(installers, "_UPDATE_CACHE", {})
+    platform = "macos-dev"
+    name = "FoxProfileAgent-3.0.125-dev-macos.pkg"
+    _listed(bucket, platform)
+    assert installers.for_update(platform) is None
+    assert installers.for_update(platform) is None  # no second S3 request
+
+    _listed(bucket, platform, name)
+    installers.uploaded(platform, name)
+    _listed(bucket, platform, name)
+    assert installers.for_update(platform)["name"] == name
+    bucket.assert_no_pending_responses()
 
 
 def test_installers_in_a_bucket_go_through_presigned_urls(hub, bucket):

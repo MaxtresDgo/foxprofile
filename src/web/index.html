@@ -749,7 +749,7 @@ const I18N = {
     agents_upload_failed: "Không tải lên được bộ cài", agents_upload_cors: "Trình duyệt không tải lên được bucket. Kiểm tra quy tắc CORS của bucket (cho phép PUT từ địa chỉ panel này) và proxy phía trước bucket.", agents_upload_etag: "Bucket không cho trình duyệt đọc ETag: thêm ExposeHeaders: [\"ETag\"] vào quy tắc CORS.", agents_list: "Agent đã kết nối", agents_none: "Chưa có agent nào kết nối từ khi hub khởi động.",
     agents_hub_code: "Phiên bản code của hub: {code}", agents_running: "{n} profile đang mở", agents_refresh: "Làm mới", agents_online: "đang kết nối", agents_offline: "mất kết nối",
     agents_update_now: "Cập nhật ngay", agents_update_hint: "Đóng các profile đang mở trên máy đó và cập nhật agent", agents_update_queued: "Sẽ cập nhật trong vài giây",
-    agent_state_current: "Đã cập nhật", agent_state_pending: "Sẽ cập nhật khi đóng hết profile", agent_state_installer: "Cần bộ cài mới (thư viện đã thay đổi)",
+    agent_state_current: "Đã cập nhật", agent_state_pending: "Sẽ cập nhật khi đóng hết profile", agent_state_installer: "Cần bộ cài mới (thư viện đã thay đổi)", agent_state_installer_available: "Có bộ cài v{version}",
     agent_state_script: "Chạy bằng script: cập nhật bằng git", agent_state_old: "Bản cũ: cài bộ cài mới một lần",
     users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên",
     owner: "Người dùng", unassigned: "Chưa giao",
@@ -863,7 +863,7 @@ const I18N = {
     agents_upload_failed: "The installer could not be uploaded", agents_upload_cors: "The browser could not upload to the bucket. Check the bucket\u2019s CORS rule (PUT from this panel\u2019s address) and the proxy in front of the bucket.", agents_upload_etag: "The bucket hides the ETag from the browser: add ExposeHeaders: [\"ETag\"] to its CORS rule.", agents_list: "Connected agents", agents_none: "No agent has connected since the hub started.",
     agents_hub_code: "Hub code version: {code}", agents_running: "{n} profiles open", agents_refresh: "Refresh", agents_online: "connected", agents_offline: "offline",
     agents_update_now: "Update now", agents_update_hint: "Closes the profiles open on that PC and updates its agent", agents_update_queued: "Updating in a few seconds",
-    agent_state_current: "Up to date", agent_state_pending: "Updates once its profiles are closed", agent_state_installer: "Needs the new installer (libraries changed)",
+    agent_state_current: "Up to date", agent_state_pending: "Updates once its profiles are closed", agent_state_installer: "Needs the new installer (libraries changed)", agent_state_installer_available: "Installer v{version} available",
     agent_state_script: "Runs from a script: update it with git", agent_state_old: "Older version: install the new installer once",
     users: "Users", role_admin: "Admin", role_operator: "Operator",
     owner: "Operator", unassigned: "Unassigned",
@@ -977,7 +977,7 @@ const I18N = {
     agents_upload_failed: "No se pudo subir el instalador", agents_upload_cors: "El navegador no pudo subir al bucket. Revisa la regla CORS del bucket (PUT desde la dirección de este panel) y el proxy que tenga delante.", agents_upload_etag: "El bucket no deja al navegador leer el ETag: añade ExposeHeaders: [\"ETag\"] a su regla CORS.", agents_list: "Agentes conectados", agents_none: "Ningún agente se ha conectado desde que arrancó el hub.",
     agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} profiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
     agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los profiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
-    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus profiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)",
+    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus profiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)", agent_state_installer_available: "Instalador v{version} disponible",
     agent_state_script: "Corre con el script: actualizar con git", agent_state_old: "Versión anterior: instalar el instalador nuevo una vez",
     users: "Usuarios", role_admin: "Administrador", role_operator: "Operador",
     owner: "Operador", unassigned: "Sin asignar",
@@ -2488,7 +2488,7 @@ function renderMe(who) {
   const connecting = me.agent_connecting && !act;
   if (agentWasConnecting && !me.agent_connecting && !me.agent_online && !act) toast(t("agent_connect_failed"), true);
   agentWasConnecting = me.agent_connecting;
-  // Needs the new installer (hub/routes.me): the hub opens nothing until it is installed.
+  // The hub reports either a required installer or a newer one for this agent.
   const installer = me.agent_installer && !act;
   const main = act && !me.agent_online ? "agent_preparing" : installer ? "agent_installer"
     : act && act.state.startsWith("install") ? "agent_updating"
@@ -2603,7 +2603,7 @@ function openAgents() {
     });
     const upload = async (platform, file) => {
       if (installerUpload) return;
-      installerUpload = { name: file.name, pct: 0, say, refresh: loadInstallers };
+      installerUpload = { name: file.name, pct: 0, say, refresh: refreshAgents };
       installs.querySelectorAll("[data-upload]").forEach((b) => { b.disabled = true; });
       try {
         await uploadInstaller(platform, file);
@@ -2666,23 +2666,24 @@ function openAgents() {
       try { res = await api("GET", "/hub/agents"); } catch (e) { return say(e.message, "err"); }
       if (!res.agents.length) { agents.replaceChildren(h("p", { class: "muted" }, t("agents_none"))); return; }
       agents.replaceChildren(h("p", { class: "muted" }, t("agents_hub_code", { code: res.code.slice(0, 7) })), ...res.agents.map((a) => {
-        const state = a.update_now ? t("agents_update_queued") : t("agent_state_" + a.state);
+        const state = a.update_now ? t("agents_update_queued") : t("agent_state_" + a.state, { version: a.installer_version });
         const cls = a.state === "current" ? "ok" : a.state === "installer" || a.state === "old" ? "err" : "";
-        const where = [a.pc, a.version && "v" + a.version, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
+        const channel = a.installer_platform && (a.installer_platform.endsWith("-dev") ? "dev" : "prod");
+        const where = [a.pc, a.version && "v" + a.version, channel, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
         return h("div", { class: "agent-row" },
           h("b", {}, a.user),
           h("div", { class: "sub" }, where, " · ", h("span", { class: cls }, state)),
-          h("div", { class: "acts" }, (a.state === "pending" || a.state === "installer") && a.online && !a.update_now
+          h("div", { class: "acts" }, ["pending", "installer", "installer_available"].includes(a.state) && a.online && !a.update_now
             ? h("button", { type: "button", class: "btn btn-line", title: t("agents_update_hint"), onclick: async () => {
                 try { await api("POST", `/hub/agents/${enc(a.user)}/update`); loadAgents(); } catch (e) { say(e.message, "err"); }
               } }, icon("sync", true), t("agents_update_now"))
             : null));
       }));
     };
-    loadInstallers();
-    if (admin) loadAgents();
+    const refreshAgents = () => { loadInstallers(); if (admin) loadAgents(); };
+    refreshAgents();
     if (installerUpload) {  // started in an earlier dialog: report here from now on
-      Object.assign(installerUpload, { say, refresh: loadInstallers });
+      Object.assign(installerUpload, { say, refresh: refreshAgents });
       progress(installerUpload.pct);
     }
     return h("div", {},
@@ -2692,7 +2693,7 @@ function openAgents() {
         admin ? h("h3", {}, t("agents_list")) : null, admin ? agents : null,
         msg),
       h("div", { class: "modal-foot" },
-        admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => { loadInstallers(); loadAgents(); } }, icon("reload", true), t("agents_refresh")) : null,
+        admin ? h("button", { type: "button", class: "btn btn-line", onclick: refreshAgents }, icon("reload", true), t("agents_refresh")) : null,
         h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
 }

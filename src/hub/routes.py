@@ -160,8 +160,8 @@ def me(request: Request) -> dict:
         "agent_activity": _activity(bl, user["name"]),
         "agent_running": bl.agents.get(user["name"], {}).get("running", 0),
         "agent_connecting": _connecting(bl, user["name"]),
-        # Its PC needs the new installer: the panel offers it and no profile opens meanwhile.
-        "agent_installer": bl.online(user["name"]) and _needs_installer(bl, user["name"]),
+        # Its PC needs a compatible installer or has a newer build in its slot.
+        "agent_installer": bl.online(user["name"]) and _has_installer_update(bl, user["name"]),
         "leases": {n: u for n, u in bl.leases().items() if store.can(user, n)},
         "syncing": sorted(n for n in _syncing(bl) if store.can(user, n)),
         "owners": {n: u for n, u in store.owners.items() if store.can(user, n)},
@@ -184,12 +184,11 @@ def _conflicts(request: Request, store, user: dict) -> dict[str, int]:
     }
 
 
-def _needs_installer(bl, user: str) -> bool:
-    hub_code = agent_code.hub_code()[0]
-    return (
-        _agent_state(bl.agents.get(user, {}), hub_code, agent_code.hub_requirements())
-        == "installer"
+def _has_installer_update(bl, user: str) -> bool:
+    state, _ = _agent_state(
+        bl.agents.get(user, {}), agent_code.hub_code()[0], agent_code.hub_requirements()
     )
+    return state in ("installer", "installer_available")
 
 
 @router.post("/me/agent-update")
@@ -197,11 +196,16 @@ def update_my_agent(request: Request) -> dict:
     """The panel's "Update agent": the caller's agent downloads and runs the new
     installer on its next poll once its browsers are closed, even if it was told before."""
     user, bl = _user(request)["name"], _launcher(request)
-    if not _needs_installer(bl, user):
+    info = bl.agents.get(user, {})
+    state, _ = _agent_state(info, agent_code.hub_code()[0], agent_code.hub_requirements())
+    if state == "installer_available":
+        bl.install_newer[user] = info["installer_platform"]
+    elif state == "installer":
+        info.pop("told", None)
+        info["force"] = True
+    else:
         raise HTTPException(status_code=409, detail=get_string("err_no_agent_update"))
-    bl.agents[user].pop("told", None)
-    bl.agents[user]["force"] = True
-    return {"running": bl.agents[user].get("running", 0)}
+    return {"running": info.get("running", 0)}
 
 
 @router.post("/me/key")
@@ -493,6 +497,7 @@ async def poll(
     req: str = "",
     pc: str = "",
     ver: str = "",
+    installer_platform: str = "",
     chrome_os: str = "",
     chrome_builds: str = "",
     chrome_error: str = "",
@@ -507,6 +512,9 @@ async def poll(
         "req": req,
         "pc": pc[:64],
         "version": ver[:32],
+        "installer_platform": installer_platform
+        if installer_platform in installers.PLATFORMS
+        else "",
         # Its Chrome engine builds (routes/chrome.py): platform and installed versions.
         "os": chrome_os[:32],
         "builds": [b for b in chrome_builds.split(",") if b][:64],
@@ -544,10 +552,12 @@ def _agent_update(bl, user: str, hub_code: str, busy: bool) -> dict | None:
     once its browsers are closed (or now, when an admin asked), or install the new
     installer when the libraries changed."""
     info = bl.agents[user]
+    forced = user in bl.update_now
     if info["code"] == hub_code:
         bl.update_now.discard(user)
+        if (forced or not busy) and bl.install_newer.pop(user, None) == info["installer_platform"]:
+            return {"op": "installer_needed", "force": True, "newer": True}
         return None
-    forced = user in bl.update_now
     if info["req"] != agent_code.hub_requirements():
         # The agent runs the new installer itself: once, and with its browsers closed.
         # An admin can ask again: a newer installer may have been uploaded since.
@@ -573,47 +583,67 @@ async def agent_code_zip() -> Response:
     return Response(data, media_type="application/zip", headers={"X-Code-Id": code})
 
 
-def _agent_state(info: dict, hub_code: str, hub_req: str | None) -> str:
+def _agent_state(info: dict, hub_code: str, hub_req: str | None) -> tuple[str, str]:
     if not info.get("code"):
-        return "old"  # an agent from before updates: needs the new installer once
+        return "old", ""  # an agent from before updates: needs the new installer once
     if not info.get("req"):
-        return "script"
-    if info["code"] == hub_code:
-        return "current"
-    return "pending" if info["req"] == hub_req else "installer"
+        return "script", ""
+    if info["code"] != hub_code:
+        return ("pending" if info["req"] == hub_req else "installer"), ""
+    version = _available_installer(info)
+    return ("installer_available", version) if version else ("current", "")
+
+
+def _available_installer(info: dict) -> str:
+    platform, installed = info.get("installer_platform"), info.get("version")
+    if not platform or not installed:
+        return ""
+    # A storage outage should not take down the sidebar or hide code updates.
+    try:
+        with _installer_errors():
+            item = installers.for_update(platform)
+    except (HTTPException, OSError):
+        return ""
+    return installers.newer_version(platform, item["name"], installed) if item else ""
 
 
 @router.get("/agents", dependencies=[Depends(_admin)])
-async def list_agents(request: Request) -> dict:
+def list_agents(request: Request) -> dict:
     bl = _launcher(request)
-    hub_code, _ = await run_in_threadpool(agent_code.hub_code)
+    hub_code, _ = agent_code.hub_code()
     hub_req = agent_code.hub_requirements()
-    return {
-        "code": hub_code,
-        "agents": [
+    agents = []
+    for user, info in sorted(bl.agents.items()):
+        state, version = _agent_state(info, hub_code, hub_req)
+        agents.append(
             {
                 "user": user,
                 "pc": info.get("pc", ""),
                 "version": info.get("version", ""),
+                "installer_platform": info.get("installer_platform", ""),
+                "installer_version": version,
                 "code": info.get("code", ""),
                 "online": bl.online(user),
                 "running": info.get("running", 0),
-                "state": _agent_state(info, hub_code, hub_req),
+                "state": state,
                 "update_now": user in bl.update_now,
             }
-            for user, info in sorted(bl.agents.items())
-        ],
-    }
+        )
+    return {"code": hub_code, "agents": agents}
 
 
 @router.post("/agents/{user}/update", dependencies=[Depends(_admin)])
 def update_agent_now(user: str, request: Request) -> dict:
     """Update that agent on its next poll even with profiles open (they close)."""
     bl = _launcher(request)
-    if user not in bl.agents:
+    info = bl.agents.get(user)
+    if info is None:
         raise HTTPException(status_code=404, detail=get_string("err_no_agent"))
+    state, _ = _agent_state(info, agent_code.hub_code()[0], agent_code.hub_requirements())
+    if state == "installer_available":
+        bl.install_newer[user] = info["installer_platform"]
     bl.update_now.add(user)
-    bl.agents[user].pop("offered", None)
+    info.pop("offered", None)
     return {"user": user}
 
 
@@ -641,17 +671,17 @@ def list_installers() -> list[dict]:
 
 
 @public_router.get("/installers/{platform}")
-def download_installer(platform: str) -> Response:
+def download_installer(platform: str, name: str | None = None) -> Response:
     """Public: the installers hold no secrets, and a new PC has no session yet.
     From a bucket, a redirect to a short-lived presigned URL."""
     with _installer_errors():
-        installers.check(platform)
+        installers.check(platform, name)
         if installers.in_bucket():
-            url = installers.download_url(platform)
+            url = installers.download_url(platform, name)
             if url is None:
                 raise installers.InstallerError("err_no_installer")
             return RedirectResponse(url, status_code=307)
-        path = installers.local_file(platform)
+        path = installers.local_file(platform, name)
         if path is None:
             raise installers.InstallerError("err_no_installer")
     return FileResponse(path, filename=path.name, media_type=installers.CONTENT_TYPE)
