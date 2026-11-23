@@ -26,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0  # installer/agent-version.sh counts commits
       - uses: astral-sh/setup-uv@v6
-      - run: sudo apt-get update && sudo apt-get install -y msitools
+      - run: sudo apt-get update && sudo apt-get install -y msitools wixl  # wixl-heat left msitools on newer Ubuntu
       - run: installer/windows/build-msi.sh
         env:
           HUB_URL: ${{ inputs.hub_url || vars.AGENT_HUB_URL }}

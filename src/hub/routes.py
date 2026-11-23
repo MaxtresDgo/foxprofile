@@ -54,6 +54,7 @@ from ..core.strings import get_string
 from ..services.profile import snapshots
 from ..services.profile.transfer import (
     COOKIES_GZ,
+    LIGHT,
     SYNC_META,
     IntegrityError,
     WrongProfileError,
@@ -61,6 +62,7 @@ from ..services.profile.transfer import (
     export_to_zip,
     file_sha256,
     read_meta,
+    read_profile_meta,
     swap_in,
     update_meta,
 )
@@ -785,9 +787,9 @@ _downloads: dict[str, dict] = {}
 _downloads_lock = threading.Lock()
 
 
-def _build_download(job: dict, profile: Any, data_dir: str) -> None:
+def _build_download(job: dict, profile: Any, data_dir: str, light: bool = False) -> None:
     try:
-        ok, result = export_to_zip(profile, data_dir, job["dir"], include_data=True)
+        ok, result = export_to_zip(profile, data_dir, job["dir"], include_data=True, light=light)
         if not ok:
             raise OSError(result)
         job.update(path=result, size=os.path.getsize(result), sha256=file_sha256(result))
@@ -813,7 +815,9 @@ def _download_job(request: Request, name: str, job_id: str) -> dict:
 
 
 @router.post("/bundle/{name}/download")
-def start_download(name: str, request: Request) -> dict:
+def start_download(name: str, request: Request, light: bool = Query(False)) -> dict:
+    """Build the profile's ZIP for the agent to fetch in pieces; with light=1 only
+    its light bundle (FOXPROFILE_HUB_SYNC=light)."""
     profile = require_profile(name, request.app.state.container.profile_manager)
     _require_lease(request, name)
     now = time.time()
@@ -828,12 +832,14 @@ def start_download(name: str, request: Request) -> dict:
         _downloads[job_id] = job
     data_dir = os.path.join(DATA_DIR, name)
     logger.info(
-        "[sync %s] hub.download to=%s packed=%s",
+        "[sync %s] hub.download to=%s light=%s packed=%s",
         name,
         _user(request)["name"],
+        light,
         _packed(read_meta(data_dir)),
     )
-    threading.Thread(target=_build_download, args=(job, profile, data_dir), daemon=True).start()
+    args = (job, profile, data_dir, light)
+    threading.Thread(target=_build_download, args=args, daemon=True).start()
     return {"id": job_id}
 
 
@@ -925,15 +931,21 @@ async def upload_bundle(
         expected = request.headers.get(SHA_HEADER)  # agents older than the header send none
         if expected and expected.lower() != actual:
             raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt"))
+        # A light bundle replaces only what it carries (transfer.swap_in): the rest
+        # of the hub's copy stays from the last full upload, its backup.
+        light = (read_profile_meta(zip_path) or {}).get("bundle") == LIGHT
+        hub_meta = read_meta(os.path.join(DATA_DIR, name))
         # Who replaces what: an upload whose cookies were packed before the copy it
         # replaces puts older sessions back (a stale copy left on some PC).
-        new, old = _packed(_zip_meta(zip_path)), _packed(read_meta(os.path.join(DATA_DIR, name)))
+        new, old = _packed(_zip_meta(zip_path)), _packed(hub_meta)
         stale = bool(new and old and new.get("ts", 0) < old.get("ts", 0))
         (logger.warning if stale or not new else logger.info)(
-            "[sync %s] hub.upload from=%s lease=%s bytes=%d sha256=%s packed=%s replaces=%s%s",
+            "[sync %s] hub.upload from=%s lease=%s light=%s bytes=%d sha256=%s packed=%s"
+            " replaces=%s%s",
             name,
             _user(request)["name"],
             _launcher(request).holder(name) or "free",
+            light,
             os.path.getsize(zip_path),
             actual[:16],
             new or "none",
@@ -943,9 +955,11 @@ async def upload_bundle(
         # Chrome's own cookie store is encrypted for the PC that wrote it: without
         # the pack, the profile opens logged out everywhere else. Agents before
         # sync.json's "profile" upload profiles left open by a crash or an update
-        # this way. 409: the agent stops retrying and keeps its copy.
+        # this way. 409: the agent stops retrying and keeps its copy. (A light bundle
+        # without its pack leaves the hub's in place.)
         if (
-            profile.engine == "chrome"
+            not light
+            and profile.engine == "chrome"
             and (pathlib.Path(DATA_DIR, name) / COOKIES_GZ).is_file()
             and not _has_cookie_pack(zip_path)
         ):
@@ -971,9 +985,16 @@ async def upload_bundle(
                 _launcher(request).release(name, by)
             return {"name": name, "released": release, "conflict": entry["id"]}
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
-        update_meta(hub_dir, hub_upload={"id": upload_id, "by": by, "ts": time.time()})
+        now = time.time()
+        # When the whole profile last came up: a light sync asks for it again later
+        # (remote.sync_mode). Before light sync every upload was full.
+        last_full = hub_meta.get("hub_full") or hub_meta.get("hub_upload") or {"ts": 0}
+        full = last_full if light else {"by": by, "ts": now}
+        update_meta(hub_dir, hub_upload={"id": upload_id, "by": by, "ts": now}, hub_full=full)
         await run_in_threadpool(_keep_cookies, profile, name, by)
-        if snapshots.enabled():  # the checked upload is this version's snapshot
+        # The checked upload is this version's snapshot. Only a full one: the day's
+        # last snapshot replaces the day's others, and a light one is not the profile.
+        if snapshots.enabled() and not light:
             snapshots.upload_later(profile, zip_path)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
