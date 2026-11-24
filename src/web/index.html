@@ -663,12 +663,12 @@ const I18N = {
     snapshot_count: "{n} snapshot", snapshot_newest: "mới nhất {when}", snapshot_orphan: "mồ côi", snapshot_put_back: "Khôi phục profile", snapshot_put_back_as: "Khôi phục với tên",
     snapshot_put_back_done: "Đã khôi phục profile {name}", snapshot_delete_confirm: "Xoá vĩnh viễn {n} snapshot của {name} trên NAS?", snapshot_deleted: "Đã xoá snapshot của {name}",
     cookie_history: "Lịch sử cookie", cookie_history_none: "Chưa có gói nào. Mỗi lần đồng bộ sẽ giữ một gói.", cookie_src_close: "lúc đóng", cookie_src_checkpoint: "checkpoint", cookie_src_history: "đã khôi phục", cookie_suspicious: "ít hơn một nửa gói trước", cookie_restore: "Khôi phục", cookie_restore_confirm: "Khôi phục {n} cookie của {name} từ gói lúc {when}? Lần mở tiếp theo sẽ nạp chúng.", cookie_restored: "Đã khôi phục cookie: lần mở tiếp theo sẽ nạp chúng",
-    stamp_conflict: "Xung đột", conflict_title: "Xung đột phiên bản", conflict_hint: "Hai máy đã làm việc trên cùng một phiên bản. Chọn bản giữ lại; các bản khác bị bỏ.", conflict_hub: "Bản trên hub", conflict_copy: "Bản được giữ riêng", conflict_keep: "Dùng bản này", conflict_keep_confirm: "Giữ bản của {who} lúc {when} làm bản trên hub? Các bản khác sẽ bị bỏ.", conflict_done: "Đã xử lý xung đột", conflict_wait: "Quản trị viên hoặc trưởng nhóm cần chọn phiên bản.", conflict_cookies: "{n} cookie",
+    stamp_conflict: "Xung đột", conflict_fb: "Phiên Facebook: {id}", conflict_no_fb: "Không có phiên Facebook", conflict_title: "Xung đột phiên bản", conflict_hint: "Hai máy đã làm việc trên cùng một phiên bản. Chọn bản giữ lại; các bản khác bị bỏ.", conflict_hub: "Bản trên hub", conflict_copy: "Bản được giữ riêng", conflict_keep: "Dùng bản này", conflict_keep_confirm: "Giữ bản của {who} lúc {when} làm bản trên hub? Các bản khác sẽ bị bỏ.", conflict_done: "Đã xử lý xung đột", conflict_wait: "Quản trị viên hoặc trưởng nhóm cần chọn phiên bản.", conflict_cookies: "{n} cookie",
     snapshots: "Snapshot", snapshots_hint: "bản sao dữ liệu trình duyệt trên NAS", snapshots_none: "Chưa có snapshot nào. Mỗi lần đồng bộ sẽ tự lưu một bản.",
     snapshot_create: "Tạo snapshot", snapshot_restore: "Khôi phục", snapshot_saved: "Đã lưu snapshot", snapshot_restored: "Đã khôi phục. Trạng thái trước đó được lưu thành snapshot.",
     snapshot_confirm: "Khôi phục {name} về bản lúc {when}? Dữ liệu hiện tại được lưu thành snapshot trước; tài khoản đã lưu không bị ảnh hưởng.",
     tagline: "Quản lý profile anti-detect", new_profile: "Tạo profile", filters: "Lọc",
-    f_all: "Tất cả", f_running: "Đang chạy", f_proxy: "Có proxy", f_direct: "Không proxy", f_chrome: "Engine Chrome",
+    f_all: "Tất cả", f_running: "Đang chạy", f_proxy: "Có proxy", f_direct: "Không proxy", f_chrome: "Engine Chrome", f_conflict: "Đang xung đột",
     api_docs: "Tài liệu API", logout: "Đăng xuất", your_profiles: "Profile", search: "Tìm theo tên hoặc proxy",
     counts: "{n} profile · {r} đang chạy", counts_none: "{n} profile · chưa có profile nào chạy",
     col_profile: "Profile", col_device: "Thiết bị", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Trạng thái", owner_line: "Chủ: {user}",
@@ -759,7 +759,7 @@ const I18N = {
     general_sub: "Các cài đặt này chỉ áp dụng cho trình duyệt này.", theme: "Giao diện", theme_hint: "Hệ thống: theo cài đặt của máy tính.",
     theme_light: "Sáng", theme_dark: "Tối", theme_system: "Hệ thống", language: "Ngôn ngữ", language_hint: "Cũng áp dụng cho thông báo lỗi từ server.",
     groups: "Nhóm", group: "Nhóm", no_group: "Không có nhóm", all_groups: "Tất cả nhóm", search_groups: "Tìm nhóm", no_group_match: "Không có nhóm nào khớp", new_group: "Tên nhóm mới", add_group: "Tạo nhóm",
-    group_member: "Thành viên", group_lead: "Trưởng nhóm", add_member: "Thêm", pick_user: "Chọn người dùng",
+    group_member: "Thành viên", group_lead: "Trưởng nhóm", add_member: "Thêm", pick_user: "Chọn người dùng", groups_assign_n: "Thêm vào {n} nhóm", groups_assigning: "Đang thêm {a}/{n}…", groups_assigned: "Đã thêm vào {ok}/{n} nhóm", groups_skipped: "{n} nhóm đã có sẵn",
     group_profiles: "{n} profile", no_groups: "Chưa có nhóm nào.", group_hint: "Thành viên của nhóm thấy và mở được profile của nhóm trên máy của họ.",
     confirm_delete_group: "Xoá nhóm “{name}”? Profile của nhóm vẫn còn, thuộc về người dùng của chúng.",
     mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
@@ -777,12 +777,12 @@ const I18N = {
     snapshot_count: "{n} snapshots", snapshot_newest: "newest {when}", snapshot_orphan: "orphan", snapshot_put_back: "Put back profile", snapshot_put_back_as: "Put back as",
     snapshot_put_back_done: "Profile {name} is back", snapshot_delete_confirm: "Delete the {n} snapshots of {name} from the NAS for good?", snapshot_deleted: "Snapshots of {name} deleted",
     cookie_history: "Cookie history", cookie_history_none: "No packs yet. Each sync keeps one.", cookie_src_close: "on close", cookie_src_checkpoint: "checkpoint", cookie_src_history: "restored", cookie_suspicious: "under half of the one before", cookie_restore: "Restore", cookie_restore_confirm: "Restore the {n} cookies of {name} from {when}? The next open loads them.", cookie_restored: "Cookies restored: the next open loads them",
-    stamp_conflict: "Conflict", conflict_title: "Version conflict", conflict_hint: "Two PCs worked on the same version. Pick the one that stays; the others go.", conflict_hub: "Hub copy", conflict_copy: "Version kept apart", conflict_keep: "Use this one", conflict_keep_confirm: "Make the version {who} saved at {when} the hub copy? The others go.", conflict_done: "Conflict settled", conflict_wait: "An admin or the group lead has to pick the version.", conflict_cookies: "{n} cookies",
+    stamp_conflict: "Conflict", conflict_fb: "Facebook session: {id}", conflict_no_fb: "No Facebook session", conflict_title: "Version conflict", conflict_hint: "Two PCs worked on the same version. Pick the one that stays; the others go.", conflict_hub: "Hub copy", conflict_copy: "Version kept apart", conflict_keep: "Use this one", conflict_keep_confirm: "Make the version {who} saved at {when} the hub copy? The others go.", conflict_done: "Conflict settled", conflict_wait: "An admin or the group lead has to pick the version.", conflict_cookies: "{n} cookies",
     snapshots: "Snapshots", snapshots_hint: "copies of the browser data on the NAS", snapshots_none: "No snapshots yet. Each sync saves one.",
     snapshot_create: "Save snapshot", snapshot_restore: "Restore", snapshot_saved: "Snapshot saved", snapshot_restored: "Restored. The previous state was saved as a snapshot.",
     snapshot_confirm: "Restore {name} to the copy from {when}? The current data is saved as a snapshot first; saved accounts are not touched.",
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
-    f_all: "All", f_running: "Running", f_proxy: "With proxy", f_direct: "No proxy", f_chrome: "Chrome engine",
+    f_all: "All", f_running: "Running", f_proxy: "With proxy", f_direct: "No proxy", f_chrome: "Chrome engine", f_conflict: "In conflict",
     api_docs: "API docs", logout: "Log out", your_profiles: "Profiles", search: "Search by name or proxy",
     counts: "{n} profiles · {r} running", counts_none: "{n} profiles · none running",
     col_profile: "Profile", col_device: "Device", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Status", owner_line: "Owner: {user}",
@@ -873,7 +873,7 @@ const I18N = {
     general_sub: "These settings apply to this browser only.", theme: "Theme", theme_hint: "System follows your computer's setting.",
     theme_light: "Light", theme_dark: "Dark", theme_system: "System", language: "Language", language_hint: "Server error messages follow it too.",
     groups: "Groups", group: "Group", no_group: "No group", all_groups: "All groups", search_groups: "Search groups", no_group_match: "No group matches", new_group: "New group name", add_group: "Create group",
-    group_member: "Member", group_lead: "Lead", add_member: "Add", pick_user: "Pick a user",
+    group_member: "Member", group_lead: "Lead", add_member: "Add", pick_user: "Pick a user", groups_assign_n: "Add to {n} groups", groups_assigning: "Adding {a} of {n}…", groups_assigned: "Added to {ok} of {n} groups", groups_skipped: "{n} already there",
     group_profiles: "{n} profiles", no_groups: "No groups yet.", group_hint: "Group members see the group's profiles and open them on their own PC.",
     confirm_delete_group: "Delete group “{name}”? Its profiles stay with their operators.",
     mcp_new_key: "Create my personal key and insert it",
@@ -891,12 +891,12 @@ const I18N = {
     snapshot_count: "{n} snapshots", snapshot_newest: "el más reciente {when}", snapshot_orphan: "huérfano", snapshot_put_back: "Recuperar profile", snapshot_put_back_as: "Recuperar como",
     snapshot_put_back_done: "Profile {name} recuperado", snapshot_delete_confirm: "¿Borrar para siempre los {n} snapshots de {name} del NAS?", snapshot_deleted: "Snapshots de {name} borrados",
     cookie_history: "Historial de cookies", cookie_history_none: "Aún no hay paquetes. Cada sync guarda uno.", cookie_src_close: "al cerrar", cookie_src_checkpoint: "checkpoint", cookie_src_history: "restaurado", cookie_suspicious: "menos de la mitad que el anterior", cookie_restore: "Restaurar", cookie_restore_confirm: "¿Restaurar las {n} cookies de {name} del {when}? La siguiente apertura las carga.", cookie_restored: "Cookies restauradas: la siguiente apertura las carga",
-    stamp_conflict: "Conflicto", conflict_title: "Conflicto de versiones", conflict_hint: "Dos PCs trabajaron sobre la misma versión. Elige la que queda; las otras se descartan.", conflict_hub: "Copia del hub", conflict_copy: "Versión guardada aparte", conflict_keep: "Usar esta", conflict_keep_confirm: "¿Dejar como copia del hub la versión que guardó {who} el {when}? Las otras se descartan.", conflict_done: "Conflicto resuelto", conflict_wait: "Un admin o el líder del grupo tiene que elegir la versión.", conflict_cookies: "{n} cookies",
+    stamp_conflict: "Conflicto", conflict_fb: "Sesión de Facebook: {id}", conflict_no_fb: "Sin sesión de Facebook", conflict_title: "Conflicto de versiones", conflict_hint: "Dos PCs trabajaron sobre la misma versión. Elige la que queda; las otras se descartan.", conflict_hub: "Copia del hub", conflict_copy: "Versión guardada aparte", conflict_keep: "Usar esta", conflict_keep_confirm: "¿Dejar como copia del hub la versión que guardó {who} el {when}? Las otras se descartan.", conflict_done: "Conflicto resuelto", conflict_wait: "Un admin o el líder del grupo tiene que elegir la versión.", conflict_cookies: "{n} cookies",
     snapshots: "Snapshots", snapshots_hint: "copias de los datos del navegador en el NAS", snapshots_none: "Aún no hay snapshots. Cada sync guarda uno.",
     snapshot_create: "Guardar snapshot", snapshot_restore: "Restaurar", snapshot_saved: "Snapshot guardado", snapshot_restored: "Restaurado. El estado anterior quedó guardado como snapshot.",
     snapshot_confirm: "¿Restaurar {name} a la copia del {when}? Los datos actuales se guardan antes como snapshot; las cuentas guardadas no se tocan.",
     tagline: "Gestor de profiles anti-detect", new_profile: "Nuevo profile", filters: "Filtrar",
-    f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome",
+    f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome", f_conflict: "En conflicto",
     api_docs: "Docs de la API", logout: "Cerrar sesión", your_profiles: "Profiles", search: "Buscar por nombre o proxy",
     counts: "{n} profiles · {r} en ejecución", counts_none: "{n} profiles · ninguno en ejecución",
     col_profile: "Profile", col_device: "Dispositivo", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Estado", owner_line: "Dueño: {user}",
@@ -987,7 +987,7 @@ const I18N = {
     general_sub: "Estos ajustes solo se aplican a este navegador.", theme: "Tema", theme_hint: "Sistema sigue la configuración de tu computadora.",
     theme_light: "Claro", theme_dark: "Oscuro", theme_system: "Sistema", language: "Idioma", language_hint: "Los mensajes de error del servidor también lo siguen.",
     groups: "Grupos", group: "Grupo", no_group: "Sin grupo", all_groups: "Todos los grupos", search_groups: "Buscar grupos", no_group_match: "Ningún grupo coincide", new_group: "Nombre del nuevo grupo", add_group: "Crear grupo",
-    group_member: "Miembro", group_lead: "Líder", add_member: "Agregar", pick_user: "Elige un usuario",
+    group_member: "Miembro", group_lead: "Líder", add_member: "Agregar", pick_user: "Elige un usuario", groups_assign_n: "Asignar a {n} grupos", groups_assigning: "Asignando {a} de {n}…", groups_assigned: "Asignado a {ok} de {n} grupos", groups_skipped: "{n} ya estaban",
     group_profiles: "{n} profiles", no_groups: "Aún no hay grupos.", group_hint: "Los miembros del grupo ven sus profiles y los abren en su propia PC.",
     confirm_delete_group: "¿Eliminar el grupo “{name}”? Sus profiles se quedan con sus operadores.",
     mcp_new_key: "Crear mi clave personal e insertarla",
@@ -1173,6 +1173,7 @@ const FILTERS = [
   ["proxy", "f_proxy", (p) => !!p.proxy],
   ["direct", "f_direct", (p) => !p.proxy],
   ["chrome", "f_chrome", (p) => p.engine === "chrome"],
+  ["conflict", "f_conflict", (p) => !!(hub && me?.conflicts?.[p.name])],  // only in the hub's list
 ];
 // Group names sort like people read them: Grupo-2 before Grupo-10, case aside.
 const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
@@ -1267,7 +1268,7 @@ function syncUrl(q) {
 function renderFilters() {
   const nav = $("filters");
   nav.replaceChildren(h("div", { class: "nav-title" }, t("filters")),
-    ...FILTERS.map(([id, label, pass]) => h("button", { class: filter === id ? "active" : "", "aria-pressed": String(filter === id),
+    ...FILTERS.filter(([id]) => hub || id !== "conflict").map(([id, label, pass]) => h("button", { class: filter === id ? "active" : "", "aria-pressed": String(filter === id),
       onclick: () => { filter = id; pageAt = 0; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, scope) && pass(p)).length)))));
 }
 
@@ -2306,6 +2307,7 @@ function openCookies(p) {
 function openConflict(p) {
   const base = `/profiles/${enc(p.name)}/conflicts`;
   const when = (ts) => (ts ? new Date(ts * 1000).toLocaleString(lang) : "?");
+  const tab = (u) => { try { const x = new URL(u); return x.host + x.pathname.slice(0, 30); } catch { return String(u).slice(0, 40); } };
   modal((close) => {
     const list = h("div");
     const msg = h("div", { class: "msg", role: "status" });
@@ -2319,7 +2321,10 @@ function openConflict(p) {
     const row = (title, v, id, can) => h("div", { class: "acct" },
       h("div", { class: "acct-head" },
         h("span", { class: "stack" }, h("b", {}, title),
-          h("span", { class: "minor data" }, [when(v.ts), v.by, v.pc, v.cookies != null && t("conflict_cookies", { n: v.cookies })].filter(Boolean).join(" · "))),
+          h("span", { class: "minor data" }, [when(v.ts), v.by, v.pc, v.cookies != null && t("conflict_cookies", { n: v.cookies })].filter(Boolean).join(" · ")),
+          // What tells them apart (hub/conflicts.details): whose Facebook session, which sites, which tabs.
+          h("span", { class: "minor" }, [v.facebook ? t("conflict_fb", { id: v.facebook }) : t("conflict_no_fb"), ...(v.sites || []).map(([d, n]) => `${d} ${n}`)].join(" · ")),
+          v.tabs?.length ? h("span", { class: "minor data" }, v.tabs.map(tab).join(" · ")) : null),
         can ? h("span", { class: "acct-actions" }, h("button", { type: "button", class: "btn btn-act", onclick: () => keep(id, v.by, v.ts) }, t("conflict_keep"))) : null));
     (async () => {
       try {
@@ -2867,46 +2872,116 @@ function openAdsPower() {
 function openGroups() {
   modal((close) => {
     const list = h("div");
+    const bar = h("div");
     const msg = h("div", { class: "msg", role: "status" });
     const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
     const admin = me.role === "admin";
+    const PAGE = 25;  // 300+ groups in production: one page at a time
+    let groups = [], users = [], at = 0;
+    const chosen = new Set();  // ticked for "Assign to N groups"
     const call = (method, path, body) => api(method, path, body)
       .then(() => { msg.textContent = ""; load(); refresh(); return true; }, (e) => { fail(e); return false; });
+    // Each picker lists every user: built only for what is on screen, never per group.
+    const picker = (skip = {}) => h("select", { "aria-label": t("pick_user") }, h("option", { value: "" }, t("pick_user")),
+      users.filter((u) => !(u.name in skip)).map((u) => h("option", { value: u.name }, u.name)));
+    const q = h("input", { type: "search", placeholder: t("search_groups"), "aria-label": t("search_groups"), autocomplete: "off", style: "flex:1",
+      oninput: () => { clearTimeout(q.wait); q.wait = setTimeout(() => { at = 0; draw(); }, 200); } });
+    const matching = () => {
+      const s = q.value.trim().toLowerCase();
+      return s ? groups.filter((g) => g.name.toLowerCase().includes(s) || Object.keys(g.members).some((u) => u.toLowerCase().includes(s))) : groups;
+    };
+    const tick = (names, on) => { names.forEach((n) => (on ? chosen.add(n) : chosen.delete(n))); draw(); };
+    const pageBox = h("input", { type: "checkbox", "aria-label": t("select_page"), title: t("select_page"),
+      onchange: (e) => tick(matching().slice(at * PAGE, (at + 1) * PAGE).filter((g) => g.my_role === "lead").map((g) => g.name), e.target.checked) });
+    const allBtn = h("button", { type: "button", class: "btn btn-ghost" });
+    const section = (g) => {
+      const lead = g.my_role === "lead";
+      const base = `/hub/groups/${enc(g.name)}`;
+      const members = Object.entries(g.members).map(([u, r]) => {
+        // Only admins promote, demote or remove leads.
+        const role = admin
+          ? h("select", { "aria-label": `Role: ${u}`, onchange: (e) => call("PUT", `${base}/members/${enc(u)}`, { role: e.target.value }) },
+            ["member", "lead"].map((v) => h("option", { value: v, selected: v === r }, t("group_" + v))))
+          : h("span", {}, t("group_" + r));
+        return h("div", { class: "user-row" }, h("span", {}, u), role, h("span"),
+          lead ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u}`,
+            disabled: !admin && r === "lead", onclick: () => call("DELETE", `${base}/members/${enc(u)}`) }, icon("x")) : h("span"));
+      });
+      const pick = lead ? picker(g.members) : null;
+      return h("section", { style: "margin-bottom:18px" },
+        h("div", { style: "display:flex;align-items:center;gap:10px" },
+          lead ? h("input", { type: "checkbox", checked: chosen.has(g.name), "aria-label": t("select_row", { name: g.name }),
+            onchange: (e) => tick([g.name], e.target.checked) }) : null,
+          h("h3", { style: "margin:0" }, g.name), h("span", { class: "minor" }, t("group_profiles", { n: g.profiles })),
+          h("span", { style: "flex:1" }),
+          admin ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${g.name}`,
+            onclick: async () => {
+              if (await confirmDialog(t("confirm_delete_group", { name: g.name }), t("delete"), true)) call("DELETE", base);
+            } }, icon("trash")) : null),
+        ...members,
+        lead ? h("form", { style: "display:flex;gap:8px;margin-top:8px", onsubmit: (e) => {
+          e.preventDefault(); if (pick.value) call("PUT", `${base}/members/${enc(pick.value)}`, { role: "member" });
+        } }, pick, h("button", { class: "btn btn-line" }, icon("plus", true), t("add_member"))) : null);
+    };
+    // One user into every ticked group, a PUT each (the hub checks each group's lead).
+    const assign = async (user, role, go) => {
+      const names = [...chosen].sort(natural);
+      const failed = [];
+      let done = 0, skipped = 0;
+      go.disabled = true;
+      for (const [i, name] of names.entries()) {
+        msg.className = "msg info"; msg.textContent = t("groups_assigning", { a: i + 1, n: names.length });
+        const now = groups.find((g) => g.name === name)?.members[user];
+        // Already there with that role, or a lead: a member assignment never demotes.
+        if (now === role || (now === "lead" && role === "member")) { skipped++; continue; }
+        try { await api("PUT", `/hub/groups/${enc(name)}/members/${enc(user)}`, { role }); done++; }
+        catch (e) { failed.push(`${name}: ${e.message}`); }
+      }
+      chosen.clear();
+      await load();
+      refresh();
+      msg.className = failed.length ? "msg err" : "msg ok";
+      msg.textContent = [t("groups_assigned", { ok: done, n: names.length }), skipped && t("groups_skipped", { n: skipped }), ...failed].filter(Boolean).join(" · ");
+    };
+    const drawBar = () => {
+      if (!chosen.size || !users.length) return bar.replaceChildren();
+      const who = picker();
+      // Leads add members; only admins name leads (the hub refuses otherwise).
+      const role = h("select", { "aria-label": t("group_member"), disabled: !admin },
+        ["member", "lead"].map((v) => h("option", { value: v }, t("group_" + v))));
+      const go = h("button", { class: "btn btn-act" }, icon("plus", true), t("groups_assign_n", { n: chosen.size }));
+      bar.replaceChildren(h("form", { class: "user-row", style: "grid-template-columns:auto minmax(160px,1fr) 120px auto auto", onsubmit: (e) => {
+        e.preventDefault(); if (who.value) assign(who.value, role.value, go);
+      } }, h("b", {}, t("selected", { n: chosen.size })), who, role, go,
+        h("button", { type: "button", class: "btn btn-ghost", onclick: () => tick([...chosen], false) }, t("cancel"))));
+    };
+    const draw = () => {
+      const all = matching(), pages = Math.max(1, Math.ceil(all.length / PAGE));
+      at = Math.min(at, pages - 1);
+      const page = all.slice(at * PAGE, (at + 1) * PAGE);
+      const tickable = page.filter((g) => g.my_role === "lead");
+      pageBox.checked = tickable.length > 0 && tickable.every((g) => chosen.has(g.name));
+      pageBox.disabled = !tickable.length;
+      const rest = all.filter((g) => g.my_role === "lead" && !chosen.has(g.name));
+      allBtn.hidden = all.length <= PAGE || !rest.length;
+      allBtn.textContent = t("select_all_n", { n: all.filter((g) => g.my_role === "lead").length });
+      allBtn.onclick = () => tick(rest.map((g) => g.name), true);
+      const go = (d) => { at += d; draw(); list.scrollIntoView({ block: "start" }); };
+      list.replaceChildren(
+        ...(page.length ? page.map(section) : [h("p", { class: "minor" }, t(groups.length ? "no_group_match" : "no_groups"))]),
+        pages > 1 ? h("div", { class: "pager" },
+          t("page_range", { a: at * PAGE + 1, b: Math.min(all.length, (at + 1) * PAGE), n: all.length }),
+          h("button", { type: "button", class: "btn btn-line", disabled: at === 0, onclick: () => go(-1) }, t("page_prev")),
+          h("button", { type: "button", class: "btn btn-line", disabled: at >= pages - 1, onclick: () => go(1) }, t("page_next"))) : null);
+      drawBar();
+    };
     const load = async () => {
-      let groups, users = [];
       try {
         groups = await api("GET", "/hub/groups");
-        if (groups.some((g) => g.my_role === "lead")) users = await api("GET", "/hub/users");
+        if (!users.length && groups.some((g) => g.my_role === "lead")) users = await api("GET", "/hub/users");
       } catch (e) { return fail(e); }
-      if (!groups.length) return list.replaceChildren(h("p", { class: "minor" }, t("no_groups")));
-      list.replaceChildren(...groups.map((g) => {
-        const lead = g.my_role === "lead";
-        const base = `/hub/groups/${enc(g.name)}`;
-        const members = Object.entries(g.members).map(([u, r]) => {
-          // Only admins promote, demote or remove leads.
-          const role = admin
-            ? h("select", { "aria-label": `Role: ${u}`, onchange: (e) => call("PUT", `${base}/members/${enc(u)}`, { role: e.target.value }) },
-              ["member", "lead"].map((v) => h("option", { value: v, selected: v === r }, t("group_" + v))))
-            : h("span", {}, t("group_" + r));
-          return h("div", { class: "user-row" }, h("span", {}, u), role, h("span"),
-            lead ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u}`,
-              disabled: !admin && r === "lead", onclick: () => call("DELETE", `${base}/members/${enc(u)}`) }, icon("x")) : h("span"));
-        });
-        const pick = h("select", { "aria-label": t("pick_user") }, h("option", { value: "" }, t("pick_user")),
-          users.filter((u) => !(u.name in g.members)).map((u) => h("option", { value: u.name }, u.name)));
-        return h("section", { style: "margin-bottom:18px" },
-          h("div", { style: "display:flex;align-items:center;gap:10px" },
-            h("h3", { style: "margin:0" }, g.name), h("span", { class: "minor" }, t("group_profiles", { n: g.profiles })),
-            h("span", { style: "flex:1" }),
-            admin ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${g.name}`,
-              onclick: async () => {
-                if (await confirmDialog(t("confirm_delete_group", { name: g.name }), t("delete"), true)) call("DELETE", base);
-              } }, icon("trash")) : null),
-          ...members,
-          lead ? h("form", { style: "display:flex;gap:8px;margin-top:8px", onsubmit: (e) => {
-            e.preventDefault(); if (pick.value) call("PUT", `${base}/members/${enc(pick.value)}`, { role: "member" });
-          } }, pick, h("button", { class: "btn btn-line" }, icon("plus", true), t("add_member"))) : null);
-      }));
+      for (const n of [...chosen]) if (!groups.some((g) => g.name === n)) chosen.delete(n);
+      draw();
     };
     const name = h("input", { id: "g-name", placeholder: t("new_group"), autocomplete: "off", required: true });
     load();
@@ -2917,7 +2992,8 @@ function openGroups() {
         admin ? h("form", { style: "display:flex;gap:8px;margin:8px 0 4px", onsubmit: (e) => {
           e.preventDefault(); call("POST", "/hub/groups", { name: name.value.trim() }).then((ok) => { if (ok) name.value = ""; });
         } }, name, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_group"))) : null,
-        msg, h("div", { style: "margin-top:18px" }, list)),
+        h("div", { style: "display:flex;align-items:center;gap:10px;margin-top:14px" }, pageBox, q, allBtn),
+        bar, msg, h("div", { style: "margin-top:18px" }, list)),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
 }

@@ -6,6 +6,7 @@ conflicts/<uid>/<id>.zip plus an index.json, next to HUB_FILE. By uid, so a
 renamed profile keeps them. A profile with entries here is "in conflict".
 """
 
+import gzip
 import json
 import os
 import pathlib
@@ -14,9 +15,16 @@ import shutil
 import tempfile
 import time
 import zipfile
+from collections import Counter
 
 from ..core.config import HUB_FILE
-from ..services.profile.transfer import SYNC_META, swap_in
+from ..services.browser.session import TABS_FILE
+from ..services.profile.transfer import (
+    COOKIES_GZ,
+    SYNC_META,
+    read_cookies,
+    swap_in,
+)
 
 
 class NotFound(LookupError):
@@ -71,7 +79,39 @@ def add(uid: str, zip_path: str, by: str, base: str) -> dict:
 
 
 def entries(uid: str) -> list[dict]:
-    return _index(_root() / uid)
+    """Each kept version, with what tells it apart (details)."""
+    folder = _root() / uid
+    return [{**e, **details(str(folder / f"{e['id']}.zip"))} for e in _index(folder)]
+
+
+def details(source: str) -> dict:
+    """What tells versions apart without opening them, from the hub's profile folder
+    or a kept version's ZIP: the Facebook account whose session it holds (c_user,
+    only with xs; never a cookie's value otherwise), its cookies by site, its tabs."""
+    cookies = tabs = None
+    try:
+        if source.endswith(".zip"):
+            with zipfile.ZipFile(source) as z:
+                names = set(z.namelist())
+                if f"data/{COOKIES_GZ}" in names:
+                    cookies = gzip.decompress(z.read(f"data/{COOKIES_GZ}")).decode("utf-8")
+                if f"data/{TABS_FILE}" in names:
+                    tabs = z.read(f"data/{TABS_FILE}").decode("utf-8")
+        else:
+            cookies = read_cookies(source)
+            tabs_file = pathlib.Path(source, TABS_FILE)
+            tabs = tabs_file.read_text(encoding="utf-8") if tabs_file.is_file() else None
+        items = json.loads(cookies or "[]")
+        urls = json.loads(tabs or "{}").get("tabs") or []
+    except (OSError, ValueError, EOFError, zipfile.BadZipFile):  # IntegrityError too
+        return {"facebook": "", "sites": [], "tabs": []}
+    fb = {c.get("name"): c.get("value") for c in items if "facebook.com" in str(c.get("domain"))}
+    return {
+        "facebook": (fb.get("c_user") or "") if fb.get("xs") else "",
+        "cookies": len(items),
+        "sites": Counter(str(c.get("domain", "")).lstrip(".") for c in items).most_common(4),
+        "tabs": [str(u) for u in urls][:5],
+    }
 
 
 def counts() -> dict[str, int]:

@@ -465,7 +465,7 @@ def test_a_stop_checkpoints_the_live_browser_first(tmp_path, monkeypatch):
     assert len(saved) == 1  # the same cookies are not saved again
 
 
-# --- where the profiles live (C:\FoxProfiles\<Windows user>) -------------------
+# --- where the profiles live (C:\Users\<user>\FoxProfiles on Windows) -----------
 
 
 def test_each_account_keeps_its_own_copies(tmp_path, monkeypatch):
@@ -493,14 +493,21 @@ def test_an_earlier_agents_folders_move_to_the_new_place(tmp_path, monkeypatch):
     (old / "p1").mkdir(parents=True)
     record = {"user": "ana", "hub": "https://hub.example.com", "stamp": "s1"}
     (old / "p1.json").write_text(json.dumps(record))
-    mine = tmp_path / "FoxProfiles" / "braya"
+    # Agents 3.0.123 to 3.0.125 kept them in C:/FoxProfiles/<user>, copies by account.
+    monkeypatch.setattr(agent, "LEGACY_ROOT", tmp_path / "C-FoxProfiles")
+    legacy = agent.LEGACY_ROOT / agent.getpass.getuser()
+    (legacy / "perfiles" / "p3").mkdir(parents=True)
+    (legacy / "cache" / "ana" / "p4").mkdir(parents=True)
+    (legacy / "cache" / "ana" / "p4.json").write_text(json.dumps(record))
+    mine = tmp_path / "Users" / "braya" / "FoxProfiles"
     monkeypatch.setattr(agent, "DATA_DIR", str(mine / "perfiles"))
 
     a = agent.Agent(agent.HubClient("https://hub.example.com", "ana", "fpk_x"))
     assert a.cache_root == mine / "cache" / "ana"
-    assert (mine / "perfiles" / "p2").is_dir() and not (tmp_path / "camoufox_data").exists()
-    assert (mine / "cache" / "ana" / "p1").is_dir() and a.cached_names() == ["p1"]
-    assert not old.exists()
+    assert {d.name for d in (mine / "perfiles").iterdir()} == {"p2", "p3"}
+    assert a.cached_names() == ["p1", "p4"]
+    assert not old.exists() and not (tmp_path / "camoufox_data").exists()
+    assert not agent.LEGACY_ROOT.exists()  # emptied, then removed
 
 
 def test_a_pc_without_copies_yet_starts_polling(tmp_path, monkeypatch):

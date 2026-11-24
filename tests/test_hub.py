@@ -915,6 +915,8 @@ def test_two_pcs_on_the_same_version_keep_both_until_someone_picks(hub, tmp_path
     api = "/api/v1/profiles/shop-01/conflicts"
     listed = client.get(api, headers=ana).json()
     assert [c["id"] for c in listed["copies"]] == [kept] and listed["hub"]["by"] == "ana"
+    # What tells them apart, read from each version's own pack.
+    assert listed["copies"][0]["sites"] == [["x.com", 1]] and listed["hub"]["facebook"] == ""
     assert not listed["can_resolve"]
     assert client.post(f"{api}/resolve", json={"keep": kept}, headers=ana).status_code == 403
     assert client.post(f"{api}/resolve", json={"keep": kept}, headers=admin).status_code == 200
@@ -986,3 +988,19 @@ def test_light_sync_moves_the_sessions_and_backs_up_the_whole_profile(hub, tmp_p
     # HUB_FULL_DAYS later, the next close backs it up again.
     update_meta(str(data), hub_full={"ts": time.time() - config.HUB_FULL_DAYS * 86400})
     assert launch() == ("light", True)
+
+
+def test_a_versions_details_name_its_facebook_session_only_with_xs(tmp_path):
+    from src.hub import conflicts
+
+    fb = [{"domain": ".facebook.com", "name": "c_user", "value": "1000123"}]
+    fb.append({"domain": ".facebook.com", "name": "xs", "value": "s"})
+    youtube = {"domain": ".youtube.com", "name": "PREF", "value": "1"}
+    pack_cookies(str(tmp_path), json.dumps([*fb, youtube]))
+    (tmp_path / "tabs.json").write_text(json.dumps({"tabs": ["https://www.facebook.com/groups/1"]}))
+    seen = conflicts.details(str(tmp_path))
+    assert seen["facebook"] == "1000123" and seen["cookies"] == 3
+    assert seen["sites"] == [("facebook.com", 2), ("youtube.com", 1)]
+    assert seen["tabs"] == ["https://www.facebook.com/groups/1"]
+    pack_cookies(str(tmp_path), json.dumps(fb[:1]))  # c_user without xs: logged out
+    assert conflicts.details(str(tmp_path))["facebook"] == ""

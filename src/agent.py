@@ -33,42 +33,21 @@ if "--home" in sys.argv:
     os.makedirs(_home, exist_ok=True)
     os.chdir(_home)
     if os.name == "nt":
-        # The profiles live outside AppData, as AdsPower's: short paths for Chrome's
-        # deep folders, easy to find, FOXPROFILE_PROFILES_ROOT (in .env) moves them
-        # to another disk. One folder per Windows user (several share some PCs),
-        # open to them, admins and SYSTEM only: it holds sessions. Any failure keeps
-        # them in the agent's folder, as before.
+        # The profiles live outside AppData, as AdsPower's: C:\Users\<user>\FoxProfiles,
+        # a short path for Chrome's deep folders, easy to find, and private to its
+        # Windows user like the rest of their folder (it holds sessions).
+        # FOXPROFILE_PROFILES_ROOT (in .env) moves it, say to another disk: one per
+        # Windows user. A folder it cannot make keeps them in the agent's, as before.
         try:
             from dotenv import load_dotenv  # noqa: E402
 
             load_dotenv(os.path.join(_home, ".env"))
         except ImportError:
             pass
-        import getpass  # noqa: E402
-        import subprocess  # noqa: E402
-
-        def _run(tool: str, *args: str) -> subprocess.CompletedProcess:
-            # By full path: another whoami (Git's) may come first on PATH.
-            exe = os.path.join(os.getenv("SYSTEMROOT") or "C:\\Windows", "System32", tool)
-            flags = subprocess.CREATE_NO_WINDOW
-            return subprocess.run([exe, *args], capture_output=True, text=True, creationflags=flags)
-
-        _root = os.getenv("FOXPROFILE_PROFILES_ROOT") or "C:\\FoxProfiles"
-        _mine = os.path.join(_root, getpass.getuser())
+        _root = os.getenv("FOXPROFILE_PROFILES_ROOT") or os.path.expanduser("~\\FoxProfiles")
         try:
-            if not os.path.isdir(_mine):
-                os.makedirs(_mine)
-                # By SID (this process's user); inheritance goes only once the
-                # grants are in, so a failure leaves the folder usable.
-                _who = _run("whoami.exe", "/user", "/fo", "csv", "/nh").stdout.strip()
-                _sid = _who.rsplit(",", 1)[-1].strip('"')
-                _grants = [f"*{_sid}:(OI)(CI)F", "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F"]
-                _granted = _sid.startswith("S-1-") and not (
-                    _run("icacls.exe", _mine, "/grant:r", *_grants).returncode
-                )
-                if _granted:
-                    _run("icacls.exe", _mine, "/inheritance:r")
-            os.environ.setdefault("FOXPROFILE_DATA_DIR", os.path.join(_mine, "perfiles"))
+            os.makedirs(os.path.join(_root, "perfiles"), exist_ok=True)
+            os.environ.setdefault("FOXPROFILE_DATA_DIR", os.path.join(_root, "perfiles"))
         except OSError:
             pass
 
@@ -76,6 +55,7 @@ import argparse  # noqa: E402
 import collections  # noqa: E402
 import contextlib  # noqa: E402
 import dataclasses  # noqa: E402
+import getpass  # noqa: E402
 import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
 import ipaddress  # noqa: E402
@@ -200,38 +180,54 @@ def account_dir(user: str) -> str:
     return re.sub(r"[^\w.@+-]", "_", user).strip(". ") or "_"
 
 
+# Where agents 3.0.123 to 3.0.125 kept them on Windows: C:\FoxProfiles\<user>.
+LEGACY_ROOT = pathlib.Path("C:/FoxProfiles")
+
+
 def move_old_layout(data_root: pathlib.Path, cache_base: pathlib.Path) -> None:
-    """Move what an earlier agent left in its own folder (the cwd): the profiles
-    still to upload (camoufox_data/<name>) into data_root, and its copies
-    (profile-cache/<name> and its record) into cache_base/<account>."""
-    old_data = pathlib.Path("camoufox_data")
-    if old_data.is_dir() and old_data.resolve() != data_root.resolve():
-        for d in old_data.iterdir():
-            if d.is_dir() and not (data_root / d.name).exists():
-                try:
-                    shutil.move(str(d), str(data_root / d.name))
-                except OSError as e:
-                    logger.warning("Could not move %s to %s: %s", d, data_root, e)
+    """Move what an earlier agent left, in its own folder (the cwd: camoufox_data,
+    profile-cache/<name> and its record) or in LEGACY_ROOT/<user> (perfiles,
+    cache/<account>): the profiles still to upload into data_root, the copies into
+    cache_base/<account>."""
+    legacy = LEGACY_ROOT / getpass.getuser()
+    olds = [(pathlib.Path("camoufox_data"), pathlib.Path("profile-cache"))]
+    olds.append((legacy / "perfiles", legacy / "cache"))
+    for old_data, old_cache in olds:
+        if old_data.is_dir() and old_data.resolve() != data_root.resolve():
+            for d in old_data.iterdir():
+                if d.is_dir() and not (data_root / d.name).exists():
+                    try:
+                        shutil.move(str(d), str(data_root / d.name))
+                    except OSError as e:
+                        logger.warning("Could not move %s to %s: %s", d, data_root, e)
+        same = old_cache.resolve() == cache_base.resolve()
+        records = sorted(old_cache.glob("*.json")) if old_cache.is_dir() else []
+        if not same:  # copies already filed by account
+            records += sorted(old_cache.glob("*/*.json"))
+        for record in records:
+            try:
+                user = json.loads(record.read_text(encoding="utf-8")).get("user") or ""
+            except (OSError, ValueError):
+                continue
+            dest, copy = cache_base / account_dir(user), record.with_suffix("")
+            if not copy.is_dir() or (dest / record.name).exists():
+                continue
+            try:
+                dest.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(copy), str(dest / copy.name))
+                shutil.move(str(record), str(dest / record.name))
+            except OSError as e:
+                logger.warning("Could not move the copy of %s: %s", copy.name, e)
+        # rmdir only takes empty folders; never the ones in use.
+        empty = [old_data] if old_data.resolve() != data_root.resolve() else []
+        if not same and old_cache.is_dir():
+            empty += [d for d in old_cache.iterdir() if d.is_dir()] + [old_cache]
+        for d in empty:
+            with contextlib.suppress(OSError):
+                d.rmdir()
+    for d in (legacy, LEGACY_ROOT):
         with contextlib.suppress(OSError):
-            old_data.rmdir()  # only when empty
-    old_cache = pathlib.Path("profile-cache")
-    for record in sorted(old_cache.glob("*.json")) if old_cache.is_dir() else ():
-        try:
-            user = json.loads(record.read_text(encoding="utf-8")).get("user") or ""
-        except (OSError, ValueError):
-            continue
-        dest, copy = cache_base / account_dir(user), old_cache / record.stem
-        if not copy.is_dir() or (dest / record.name).exists():
-            continue
-        try:
-            dest.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(copy), str(dest / record.stem))
-            shutil.move(str(record), str(dest / record.name))
-        except OSError as e:
-            logger.warning("Could not move the copy of %s: %s", record.stem, e)
-    if old_cache.resolve() != cache_base.resolve():
-        with contextlib.suppress(OSError):
-            old_cache.rmdir()
+            d.rmdir()
 
 
 def drop_cookie_store(local: pathlib.Path) -> int:
@@ -1505,14 +1501,19 @@ def _log_file() -> str:
     return os.path.abspath(LOG_DIR)
 
 
+def open_path(path: str) -> None:
+    """A file or folder with the system's own app (Explorer, Finder)."""
+    if os.name == "nt":
+        os.startfile(path)
+    else:
+        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+
+
 def open_logs() -> None:
     """The log in a window of its own (src/agent_logs.py), following new lines."""
     path = _log_file()
     if importlib.util.find_spec("tkinter") is None:  # Python built without Tk
-        if os.name == "nt":
-            os.startfile(path)
-        else:
-            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+        open_path(path)
         return
     env = {**os.environ, "PYTHONPATH": str(pathlib.Path(__file__).resolve().parent.parent)}
     subprocess.Popen([sys.executable, "-m", "src.agent_logs", path, current_language()], env=env)
@@ -1882,6 +1883,7 @@ class App:
                 visible=lambda _: self.panel is not None and not self.agent.online,
             ),
             item(lambda _: get_string("agent_menu_logs"), open_logs),
+            item(lambda _: get_string("agent_menu_cache"), self.open_cache),
             item(lambda _: get_string("agent_menu_quit"), self.quit),
         )
         self.icon = pystray.Icon("foxprofile-agent", Image.open(ICON), self.title, menu)
@@ -1892,6 +1894,12 @@ class App:
 
         self.icon.run(setup=setup)  # main thread: required on macOS
         return True
+
+    def open_cache(self) -> None:
+        """This account's copies of its profiles (Agent.cache_root)."""
+        folder = self.agent.cache_root
+        folder.mkdir(parents=True, exist_ok=True)
+        open_path(str(folder.resolve()))
 
     def quit(self) -> None:
         say(get_string("agent_stopping"))
