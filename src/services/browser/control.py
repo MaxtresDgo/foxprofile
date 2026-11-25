@@ -585,6 +585,7 @@ def build_app(controller: PageController, token: str) -> web.Application:
 
 
 async def serve(context: Any, touch: bool = False) -> tuple[web.AppRunner, int, str]:
+
     """Start the control server for a context. Returns (runner, port, token)."""
     token = secrets.token_urlsafe(24)
     controller = PageController(context, touch)

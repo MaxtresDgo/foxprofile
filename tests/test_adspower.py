@@ -347,6 +347,20 @@ def test_import_creates_an_android_chrome_profile_with_its_cookies(
     assert names["Account 3"] is True
 
 
+def test_a_name_held_in_other_case_gets_the_adspower_number(client, fake, monkeypatch):
+    monkeypatch.setattr(cookies, "import_cookies", lambda *a: 0)
+    client.post("/api/v1/profiles", json={"name": "ACCOUNT 3", "engine": "chrome"})
+
+    def targets():
+        r = client.post("/api/v1/adspower/profiles", json={"port": fake.port})
+        return {p["id"]: (p["target"], p["exists"]) for p in r.json()["profiles"]}
+
+    assert targets()["id3"] == ("Account 3-3", False)
+    body = {"port": fake.port, "profile_id": "id3", "name": "Account 3-3"}
+    assert client.post("/api/v1/adspower/import", json=body).json()["status"] == "created"
+    assert targets()["id3"] == ("Account 3-3", True)
+
+
 def test_import_reports_adspower_errors(client, fake):
     fake.api_key = "secret"
     r = client.post("/api/v1/adspower/profiles", json={"port": fake.port})

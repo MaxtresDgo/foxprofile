@@ -1,0 +1,4 @@
+# Desktop app (python -m src.main). Agents, the hub and server mode do not need it,
+# so it stays out of requirements.txt, which the agent installers ship.
+-r requirements.txt
+flet>=1.1.2

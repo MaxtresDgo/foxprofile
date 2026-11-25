@@ -18,6 +18,8 @@ from __future__ import annotations
 import functools
 import pathlib
 import re
+import threading
+import time
 
 from ..core import config
 
@@ -32,6 +34,9 @@ PART_SIZE = 8 * 1024 * 1024
 MAX_SIZE = 4 * 1024**3
 DOWNLOAD_EXPIRES = 900
 CONTENT_TYPE = "application/octet-stream"
+_VERSION = r"[0-9]+(?:\.[0-9]+){2}"
+_UPDATE_CACHE: dict[str, tuple[float, dict | None]] = {}
+_UPDATE_CACHE_LOCK = threading.Lock()
 
 
 class InstallerError(Exception):
@@ -52,6 +57,21 @@ def check(platform: str, name: str | None = None) -> None:
 
 def in_bucket() -> bool:
     return bool(config.S3_BUCKET)
+
+
+def newer_version(platform: str, name: str, installed: str) -> str:
+    """The version of a newer package with the standard filename for this slot."""
+    system, _, channel = platform.partition("-")
+    suffix = ("-dev" if channel == "dev" else "") + ("-macos.pkg" if system == "macos" else ".msi")
+    match = re.fullmatch(rf"FoxProfileAgent-({_VERSION}){re.escape(suffix)}", name)
+    if not match or not re.fullmatch(_VERSION, installed):
+        return ""
+    version = match[1]
+    return (
+        version
+        if tuple(map(int, version.split("."))) > tuple(map(int, installed.split(".")))
+        else ""
+    )
 
 
 # --- S3 -----------------------------------------------------------------------
@@ -139,12 +159,14 @@ def uploaded(platform: str, name: str) -> dict:
         raise InstallerError("err_no_installer")
     for old in found.keys() - {key}:
         _client().delete_object(Bucket=config.S3_BUCKET, Key=old)
+    with _UPDATE_CACHE_LOCK:
+        _UPDATE_CACHE.pop(platform, None)
     return {"platform": platform, "name": name, "size": found[key]["Size"]}
 
 
-def download_url(platform: str) -> str | None:
+def download_url(platform: str, name: str | None = None) -> str | None:
     item = newest(platform)
-    if item is None:
+    if item is None or (name is not None and item["name"] != name):
         return None
     return _client(public=True).generate_presigned_url(
         "get_object",
@@ -164,9 +186,11 @@ def folder(platform: str) -> pathlib.Path:
     return pathlib.Path(config.HUB_FILE).resolve().parent / "installers" / platform
 
 
-def local_file(platform: str) -> pathlib.Path | None:
+def local_file(platform: str, name: str | None = None) -> pathlib.Path | None:
     item = newest(platform)
-    return folder(platform) / item["name"] if item else None
+    if item is None or (name is not None and item["name"] != name):
+        return None
+    return folder(platform) / item["name"]
 
 
 # --- both -------------------------------------------------------------------------
@@ -191,3 +215,15 @@ def newest(platform: str) -> dict | None:
 
 def listing() -> list[dict]:
     return [item for p in PLATFORMS if (item := newest(p)) is not None]
+
+
+def for_update(platform: str) -> dict | None:
+    """Avoid hitting S3 on each sidebar refresh. Panel uploads invalidate the slot."""
+    if not in_bucket():
+        return newest(platform)
+    with _UPDATE_CACHE_LOCK:
+        expires, item = _UPDATE_CACHE.get(platform, (0.0, None))
+        if time.monotonic() >= expires:
+            item = newest(platform)
+            _UPDATE_CACHE[platform] = (time.monotonic() + 30, item)
+        return item

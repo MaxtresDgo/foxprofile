@@ -17,16 +17,29 @@ from collections import defaultdict
 from collections.abc import Callable, Iterator
 from typing import Any
 
+from ..core import config
 from ..core.config import DATA_DIR
 from ..core.strings import get_string
 from ..models.profile import Profile
 from ..services.browser.launcher import BrowserControlError, ProfileBusyError, _LaunchResult
-from ..services.profile.transfer import data_stamp
+from ..services.profile.transfer import data_stamp, read_meta
 from . import agent_code
 
 # An agent polls every POLL_WAIT seconds at most; silent for longer = offline.
 POLL_WAIT = 25
 AGENT_TIMEOUT = POLL_WAIT + 15
+
+
+def sync_mode(profile_dir: str) -> dict:
+    """How the agent moves this profile (config.HUB_SYNC), sent with its commands:
+    light, with `full` when its last full upload is HUB_FULL_DAYS old. Before light
+    sync every upload was full, so the last one counts when there is no hub_full."""
+    if config.HUB_SYNC != "light":
+        return {}
+    meta = read_meta(profile_dir)
+    last = (meta.get("hub_full") or meta.get("hub_upload") or {}).get("ts") or 0
+    days = config.HUB_FULL_DAYS
+    return {"sync": "light", "full": bool(days) and time.time() - last >= days * 86400}
 
 
 class AgentOfflineError(Exception):
@@ -41,6 +54,12 @@ class AgentOutdatedError(AgentOfflineError):
     profiles without their cookies."""
 
     key = "err_agent_outdated"
+
+
+class AgentInstallerError(AgentOutdatedError):
+    """Outdated with other libraries: only the new installer brings it up to date."""
+
+    key = "err_agent_installer"
 
 
 class RemoteLauncher:
@@ -58,9 +77,10 @@ class RemoteLauncher:
         # Requests waiting for an agent's answer: id -> (user, event, answer).
         self._pending: dict[str, tuple[str, threading.Event, dict]] = {}
         # Agent updates (hub/agent_code.py, hub/routes.poll): what each user's agent
-        # reported on its last poll, and who an admin asked to update right away.
+        # reported on its last poll, and who was asked to update.
         self.agents: dict[str, dict] = {}
         self.update_now: set[str] = set()
+        self.install_newer: dict[str, str] = {}  # user -> requested installer slot
         # When each user last authorized an agent: the panel says "connecting" for a while.
         self.authorized: dict[str, float] = {}
         # One-time codes the panel hands an agent for its key: code -> (user, expiry).
@@ -85,17 +105,20 @@ class RemoteLauncher:
         info = self.agents.get(user, {})
         # Only installed agents (code and req) update, as in hub/routes.poll.
         if info.get("code") and info.get("req") and info["code"] != agent_code.hub_code()[0]:
+            if info["req"] != agent_code.hub_requirements():
+                raise AgentInstallerError(user)
             raise AgentOutdatedError(user)
         self._leases[name] = self._last[name] = user
 
     def dispatch(self, user: str, profile: Profile) -> None:
         """Lease the profile to `user` and ask their agent to launch it."""
         # What the agent's local copy must match to open without a download.
-        stamp = data_stamp(os.path.join(DATA_DIR, profile.name))
+        data_dir = os.path.join(DATA_DIR, profile.name)
+        stamp, mode = data_stamp(data_dir), sync_mode(data_dir)
         with self._lock:
             self._lease(user, profile.name)
             self._results[profile.name] = _LaunchResult()
-            command = {"op": "launch", "profile": profile.to_dict(), "stamp": stamp}
+            command = {"op": "launch", "profile": profile.to_dict(), "stamp": stamp, **mode}
             extras = {
                 "extensions": self.extensions(profile),
                 "details": self.details(profile, user),
@@ -148,6 +171,7 @@ class RemoteLauncher:
             self._lease(user, profile.name)
         try:
             command = {"op": "cookies", "profile": profile.to_dict(), "action": action}
+            command |= {**sync_mode(os.path.join(DATA_DIR, profile.name)), "full": False}
             return self._call(user, {**command, "params": params}, timeout=300)
         finally:
             self.release(profile.name, user)

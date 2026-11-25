@@ -221,9 +221,10 @@ def _opened_with(folder, version):
     (folder / "Last Version").write_text(version)
     personas.save(folder, personas.generate("macos", seed=7))
     (folder / "tabs.json").write_text("[]")
+    (folder / "geo_locale.json").write_text('{"country": "US", "locale": "es-US"}')
 
 
-FOX_FILES = ["chrome_persona.json", "tabs.json"]
+FOX_FILES = ["chrome_persona.json", "geo_locale.json", "tabs.json"]
 
 
 @pytest.fixture

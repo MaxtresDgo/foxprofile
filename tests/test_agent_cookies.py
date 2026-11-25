@@ -1,7 +1,10 @@
 """The agent keeps a Chrome profile's portable cookies through every sync."""
 
 import contextlib
+import io
 import json
+import secrets
+import shutil
 import zipfile
 
 import pytest
@@ -163,8 +166,8 @@ def test_checkpoints_follow_the_wall_clock_per_profile(tmp_path, monkeypatch):
     monkeypatch.setattr(a, "checkpoint", lambda name: done.append(clock[0]))
     with contextlib.suppress(StopIteration):
         a._checkpoints()
-    # 100 ticks of 30 s: first seen at 30 s, then one every 10 minutes.
-    assert done == [630.0, 1230.0, 1830.0, 2430.0]
+    # 100 ticks of 5 s: first seen at 5 s, then one every 20 s.
+    assert done[:3] == [25.0, 45.0, 65.0] and len(done) == 24
 
 
 def _cached_agent(tmp_path, monkeypatch):
@@ -279,3 +282,240 @@ def test_the_hub_counts_as_down_only_after_a_failed_call(monkeypatch):
         with pytest.raises(agent.urllib.error.HTTPError):
             hub.call("GET", "/hub/poll")
         assert hub.reachable is reachable
+
+
+# --- light sync (hub FOXPROFILE_HUB_SYNC=light) --------------------------------
+
+
+def _serve_light(monkeypatch, a, tmp_path, *names, files=None):
+    """The hub's light bundle of p1, served to `a`: its pack and `files`."""
+    hub = tmp_path / f"hub-{secrets.token_hex(3)}" / "p1"
+    hub.mkdir(parents=True)
+    for rel, text in (files or {}).items():
+        (hub / rel).parent.mkdir(parents=True, exist_ok=True)
+        (hub / rel).write_text(text)
+    if names:
+        pack_cookies(str(hub), cookies_json(*names))
+    ok, zip_path = export_to_zip(agent.Profile(name="p1"), str(hub), str(hub.parent), light=True)
+    asked = []
+
+    def fetch(name, path, light=False):
+        asked.append(light)
+        shutil.copy(zip_path, path)
+
+    monkeypatch.setattr(a, "_fetch_bundle", fetch)
+    return asked
+
+
+def _imports(monkeypatch):
+    got = []
+
+    def record(name, os_type, text, engine, version):
+        got.append([c["name"] for c in json.loads(text)])
+        return len(got[-1])
+
+    monkeypatch.setattr(agent.cookies, "import_cookies", record)
+    return got
+
+
+def test_a_light_open_over_this_pcs_copy_takes_the_hubs_sessions(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    (a.cache_root / "p1" / "places.sqlite").write_text("history")
+    ls = "Default/Local Storage/leveldb/000003.log"
+    asked = _serve_light(monkeypatch, a, tmp_path, "sid", files={ls: "from the other PC"})
+    imported = _imports(monkeypatch)
+
+    a._download("p1", {"name": "p1"}, "changed-on-the-hub", light=True)
+    local = a.data_root / "p1"
+    assert asked == [True]
+    assert (local / "places.sqlite").read_text() == "history"  # not light: this PC's stays
+    assert (local / ls).read_text() == "from the other PC"
+    # Another PC's pack: this copy's store goes, so none of its old sessions come back.
+    assert not (local / "cookies.sqlite").exists() and imported == [["sid"]]
+    assert read_cookies(str(local))  # the pack stays until the close replaces it
+    assert read_meta(str(local))["sync"] == {"light": True, "full": False}
+
+
+def test_a_light_open_of_its_own_pack_keeps_the_store(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    a.data_root, a.cache_root = tmp_path / "data", tmp_path / "cache"
+    local = a.data_root / "p1"
+    local.mkdir(parents=True)
+    (local / "cookies.sqlite").write_text("newer than the pack")
+    pack_cookies(str(local), cookies_json("sid"))
+    a._profiles["p1"] = agent.Profile(name="p1")
+    a._cache_put("p1", local, "s1")
+    monkeypatch.setattr(a, "_fetch_bundle", _no_hub)  # never asked: the stamps match
+    imported = _imports(monkeypatch)
+
+    a._download("p1", {"name": "p1"}, "s1", light=True)
+    assert imported == [] and (local / "cookies.sqlite").read_text() == "newer than the pack"
+    assert read_meta(str(local))["restored"]["kept_store"]
+
+
+def test_a_first_open_on_a_pc_takes_the_whole_profile(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    a.data_root, a.cache_root = tmp_path / "data", tmp_path / "cache"
+    monkeypatch.setattr(a, "_fetch_bundle", _no_hub)  # not the light bundle
+
+    def whole(name, local):
+        local.mkdir(parents=True)
+        (local / "History").write_text("visits")
+        (local / "cookies.sqlite").write_text("written on another PC")
+        pack_cookies(str(local), cookies_json("sid"))
+        return agent.Profile(name=name), 1234
+
+    monkeypatch.setattr(a, "_fetch_into", whole)
+    imported = _imports(monkeypatch)
+    a._download("p1", {"name": "p1"}, "s1", light=True, full=True)
+    local = a.data_root / "p1"
+    assert (local / "History").read_text() == "visits"
+    # The hub's store is another PC's: the pack fills a new one.
+    assert not (local / "cookies.sqlite").exists() and imported == [["sid"]]
+    assert read_meta(str(local))["sync"] == {"light": True, "full": True}
+
+
+def test_a_cookie_job_takes_only_the_light_bundle(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    a.data_root, a.cache_root = tmp_path / "data", tmp_path / "cache"
+    _serve_light(monkeypatch, a, tmp_path, "sid", files={"fingerprint.json": "{}"})
+    imported = _imports(monkeypatch)
+    a._download("p1", light=True)
+    local = a.data_root / "p1"
+    assert {f.name for f in local.iterdir()} == {
+        "cookies.json.gz",
+        "cookies.json.gz.sha256",
+        "fingerprint.json",
+        "sync.json",
+    }
+    assert imported == [["sid"]]
+
+
+def test_a_light_close_uploads_the_light_bundle_unless_a_backup_is_due(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    local = tmp_path / "p1"
+    local.mkdir()
+    (local / "History").write_text("visits")
+    pack_cookies(str(local), cookies_json("sid"))
+    sent = []
+
+    def call(method, path, data=None, **kw):
+        if "/part" in path:
+            sent.append(data)
+        return {"stamp": "s9"}
+
+    monkeypatch.setattr(a.hub, "call", call)
+
+    def uploaded(full):
+        sent.clear()
+        update_meta(str(local), sync={"light": True, "full": full})
+        a._upload("p1", local)
+        return zipfile.ZipFile(io.BytesIO(b"".join(sent))).namelist()
+
+    assert "data/History" not in uploaded(full=False)
+    assert "data/History" in uploaded(full=True)
+
+
+def test_a_copy_of_another_chrome_build_goes(tmp_path, monkeypatch):
+    a = _cached_agent(tmp_path, monkeypatch)
+    monkeypatch.setattr(a, "_fetch_into", _no_hub)
+    # Downgraded on the hub: the same stamp, but this copy has a newer build's data.
+    with pytest.raises(agent.urllib.error.URLError):
+        a._download("p1", {"name": "p1", "chrome_version": "129"}, "s1")
+    assert a.cached_names() == []
+
+
+def test_copies_past_the_space_cap_go_least_used_first(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    a.data_root, a.cache_root = tmp_path / "data", tmp_path / "cache"
+    monkeypatch.setattr(agent, "CACHE_MAX_GB", 3000 / 2**30)  # room for one of them
+    for name in ("p1", "p2"):
+        local = a.data_root / name
+        local.mkdir(parents=True)
+        (local / "cookies.sqlite").write_text("x" * 2000)
+        a._profiles[name] = agent.Profile(name=name)
+        a._cache_put(name, local, "s1")
+    assert a.cached_names() == ["p2"]
+
+    # A nearly full disk: none is kept.
+    monkeypatch.setattr(agent.shutil, "disk_usage", lambda path: shutil._ntuple_diskusage(1, 1, 0))
+    a.prune_cache()
+    assert a.cached_names() == []
+
+
+def test_a_stop_checkpoints_the_live_browser_first(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    _chrome_dir(tmp_path)
+    monkeypatch.setattr(
+        a.bl, "control", lambda *a, **k: [{"domain": ".x.com", "name": "sid", "value": "1"}]
+    )
+    monkeypatch.setattr(a.bl, "running_profile_names", lambda: {"p1"})
+    monkeypatch.setattr(a.bl, "stop_profile", lambda name, timeout: True)
+    monkeypatch.setattr(a, "_sync", lambda name, unexpected=False: None)
+    saved = []
+
+    def save(profile_dir, text):
+        saved.append(text)
+        return {"verified": True, "cookies": 1, "reason": ""}
+
+    monkeypatch.setattr(agent, "save_checkpoint", save)
+    a.stop("p1")
+    assert len(saved) == 1  # before the browser closes: its export afterwards can fail
+    a.checkpoint("p1")
+    assert len(saved) == 1  # the same cookies are not saved again
+
+
+# --- where the profiles live (C:\Users\<user>\FoxProfiles on Windows) -----------
+
+
+def test_each_account_keeps_its_own_copies(tmp_path, monkeypatch):
+    a = _agent(tmp_path, monkeypatch)
+    local = a.data_root / "p1"
+    local.mkdir()
+    (local / "cookies.sqlite").write_text("ana's sessions")
+    a._profiles["p1"] = agent.Profile(name="p1")
+    a._cache_put("p1", local, "s1")
+    assert (tmp_path / "profile-cache" / "ana" / "p1.json").exists()
+
+    a.hub.user = "bob@example.com"  # switched account on the same PC
+    assert a.cached_names() == [] and a.cache_root.name == "bob@example.com"
+    a.prune_cache()
+    assert (tmp_path / "profile-cache" / "ana" / "p1").is_dir()  # for ana's next sign-in
+    a.hub.user = "ana"
+    assert a.cached_names() == ["p1"]
+    assert agent.account_dir("a/b:c") == "a_b_c"
+
+
+def test_an_earlier_agents_folders_move_to_the_new_place(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "camoufox_data" / "p2").mkdir(parents=True)  # still to upload
+    old = tmp_path / "profile-cache"
+    (old / "p1").mkdir(parents=True)
+    record = {"user": "ana", "hub": "https://hub.example.com", "stamp": "s1"}
+    (old / "p1.json").write_text(json.dumps(record))
+    # Agents 3.0.123 to 3.0.125 kept them in C:/FoxProfiles/<user>, copies by account.
+    monkeypatch.setattr(agent, "LEGACY_ROOT", tmp_path / "C-FoxProfiles")
+    legacy = agent.LEGACY_ROOT / agent.getpass.getuser()
+    (legacy / "perfiles" / "p3").mkdir(parents=True)
+    (legacy / "cache" / "ana" / "p4").mkdir(parents=True)
+    (legacy / "cache" / "ana" / "p4.json").write_text(json.dumps(record))
+    mine = tmp_path / "Users" / "braya" / "FoxProfiles"
+    monkeypatch.setattr(agent, "DATA_DIR", str(mine / "perfiles"))
+
+    a = agent.Agent(agent.HubClient("https://hub.example.com", "ana", "fpk_x"))
+    assert a.cache_root == mine / "cache" / "ana"
+    assert {d.name for d in (mine / "perfiles").iterdir()} == {"p2", "p3"}
+    assert a.cached_names() == ["p1", "p4"]
+    assert not old.exists() and not (tmp_path / "camoufox_data").exists()
+    assert not agent.LEGACY_ROOT.exists()  # emptied, then removed
+
+
+def test_a_pc_without_copies_yet_starts_polling(tmp_path, monkeypatch):
+    """A first start in FoxProfiles finds no cache folder (3.0.123 stopped polling there)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent, "DATA_DIR", str(tmp_path / "FoxProfiles" / "braya" / "perfiles"))
+    a = agent.Agent(agent.HubClient("https://hub.example.com", "ana", "fpk_x"))
+    assert a.cache_base.is_dir()  # made at the start, next to perfiles
+    a.cache_base.rmdir()  # deleted by hand: still no reason to stop
+    a.recover()  # uploads what is left, then prunes the copies: none yet
+    assert a.cached_names() == []

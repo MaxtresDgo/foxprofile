@@ -24,7 +24,14 @@ from src.hub import platform_auth
 from src.hub.store import HubStore
 from src.services.browser.launcher import BrowserControlError
 from src.services.profile import snapshots
-from src.services.profile.transfer import COOKIES_GZ, COOKIES_SHA, pack_cookies, read_cookies
+from src.services.profile.transfer import (
+    COOKIES_GZ,
+    COOKIES_SHA,
+    pack_cookies,
+    read_cookies,
+    read_meta,
+    update_meta,
+)
 
 SECRET = "s" * 32
 ARMY_SECRET = "a" * 32
@@ -468,6 +475,16 @@ def test_proxy_checks_run_on_the_callers_pc(hub):
     r = client.get("/api/v1/profiles/shop-01/ip-check", headers=ana)
     assert r.status_code == 200 and r.json()["exit_ip"] == "203.0.113.7"
 
+    # The agent cannot see the locale the profile keeps: the hub's copy of it can.
+    from chrome_engine.geo import remembered_locale
+    from src.core.config import DATA_DIR
+
+    remembered_locale(pathlib.Path(DATA_DIR, "shop-01"), "VN", "en-VN")
+    geo.locale = None
+    _fake_agent(client, ana, geo_reply)
+    r = client.get("/api/v1/profiles/shop-01/ip-check", headers=ana)
+    assert r.json()["locale"] == "en-VN" and r.json()["locale_pinned"] is False
+
     _fake_agent(client, ana, lambda cmd: {"ok": False, "error": "On ana's PC: boom", "status": 502})
     r = client.post("/api/v1/proxy/geo-check", json={"proxy": proxy}, headers=ana)
     assert r.status_code == 502 and r.json()["detail"] == "On ana's PC: boom"
@@ -898,9 +915,92 @@ def test_two_pcs_on_the_same_version_keep_both_until_someone_picks(hub, tmp_path
     api = "/api/v1/profiles/shop-01/conflicts"
     listed = client.get(api, headers=ana).json()
     assert [c["id"] for c in listed["copies"]] == [kept] and listed["hub"]["by"] == "ana"
+    # What tells them apart, read from each version's own pack.
+    assert listed["copies"][0]["sites"] == [["x.com", 1]] and listed["hub"]["facebook"] == ""
     assert not listed["can_resolve"]
     assert client.post(f"{api}/resolve", json={"keep": kept}, headers=ana).status_code == 403
     assert client.post(f"{api}/resolve", json={"keep": kept}, headers=admin).status_code == 200
     assert [c["name"] for c in json.loads(read_cookies("camoufox_data/shop-01"))] == ["pc-b"]
     assert client.get("/api/v1/hub/me", headers=ana).json()["conflicts"] == {}
     assert client.post(f"{api}/resolve", json={"keep": "hub"}, headers=admin).status_code == 404
+
+
+def _light_zip(name, tmp_path, *cookie_names):
+    folder = tmp_path / f"pack-{secrets.token_hex(3)}"
+    folder.mkdir()
+    pack_cookies(str(folder), json.dumps([{"domain": ".x.com", "name": n} for n in cookie_names]))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("profile.json", json.dumps({"name": name, "bundle": "light"}))
+        for f in (COOKIES_GZ, COOKIES_SHA):
+            z.writestr(f"data/{f}", (folder / f).read_bytes())
+    return buf.getvalue()
+
+
+def test_light_sync_moves_the_sessions_and_backs_up_the_whole_profile(hub, tmp_path, monkeypatch):
+    client, container, _ = hub
+    monkeypatch.setattr(config, "HUB_SYNC", "light")
+    monkeypatch.setattr(snapshots, "enabled", lambda: True)
+    snapped = []
+    monkeypatch.setattr(snapshots, "upload_later", lambda profile, zip_path: snapped.append(1))
+    bl = container.browser_launcher
+    ana = _login(client, "ana", "anaanaanaana")
+    client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana)
+    bl.touch("ana", set())
+    data = pathlib.Path("camoufox_data/shop-01")
+
+    def launch():
+        r = client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana)
+        assert r.status_code == 202, r.text
+        cmd = bl.next_command("ana")
+        return cmd["sync"], cmd["full"]
+
+    def upload(bundle):
+        r = client.put("/api/v1/hub/bundle/shop-01?release=1", content=bundle, headers=ana)
+        assert r.status_code == 200, r.text
+
+    # Never uploaded: its first close sends the whole profile, a snapshot.
+    assert launch() == ("light", True)
+    upload(_zip("shop-01", {"data/History": b"visits"}))
+    backed_up = read_meta(str(data))["hub_full"]["ts"]
+    assert snapped == [1]
+
+    # Backed up just now: light, and the light bundle leaves the rest behind.
+    assert launch() == ("light", False)
+    base = "/api/v1/hub/bundle/shop-01/download"
+    job = client.post(base + "?light=1", headers=ana).json()["id"]
+    for _ in range(200):
+        if client.get(f"{base}/{job}", headers=ana).json()["ready"]:
+            break
+        time.sleep(0.01)
+    part = client.get(f"{base}/{job}/part?offset=0", headers=ana).content
+    client.delete(f"{base}/{job}", headers=ana)  # as the agent ends it
+    names = zipfile.ZipFile(io.BytesIO(part)).namelist()
+    assert "data/sync.json" in names and "data/History" not in names
+
+    # Its close replaces the sessions only: the rest, and the backup's date, stay.
+    upload(_light_zip("shop-01", tmp_path, "sid"))
+    assert [c["name"] for c in json.loads(read_cookies(str(data)))] == ["sid"]
+    assert (data / "History").read_bytes() == b"visits"
+    assert read_meta(str(data))["hub_full"]["ts"] == backed_up
+    assert snapped == [1]  # a light upload is not the profile
+
+    # HUB_FULL_DAYS later, the next close backs it up again.
+    update_meta(str(data), hub_full={"ts": time.time() - config.HUB_FULL_DAYS * 86400})
+    assert launch() == ("light", True)
+
+
+def test_a_versions_details_name_its_facebook_session_only_with_xs(tmp_path):
+    from src.hub import conflicts
+
+    fb = [{"domain": ".facebook.com", "name": "c_user", "value": "1000123"}]
+    fb.append({"domain": ".facebook.com", "name": "xs", "value": "s"})
+    youtube = {"domain": ".youtube.com", "name": "PREF", "value": "1"}
+    pack_cookies(str(tmp_path), json.dumps([*fb, youtube]))
+    (tmp_path / "tabs.json").write_text(json.dumps({"tabs": ["https://www.facebook.com/groups/1"]}))
+    seen = conflicts.details(str(tmp_path))
+    assert seen["facebook"] == "1000123" and seen["cookies"] == 3
+    assert seen["sites"] == [("facebook.com", 2), ("youtube.com", 1)]
+    assert seen["tabs"] == ["https://www.facebook.com/groups/1"]
+    pack_cookies(str(tmp_path), json.dumps(fb[:1]))  # c_user without xs: logged out
+    assert conflicts.details(str(tmp_path))["facebook"] == ""

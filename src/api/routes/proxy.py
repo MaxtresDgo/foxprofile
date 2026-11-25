@@ -61,12 +61,25 @@ def geo_check(
 
 
 def geo_check_here_or_on_agent(
-    request: Request, bl, proxy: str | None, timezone: str | None, locale: str | None
+    request: Request,
+    bl,
+    proxy: str | None,
+    timezone: str | None,
+    locale: str | None,
+    profile_dir: str | None = None,
 ) -> GeoCheckResponse:
     if hub_store(request) is not None:
         params = {"proxy": proxy, "timezone": timezone, "locale": locale}
-        return GeoCheckResponse(**check_on_agent(request, bl, "geo_check", params, 60))
-    return GeoCheckResponse.from_result(check_geo(proxy, timezone, locale))
+        result = check_on_agent(request, bl, "geo_check", params, 60)
+        if not locale and profile_dir:
+            # The kept locale lives in the hub's copy of the profile, not on the agent.
+            from chrome_engine.geo import kept_locale
+
+            result["locale"] = result.get("locale") or kept_locale(
+                profile_dir, result.get("country")
+            )
+        return GeoCheckResponse(**result)
+    return GeoCheckResponse.from_result(check_geo(proxy, timezone, locale, profile_dir))
 
 
 # --- Saved proxies: a directory admins keep (Settings › Proxies) -------------------

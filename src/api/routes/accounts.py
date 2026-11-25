@@ -3,8 +3,10 @@ site's login form with them in the running profile.
 
 Listings never carry secrets; the password and the current 2FA code each have
 their own route. Personal keys (fpk_, the MCP and agent keys) get 403 here:
-neither MCP clients nor agents read accounts. The one exception is the summary
-(no secrets) for the army_key, so Army's panel shows which accounts each profile has.
+neither MCP clients nor agents read accounts. The exceptions are for the army_key:
+the summary (no secrets), so Army's panel shows which accounts each profile has,
+and Log in, which fills the form in the running profile without the password or
+the 2FA code ever leaving the hub and its agent.
 """
 
 from __future__ import annotations
@@ -46,6 +48,14 @@ router = APIRouter(
     prefix="/profiles/{name}/accounts",
     tags=["accounts"],
     dependencies=[Depends(_no_personal_key)],
+)
+
+
+# Log in from Army's panel too (army_key): the secrets stay here.
+login_router = APIRouter(
+    prefix="/profiles/{name}/accounts",
+    tags=["accounts"],
+    dependencies=[Depends(_no_personal_key_but_army)],
 )
 
 
@@ -204,7 +214,7 @@ def current_code(
     return TotpResponse(code=code, remaining=remaining)
 
 
-@router.post("/{account_id}/login", response_model=SuccessResponse)
+@login_router.post("/{account_id}/login", response_model=SuccessResponse)
 def fill_login(
     name: str,
     account_id: str,

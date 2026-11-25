@@ -64,6 +64,14 @@ HUB_FILE = _env("HUB_FILE", "hub.json")
 # Largest profile data an agent may send back (each upload, in MB): keeps a
 # runaway or hostile agent from filling the hub's disk.
 HUB_MAX_BUNDLE_MB = int(_env("HUB_MAX_BUNDLE_MB", "4096"))
+# What agents send on each open and close: "full" (the whole profile, no caches)
+# or "light" (cookies, the profile's own files and the sites' storage, a few MB:
+# transfer.LIGHT_FILES); then the rest stays on each PC, and every HUB_FULL_DAYS
+# a close uploads the whole profile instead, as the hub's backup. 0: never.
+HUB_SYNC = _env("HUB_SYNC", "full").strip().lower()
+if HUB_SYNC not in ("full", "light"):
+    raise ValueError(f"FOXPROFILE_HUB_SYNC must be full or light, not {HUB_SYNC!r}")
+HUB_FULL_DAYS = max(0, int(_env("HUB_FULL_DAYS", "7")))
 # Hub logins are checked against an external identity platform (hub/platform_auth.py):
 # POST {AUTH_URL}/auth/login with `Origin: AUTH_ORIGIN`, the origin that platform has
 # registered for this app. Users holding AUTH_ADMIN_PERMISSION there are hub admins.

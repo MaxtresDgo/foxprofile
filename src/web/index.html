@@ -165,10 +165,15 @@ input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(-
 .agent::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--cover-muted); }
 .agent.on { color: var(--cover-ink); }
 .agent.on::before { background: var(--ok); border-color: var(--ok); }
+/* Needs the new installer: a square, not a dot, so it reads without colour. */
+.agent.update { color: var(--cover-ink); }
+.agent.update::before { border-radius: 2px; border-color: var(--cover-ink); }
 .agent { align-items: flex-start; }
 .agent::before { flex: none; margin-top: 5px; }
 .agent .agent-text { display: flex; flex-direction: column; min-width: 0; }
 .agent .agent-detail { font-size: 11.5px; color: var(--cover-muted); overflow-wrap: anywhere; }
+.agent .agent-detail.failed { color: var(--cover-ink); }
+.agent .agent-detail.failed::before { content: "✕ "; }
 .agent.busy { color: var(--cover-ink); }
 /* Busy reads by form: a bright ring that pulses (offline: a dim ring; connected: a filled dot). */
 .agent.busy::before { border-color: var(--cover-ink); animation: agent-pulse 1.4s ease-in-out infinite; }
@@ -239,6 +244,9 @@ main { min-width: 0; padding: 26px 32px 40px; }
 .bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-sunk); border-radius: 10px 10px 0 0; }
 .bulk .n { font-weight: 600; margin-right: 6px; }
 .bulk .btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 14px; color: var(--ink-2); font-size: 13px; }
+.pager .btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.pager input { width: 76px; height: 32px; font-size: 13px; margin-right: 12px; }
 .sync-chip { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
 .results { margin: 10px 0 0; padding: 0; list-style: none; font-size: 12.5px; max-height: 180px; overflow: auto; }
 .results li { padding: 3px 0; overflow-wrap: anywhere; }
@@ -575,6 +583,7 @@ code { font-family: var(--data); font-size: 12.5px; background: var(--paper-sunk
     <div class="rail-foot">
       <div class="agent hidden" id="agent-status" role="status"></div>
       <button class="rail-link hidden" id="agent-get-btn"><svg class="i"><use href="#i-download"/></svg><span data-t="agent_get"></span></button>
+      <button class="rail-link hidden" id="agent-update-btn"><svg class="i"><use href="#i-sync"/></svg><span data-t="agent_update"></span></button>
       <button class="rail-link" id="settings-btn"><svg class="i"><use href="#i-settings"/></svg><span data-t="settings"></span></button>
       <button class="rail-link hidden" id="logout-btn"><svg class="i"><use href="#i-logout"/></svg><span data-t="logout"></span></button>
     </div>
@@ -654,12 +663,12 @@ const I18N = {
     snapshot_count: "{n} snapshot", snapshot_newest: "mới nhất {when}", snapshot_orphan: "mồ côi", snapshot_put_back: "Khôi phục profile", snapshot_put_back_as: "Khôi phục với tên",
     snapshot_put_back_done: "Đã khôi phục profile {name}", snapshot_delete_confirm: "Xoá vĩnh viễn {n} snapshot của {name} trên NAS?", snapshot_deleted: "Đã xoá snapshot của {name}",
     cookie_history: "Lịch sử cookie", cookie_history_none: "Chưa có gói nào. Mỗi lần đồng bộ sẽ giữ một gói.", cookie_src_close: "lúc đóng", cookie_src_checkpoint: "checkpoint", cookie_src_history: "đã khôi phục", cookie_suspicious: "ít hơn một nửa gói trước", cookie_restore: "Khôi phục", cookie_restore_confirm: "Khôi phục {n} cookie của {name} từ gói lúc {when}? Lần mở tiếp theo sẽ nạp chúng.", cookie_restored: "Đã khôi phục cookie: lần mở tiếp theo sẽ nạp chúng",
-    stamp_conflict: "Xung đột", conflict_title: "Xung đột phiên bản", conflict_hint: "Hai máy đã làm việc trên cùng một phiên bản. Chọn bản giữ lại; các bản khác bị bỏ.", conflict_hub: "Bản trên hub", conflict_copy: "Bản được giữ riêng", conflict_keep: "Dùng bản này", conflict_keep_confirm: "Giữ bản của {who} lúc {when} làm bản trên hub? Các bản khác sẽ bị bỏ.", conflict_done: "Đã xử lý xung đột", conflict_wait: "Quản trị viên hoặc trưởng nhóm cần chọn phiên bản.", conflict_cookies: "{n} cookie",
+    stamp_conflict: "Xung đột", conflict_fb: "Phiên Facebook: {id}", conflict_no_fb: "Không có phiên Facebook", conflict_title: "Xung đột phiên bản", conflict_hint: "Hai máy đã làm việc trên cùng một phiên bản. Chọn bản giữ lại; các bản khác bị bỏ.", conflict_hub: "Bản trên hub", conflict_copy: "Bản được giữ riêng", conflict_keep: "Dùng bản này", conflict_keep_confirm: "Giữ bản của {who} lúc {when} làm bản trên hub? Các bản khác sẽ bị bỏ.", conflict_done: "Đã xử lý xung đột", conflict_wait: "Quản trị viên hoặc trưởng nhóm cần chọn phiên bản.", conflict_cookies: "{n} cookie",
     snapshots: "Snapshot", snapshots_hint: "bản sao dữ liệu trình duyệt trên NAS", snapshots_none: "Chưa có snapshot nào. Mỗi lần đồng bộ sẽ tự lưu một bản.",
     snapshot_create: "Tạo snapshot", snapshot_restore: "Khôi phục", snapshot_saved: "Đã lưu snapshot", snapshot_restored: "Đã khôi phục. Trạng thái trước đó được lưu thành snapshot.",
     snapshot_confirm: "Khôi phục {name} về bản lúc {when}? Dữ liệu hiện tại được lưu thành snapshot trước; tài khoản đã lưu không bị ảnh hưởng.",
     tagline: "Quản lý profile anti-detect", new_profile: "Tạo profile", filters: "Lọc",
-    f_all: "Tất cả", f_running: "Đang chạy", f_proxy: "Có proxy", f_direct: "Không proxy", f_chrome: "Engine Chrome",
+    f_all: "Tất cả", f_running: "Đang chạy", f_proxy: "Có proxy", f_direct: "Không proxy", f_chrome: "Engine Chrome", f_conflict: "Đang xung đột",
     api_docs: "Tài liệu API", logout: "Đăng xuất", your_profiles: "Profile", search: "Tìm theo tên hoặc proxy",
     counts: "{n} profile · {r} đang chạy", counts_none: "{n} profile · chưa có profile nào chạy",
     col_profile: "Profile", col_device: "Thiết bị", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Trạng thái", owner_line: "Chủ: {user}",
@@ -675,17 +684,18 @@ const I18N = {
     sync_hint: "Click, gõ phím, chọn và Enter/Tab/Escape ở profile chính được lặp lại ở tab đang mở của các profile khác khi chúng ở cùng trang web.",
     sync_need_two: "Chọn ít nhất hai profile đang chạy", syncing: "Đang đồng bộ {leader} → {n} profile", sync_stop: "Dừng đồng bộ",
     sync_started: "Đã bắt đầu đồng bộ từ {leader}", sync_stopped: "Đã dừng đồng bộ: {leader}",
-    select_all: "Chọn tất cả", select_row: "Chọn {name}",
+    page_size: "Mỗi trang", select_page: "Chọn cả trang này", select_all_n: "Chọn tất cả {n}", select_row: "Chọn {name}",
+    page_range: "{a}–{b} / {n}", page_prev: "‹ Trước", page_next: "Sau ›",
     confirm_bulk_delete: "Xoá {n} profile đã chọn? Cookie và dữ liệu của chúng sẽ mất vĩnh viễn.", bulk_skip_running: "Bỏ qua {n} profile", bulk_edit: "Sửa", bulk_edit_title: "Sửa {n} profile", bulk_edit_hint: "Đánh dấu các trường cần đổi; các trường khác giữ nguyên giá trị của từng profile. Để trống sẽ bỏ proxy, hoặc đưa timezone và locale về tự động.", bulk_edit_nothing: "Hãy đánh dấu ít nhất một trường cần đổi", bulk_failed: "Lỗi ({n}): {names}", bulk_count: "Số lượng", bulk_create_n: "Tạo {n} profile", bulk_from: "Bắt đầu từ số", bulk_badge: "Dùng số đó làm số trên badge", bulk_preview: "Sẽ tạo từ {first} đến {last}", bulk_creating: "Đang tạo {done}/{total}", created_n: "Đã tạo {n} profile", updated_n: "Đã cập nhật {n} profile",
     login_side: "Server này chạy FoxProfile. Đăng nhập bằng API token để quản lý profile từ xa.",
     login_hint: "Nhập API token (biến FOXPROFILE_API_TOKEN) của server.", token: "API token", login: "Đăng nhập",
     bad_token: "Token không đúng", create: "Tạo profile", edit_title: "Sửa profile", edit_sub: "Đang sửa {name}", create_sub: "Một profile là một danh tính: thiết bị, proxy và vị trí riêng.",
     name: "Tên profile", os: "Hệ điều hành", engine: "Engine",
-    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (thử nghiệm)", engine_locked: "Engine không đổi được sau khi tạo.",
+    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (Chromium)", engine_locked: "Engine không đổi được sau khi tạo.",
     proxies_button: "Proxy", proxies_title: "Proxy đã lưu", proxies_hint: "Danh sách proxy dùng chung, cùng các proxy mà profile đang dùng.", proxy_note: "Ghi chú (tuỳ chọn)", proxy_add: "Lưu proxy", proxy_search: "Tìm proxy, ghi chú hoặc profile", proxy_none: "Chưa có proxy nào.", proxy_no_match: "Không có proxy nào khớp", proxy_from_profiles: "từ profile, chưa lưu", proxy_used: "{n} profile: {names}", proxy_unused: "chưa dùng", proxy_confirm_delete: "Xoá {proxy} khỏi danh sách đã lưu? Các profile đang dùng không thay đổi.",
     builds_button: "Trình duyệt", builds_title: "Trình duyệt (engine Chrome)", builds_hint: "Các phiên bản fingerprint-chromium cho profile engine Chrome. Chúng được tải về máy chạy trình duyệt (ở hub là máy của agent); profile chỉ mở được khi phiên bản của nó đã có ở đó.", build_download: "Tải về", build_installed: "Đã cài", build_default: "mặc định", builds_none: "Không có trình duyệt nào cho hệ điều hành của máy này",
     chrome_build: "Bản build Chrome", chrome_build_hint: "Bản build cũ hơn sẽ đặt lại dữ liệu trình duyệt; cookie, fingerprint và các tab được giữ.", build_downgrade_confirm: "Chuyển {name} về {version} sẽ đặt lại dữ liệu trình duyệt: lịch sử, local storage (các trang như WhatsApp Web sẽ yêu cầu đăng nhập lại), mật khẩu đã lưu trong trình duyệt và dữ liệu extension. Fingerprint, proxy, các tab và cookie được giữ nguyên.", build_downgrade_go: "Đặt lại và chuyển", chrome_downgraded: "{name} đã chuyển về {version}: dữ liệu trình duyệt được đặt lại, cookie được giữ", not_installed: "chưa cài", build_missing: "Cài bản build Chrome {version} để mở profile này", build_unavailable: "Bản build Chrome {version} không có cho hệ điều hành của máy này", install_build: "Cài {version}", installing_build: "Đang cài {pct}%", install_started: "Đang cài bản build Chrome {version}…", install_failed: "Không cài được bản build Chrome {version}: {error}", act_installing_build: "Đang cài bản build Chrome {version}… {pct}%", build_confirm: "Chuyển {name} sang bản build Chrome {version}? Không thể quay lại bản cũ hơn.",
-    engine_note: "Engine Chromium đang thử nghiệm. Mỗi bản build (~150 MB) được cài trên máy chạy trình duyệt bằng nút Cài trong danh sách. Nên chọn đúng hệ điều hành của máy đó, chọn hệ khác sẽ lộ font. Không đổi được engine sau khi tạo.",
+    engine_note: "Engine Chromium (fingerprint-chromium). Mỗi bản build (~150 MB) được cài trên máy chạy trình duyệt bằng nút Cài trong danh sách. Nên chọn đúng hệ điều hành của máy đó, chọn hệ khác sẽ lộ font. Không đổi được engine sau khi tạo.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, hoặc socks5://... Để trống = kết nối trực tiếp.",
     check_proxy: "Kiểm tra proxy", cancel: "Huỷ", bulk_opening: "Đang mở {done}/{total}", bulk_stopping: "Đang dừng {done}/{total}", bulk_cancelling: "Đang huỷ… các profile đang mở dở sẽ mở xong", bulk_cancelled: "Đã huỷ: mở {done}/{total} profile", save: "Lưu thay đổi", checking: "Đang kiểm tra...",
     confirm_delete: "Xoá profile “{name}”? Cookie và dữ liệu của profile sẽ mất vĩnh viễn.", confirm_title: "Xác nhận", stop_first: "Hãy dừng trình duyệt trước",
@@ -707,14 +717,13 @@ const I18N = {
     mcp_http_warn: "Bạn đang dùng HTTP không mã hoá: token có thể bị nghe lén. Nên đặt server sau HTTPS.",
     timezone: "Timezone", locale: "Locale", geo_hint: "Để trống thì tự theo IP của proxy.", check_ip: "Kiểm tra IP", tz_hint: "Asia/Ho_Chi_Minh", locale_hint: "vi-VN",
     geo_exit: "IP ra {ip} · {country}", geo_tz: "Timezone: {v} ({m})", geo_locale: "Locale: {v} ({m})",
-    geo_auto: "tự động", geo_pinned: "đặt tay", geo_random: "ngẫu nhiên mỗi lần mở", geo_ok: "Không phát hiện điểm lệch",
+    geo_auto: "tự động", geo_pinned: "đặt tay", geo_kept: "profile đang giữ", geo_first: "chọn ở lần mở đầu, sau đó giữ cố định", geo_ok: "Không phát hiện điểm lệch",
     geo_failed: "Không lấy được IP ra: {e}", geo_use: "Dùng {v}",
     geo_warn_country_mismatch: "{source} xác định IP ở {got}, trình duyệt đang dùng {expected}",
     geo_warn_timezone_mismatch: "{source} báo timezone {got}, trình duyệt đang dùng {expected}",
     geo_warn_hosting: "{source} gắn IP này là datacenter/hosting: dễ bị bắt captcha hoặc chặn",
     geo_warn_ip_differs: "Proxy dual-stack: timezone tính theo {exit_ip} nhưng trang web thấy {seen_ip}",
     geo_warn_locale_country: "Locale {locale} không thuộc quốc gia của IP ({country})",
-    geo_warn_locale_random: "Locale tự động được chọn lại ngẫu nhiên mỗi lần mở ({suggested} chỉ ~{share}% số lần); nên đặt cố định",
     go: "Đi", new_tab: "Tab mới", type: "Gõ", type_hint: "Gõ vào ô đang chọn (bấm lên ảnh để chọn ô)", working: "Đang xử lý...",
     back: "Quay lại", reload: "Tải lại",
     retry: "Thử lại", boot_error: "Không thể kết nối với server",
@@ -732,15 +741,15 @@ const I18N = {
     agent_authorize: "Cấp quyền", agent_switch: "Đổi tài khoản",
     agent_cancelled_title: "Đã huỷ", agent_cancelled: "Agent chưa được cấp quyền. Bạn có thể đóng tab này.",
     agent_done_title: "Agent đã kết nối", agent_done: "Agent đã kết nối với tài khoản {user}. Bạn có thể đóng tab này.", agent_to_panel: "Đến panel",
-    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_connecting: "Máy của bạn: đang kết nối với agent…", agent_connect_failed: "Không kết nối được với agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.",
+    agent_on: "Máy của bạn: đã kết nối", agent_on_n: "Máy của bạn: đã kết nối · {n} đang mở", agent_preparing: "Máy của bạn: đang chuẩn bị agent", act_downloading: "Đang tải trình duyệt (chỉ lần đầu, ~1,3 GB)…", act_downloading_pct: "Đang tải trình duyệt (chỉ lần đầu)… {pct}%", act_updating: "Đang cập nhật agent…", act_opening: "Đang mở {name}: tải dữ liệu…", act_syncing: "Đang lưu {name} lên hub…", agent_off: "Máy của bạn: chưa chạy agent", agent_connecting: "Máy của bạn: đang kết nối với agent…", agent_connect_failed: "Không kết nối được với agent", agent_get: "Tải agent về", agent_get_hint: "Chọn hệ điều hành của máy này để tải bộ cài.", agent_installer: "Máy của bạn: có bản cập nhật", agent_update: "Cập nhật agent", agent_updating: "Máy của bạn: đang cập nhật agent", act_installing: "Đang tải bộ cài…", act_installing_pct: "Đang tải bộ cài… {pct}%", act_installer_opened: "Đang cài bản cập nhật: nếu máy hỏi quyền, hãy đồng ý", act_installer_failed: "Không cập nhật được: {error}", agent_update_started: "Agent đang tải bộ cài mới trên máy của bạn…", agent_update_wait: "Agent sẽ cập nhật ngay khi bạn đóng các profile đang mở",
     agents_button: "Agent", agents_title: "Agent trên các máy", agents_install: "Cài agent trên máy mới",
     agents_install_hint: "Mỗi máy chỉ cần cài một lần; sau đó agent tự cập nhật theo phiên bản của hub khi không còn profile nào đang mở.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · bản dev", agents_macos_dev: "macOS · bản dev", agents_no_file: "Chưa có bộ cài",
-    agents_download: "Tải về", agents_upload: "Tải lên bộ cài", agents_uploading: "Đang tải lên… {pct}%", agents_uploaded: "Đã tải lên {name}",
+    agents_download: "Tải về", agents_upload: "Tải lên bộ cài", agents_uploading: "Đang tải lên {name}… {pct}%", agents_uploaded: "Đã tải lên {name}",
     agents_upload_failed: "Không tải lên được bộ cài", agents_upload_cors: "Trình duyệt không tải lên được bucket. Kiểm tra quy tắc CORS của bucket (cho phép PUT từ địa chỉ panel này) và proxy phía trước bucket.", agents_upload_etag: "Bucket không cho trình duyệt đọc ETag: thêm ExposeHeaders: [\"ETag\"] vào quy tắc CORS.", agents_list: "Agent đã kết nối", agents_none: "Chưa có agent nào kết nối từ khi hub khởi động.",
     agents_hub_code: "Phiên bản code của hub: {code}", agents_running: "{n} profile đang mở", agents_refresh: "Làm mới", agents_online: "đang kết nối", agents_offline: "mất kết nối",
     agents_update_now: "Cập nhật ngay", agents_update_hint: "Đóng các profile đang mở trên máy đó và cập nhật agent", agents_update_queued: "Sẽ cập nhật trong vài giây",
-    agent_state_current: "Đã cập nhật", agent_state_pending: "Sẽ cập nhật khi đóng hết profile", agent_state_installer: "Cần bộ cài mới (thư viện đã thay đổi)",
+    agent_state_current: "Đã cập nhật", agent_state_pending: "Sẽ cập nhật khi đóng hết profile", agent_state_installer: "Cần bộ cài mới (thư viện đã thay đổi)", agent_state_installer_available: "Có bộ cài v{version}",
     agent_state_script: "Chạy bằng script: cập nhật bằng git", agent_state_old: "Bản cũ: cài bộ cài mới một lần",
     users: "Người dùng", role_admin: "Quản trị", role_operator: "Nhân viên",
     owner: "Người dùng", unassigned: "Chưa giao",
@@ -750,7 +759,7 @@ const I18N = {
     general_sub: "Các cài đặt này chỉ áp dụng cho trình duyệt này.", theme: "Giao diện", theme_hint: "Hệ thống: theo cài đặt của máy tính.",
     theme_light: "Sáng", theme_dark: "Tối", theme_system: "Hệ thống", language: "Ngôn ngữ", language_hint: "Cũng áp dụng cho thông báo lỗi từ server.",
     groups: "Nhóm", group: "Nhóm", no_group: "Không có nhóm", all_groups: "Tất cả nhóm", search_groups: "Tìm nhóm", no_group_match: "Không có nhóm nào khớp", new_group: "Tên nhóm mới", add_group: "Tạo nhóm",
-    group_member: "Thành viên", group_lead: "Trưởng nhóm", add_member: "Thêm", pick_user: "Chọn người dùng",
+    group_member: "Thành viên", group_lead: "Trưởng nhóm", add_member: "Thêm", pick_user: "Chọn người dùng", groups_assign_n: "Thêm vào {n} nhóm", groups_assigning: "Đang thêm {a}/{n}…", groups_assigned: "Đã thêm vào {ok}/{n} nhóm", groups_skipped: "{n} nhóm đã có sẵn",
     group_profiles: "{n} profile", no_groups: "Chưa có nhóm nào.", group_hint: "Thành viên của nhóm thấy và mở được profile của nhóm trên máy của họ.",
     confirm_delete_group: "Xoá nhóm “{name}”? Profile của nhóm vẫn còn, thuộc về người dùng của chúng.",
     mcp_new_key: "Tạo key cá nhân và chèn vào cấu hình",
@@ -768,12 +777,12 @@ const I18N = {
     snapshot_count: "{n} snapshots", snapshot_newest: "newest {when}", snapshot_orphan: "orphan", snapshot_put_back: "Put back profile", snapshot_put_back_as: "Put back as",
     snapshot_put_back_done: "Profile {name} is back", snapshot_delete_confirm: "Delete the {n} snapshots of {name} from the NAS for good?", snapshot_deleted: "Snapshots of {name} deleted",
     cookie_history: "Cookie history", cookie_history_none: "No packs yet. Each sync keeps one.", cookie_src_close: "on close", cookie_src_checkpoint: "checkpoint", cookie_src_history: "restored", cookie_suspicious: "under half of the one before", cookie_restore: "Restore", cookie_restore_confirm: "Restore the {n} cookies of {name} from {when}? The next open loads them.", cookie_restored: "Cookies restored: the next open loads them",
-    stamp_conflict: "Conflict", conflict_title: "Version conflict", conflict_hint: "Two PCs worked on the same version. Pick the one that stays; the others go.", conflict_hub: "Hub copy", conflict_copy: "Version kept apart", conflict_keep: "Use this one", conflict_keep_confirm: "Make the version {who} saved at {when} the hub copy? The others go.", conflict_done: "Conflict settled", conflict_wait: "An admin or the group lead has to pick the version.", conflict_cookies: "{n} cookies",
+    stamp_conflict: "Conflict", conflict_fb: "Facebook session: {id}", conflict_no_fb: "No Facebook session", conflict_title: "Version conflict", conflict_hint: "Two PCs worked on the same version. Pick the one that stays; the others go.", conflict_hub: "Hub copy", conflict_copy: "Version kept apart", conflict_keep: "Use this one", conflict_keep_confirm: "Make the version {who} saved at {when} the hub copy? The others go.", conflict_done: "Conflict settled", conflict_wait: "An admin or the group lead has to pick the version.", conflict_cookies: "{n} cookies",
     snapshots: "Snapshots", snapshots_hint: "copies of the browser data on the NAS", snapshots_none: "No snapshots yet. Each sync saves one.",
     snapshot_create: "Save snapshot", snapshot_restore: "Restore", snapshot_saved: "Snapshot saved", snapshot_restored: "Restored. The previous state was saved as a snapshot.",
     snapshot_confirm: "Restore {name} to the copy from {when}? The current data is saved as a snapshot first; saved accounts are not touched.",
     tagline: "Anti-detect profile manager", new_profile: "New profile", filters: "Filter",
-    f_all: "All", f_running: "Running", f_proxy: "With proxy", f_direct: "No proxy", f_chrome: "Chrome engine",
+    f_all: "All", f_running: "Running", f_proxy: "With proxy", f_direct: "No proxy", f_chrome: "Chrome engine", f_conflict: "In conflict",
     api_docs: "API docs", logout: "Log out", your_profiles: "Profiles", search: "Search by name or proxy",
     counts: "{n} profiles · {r} running", counts_none: "{n} profiles · none running",
     col_profile: "Profile", col_device: "Device", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Status", owner_line: "Owner: {user}",
@@ -789,17 +798,18 @@ const I18N = {
     sync_hint: "Clicks, typing, selects and Enter/Tab/Escape in the leader are repeated in the other profiles' active tab while they are on the same site.",
     sync_need_two: "Select at least two running profiles", syncing: "Syncing {leader} → {n} profile(s)", sync_stop: "Stop sync",
     sync_started: "Sync started from {leader}", sync_stopped: "Sync stopped: {leader}",
-    select_all: "Select all", select_row: "Select {name}",
+    page_size: "Per page", select_page: "Select this page", select_all_n: "Select all {n}", select_row: "Select {name}",
+    page_range: "{a}–{b} of {n}", page_prev: "‹ Previous", page_next: "Next ›",
     confirm_bulk_delete: "Delete {n} selected profiles? Their cookies and data are removed permanently.", bulk_skip_running: "Skipped {n}", bulk_edit: "Edit", bulk_edit_title: "Edit {n} profiles", bulk_edit_hint: "Tick the fields to change; the rest keep each profile's own value. An empty field removes the proxy, or puts timezone and locale back on automatic.", bulk_edit_nothing: "Tick at least one field to change", bulk_failed: "Failed ({n}): {names}", bulk_count: "How many", bulk_create_n: "Create {n} profiles", bulk_from: "Starting number", bulk_badge: "Use that number on the badge", bulk_preview: "Creates {first} to {last}", bulk_creating: "Creating {done} of {total}", created_n: "Created {n} profiles", updated_n: "Updated {n} profiles",
     login_side: "This server runs FoxProfile. Log in with the API token to manage profiles remotely.",
     login_hint: "Enter the server's API token (FOXPROFILE_API_TOKEN).", token: "API token", login: "Log in",
     bad_token: "Invalid token", create: "Create profile", edit_title: "Edit profile", edit_sub: "Editing {name}", create_sub: "A profile is an identity: its own device, proxy and location.",
     name: "Profile name", os: "Operating system", engine: "Engine",
-    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "The engine cannot be changed after creation.",
+    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (Chromium)", engine_locked: "The engine cannot be changed after creation.",
     proxies_button: "Proxies", proxies_title: "Saved proxies", proxies_hint: "A shared list of proxies, plus the ones profiles already use.", proxy_note: "Note (optional)", proxy_add: "Save proxy", proxy_search: "Search proxy, note or profile", proxy_none: "No proxies yet.", proxy_no_match: "No proxy matches", proxy_from_profiles: "from profiles, not saved", proxy_used: "{n} profiles: {names}", proxy_unused: "unused", proxy_confirm_delete: "Remove {proxy} from the saved list? Profiles that use it keep it.",
     builds_button: "Browsers", builds_title: "Browsers (Chrome engine)", builds_hint: "fingerprint-chromium versions for Chrome engine profiles. They download to the PC that runs the browsers (on a hub, your agent's); a profile only opens once its version is there.", build_download: "Download", build_installed: "Installed", build_default: "default", builds_none: "No browser available for this PC's system",
     chrome_build: "Chrome build", chrome_build_hint: "An older build resets the browser data; cookies, fingerprint and tabs are kept.", build_downgrade_confirm: "Moving {name} back to {version} resets its browser data: history, local storage (sites such as WhatsApp Web ask you to sign in again), passwords saved in the browser and extension data. The fingerprint, proxy, tabs and cookies are kept.", build_downgrade_go: "Reset and switch", chrome_downgraded: "{name} moved back to {version}: browser data reset, cookies kept", not_installed: "not installed", build_missing: "Install Chrome build {version} to open this profile", build_unavailable: "Chrome build {version} has no download for this PC\u2019s system", install_build: "Install {version}", installing_build: "Installing {pct}%", install_started: "Installing Chrome build {version}…", install_failed: "Could not install Chrome build {version}: {error}", act_installing_build: "Installing Chrome build {version}… {pct}%", build_confirm: "Move {name} to Chrome build {version}? It cannot go back to an older build.",
-    engine_note: "Experimental Chromium engine. Each build (~150 MB) is installed on the PC that runs the browser, with the Install button in the list. Pick that machine's OS: other OSes leak its fonts. The engine cannot be changed later.",
+    engine_note: "Chromium engine (fingerprint-chromium). Each build (~150 MB) is installed on the PC that runs the browser, with the Install button in the list. Pick that machine's OS: other OSes leak its fonts. The engine cannot be changed later.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass, or socks5://... Blank = direct connection.",
     check_proxy: "Check proxy", cancel: "Cancel", bulk_opening: "Opening {done} of {total}", bulk_stopping: "Stopping {done} of {total}", bulk_cancelling: "Cancelling… the ones already opening finish", bulk_cancelled: "Cancelled: {done} of {total} profiles opened", save: "Save changes", checking: "Checking...",
     confirm_delete: "Delete profile “{name}”? Its cookies and data are removed permanently.", confirm_title: "Confirm", stop_first: "Stop the browser first",
@@ -821,14 +831,13 @@ const I18N = {
     mcp_http_warn: "You are on plain HTTP: the token can be sniffed in transit. Put the server behind HTTPS.",
     timezone: "Timezone", locale: "Locale", geo_hint: "Leave blank to follow the proxy's IP.", check_ip: "Check IP", tz_hint: "Asia/Ho_Chi_Minh", locale_hint: "vi-VN",
     geo_exit: "Exit IP {ip} · {country}", geo_tz: "Timezone: {v} ({m})", geo_locale: "Locale: {v} ({m})",
-    geo_auto: "automatic", geo_pinned: "pinned", geo_random: "random on every launch", geo_ok: "No mismatch found",
+    geo_auto: "automatic", geo_pinned: "pinned", geo_kept: "kept by this profile", geo_first: "picked on the first launch, then kept", geo_ok: "No mismatch found",
     geo_failed: "Could not get the exit IP: {e}", geo_use: "Use {v}",
     geo_warn_country_mismatch: "{source} places the IP in {got}; the browser uses {expected}",
     geo_warn_timezone_mismatch: "{source} reports timezone {got}; the browser uses {expected}",
     geo_warn_hosting: "{source} flags this IP as datacenter/hosting: expect captchas and blocks",
     geo_warn_ip_differs: "Dual-stack proxy: the timezone follows {exit_ip} but sites see {seen_ip}",
     geo_warn_locale_country: "Locale {locale} does not belong to the IP's country ({country})",
-    geo_warn_locale_random: "Automatic locale is re-drawn on every launch ({suggested} only ~{share}% of the time); pin it",
     go: "Go", new_tab: "New tab", type: "Type", type_hint: "Type into the focused field (click the screen to focus one)", working: "Working...",
     back: "Back", reload: "Reload",
     retry: "Retry", boot_error: "Cannot reach the server",
@@ -846,15 +855,15 @@ const I18N = {
     agent_authorize: "Authorize", agent_switch: "Switch account",
     agent_cancelled_title: "Cancelled", agent_cancelled: "The agent was not authorized. You can close this tab.",
     agent_done_title: "Agent connected", agent_done: "The agent is connected as {user}. You can close this tab.", agent_to_panel: "Go to the panel",
-    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_connecting: "Your PC: connecting to the agent…", agent_connect_failed: "Could not connect to the agent", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.",
+    agent_on: "Your PC: connected", agent_on_n: "Your PC: connected · {n} open", agent_preparing: "Your PC: getting the agent ready", act_downloading: "Downloading the browser (first run only, ~1.3 GB)…", act_downloading_pct: "Downloading the browser (first run only)… {pct}%", act_updating: "Updating the agent…", act_opening: "Opening {name}: downloading its data…", act_syncing: "Saving {name} to the hub…", agent_off: "Your PC: agent not running", agent_connecting: "Your PC: connecting to the agent…", agent_connect_failed: "Could not connect to the agent", agent_get: "Download the agent", agent_get_hint: "Pick this PC\u2019s system to download its installer.", agent_installer: "Your PC: update available", agent_update: "Update agent", agent_updating: "Your PC: updating the agent", act_installing: "Downloading the installer…", act_installing_pct: "Downloading the installer… {pct}%", act_installer_opened: "Installing the update: accept if your PC asks for permission", act_installer_failed: "Could not update: {error}", agent_update_started: "Your agent is downloading its new installer…", agent_update_wait: "Your agent updates as soon as you close the profiles you have open",
     agents_button: "Agents", agents_title: "Agents on the PCs", agents_install: "Install the agent on a new PC",
     agents_install_hint: "Each PC installs it once; after that the agent follows the hub's version by itself, as soon as no profile is open on it.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · dev build", agents_macos_dev: "macOS · dev build", agents_no_file: "No installer yet",
-    agents_download: "Download", agents_upload: "Upload installer", agents_uploading: "Uploading… {pct}%", agents_uploaded: "{name} uploaded",
+    agents_download: "Download", agents_upload: "Upload installer", agents_uploading: "Uploading {name}… {pct}%", agents_uploaded: "{name} uploaded",
     agents_upload_failed: "The installer could not be uploaded", agents_upload_cors: "The browser could not upload to the bucket. Check the bucket\u2019s CORS rule (PUT from this panel\u2019s address) and the proxy in front of the bucket.", agents_upload_etag: "The bucket hides the ETag from the browser: add ExposeHeaders: [\"ETag\"] to its CORS rule.", agents_list: "Connected agents", agents_none: "No agent has connected since the hub started.",
     agents_hub_code: "Hub code version: {code}", agents_running: "{n} profiles open", agents_refresh: "Refresh", agents_online: "connected", agents_offline: "offline",
     agents_update_now: "Update now", agents_update_hint: "Closes the profiles open on that PC and updates its agent", agents_update_queued: "Updating in a few seconds",
-    agent_state_current: "Up to date", agent_state_pending: "Updates once its profiles are closed", agent_state_installer: "Needs the new installer (libraries changed)",
+    agent_state_current: "Up to date", agent_state_pending: "Updates once its profiles are closed", agent_state_installer: "Needs the new installer (libraries changed)", agent_state_installer_available: "Installer v{version} available",
     agent_state_script: "Runs from a script: update it with git", agent_state_old: "Older version: install the new installer once",
     users: "Users", role_admin: "Admin", role_operator: "Operator",
     owner: "Operator", unassigned: "Unassigned",
@@ -864,7 +873,7 @@ const I18N = {
     general_sub: "These settings apply to this browser only.", theme: "Theme", theme_hint: "System follows your computer's setting.",
     theme_light: "Light", theme_dark: "Dark", theme_system: "System", language: "Language", language_hint: "Server error messages follow it too.",
     groups: "Groups", group: "Group", no_group: "No group", all_groups: "All groups", search_groups: "Search groups", no_group_match: "No group matches", new_group: "New group name", add_group: "Create group",
-    group_member: "Member", group_lead: "Lead", add_member: "Add", pick_user: "Pick a user",
+    group_member: "Member", group_lead: "Lead", add_member: "Add", pick_user: "Pick a user", groups_assign_n: "Add to {n} groups", groups_assigning: "Adding {a} of {n}…", groups_assigned: "Added to {ok} of {n} groups", groups_skipped: "{n} already there",
     group_profiles: "{n} profiles", no_groups: "No groups yet.", group_hint: "Group members see the group's profiles and open them on their own PC.",
     confirm_delete_group: "Delete group “{name}”? Its profiles stay with their operators.",
     mcp_new_key: "Create my personal key and insert it",
@@ -882,12 +891,12 @@ const I18N = {
     snapshot_count: "{n} snapshots", snapshot_newest: "el más reciente {when}", snapshot_orphan: "huérfano", snapshot_put_back: "Recuperar profile", snapshot_put_back_as: "Recuperar como",
     snapshot_put_back_done: "Profile {name} recuperado", snapshot_delete_confirm: "¿Borrar para siempre los {n} snapshots de {name} del NAS?", snapshot_deleted: "Snapshots de {name} borrados",
     cookie_history: "Historial de cookies", cookie_history_none: "Aún no hay paquetes. Cada sync guarda uno.", cookie_src_close: "al cerrar", cookie_src_checkpoint: "checkpoint", cookie_src_history: "restaurado", cookie_suspicious: "menos de la mitad que el anterior", cookie_restore: "Restaurar", cookie_restore_confirm: "¿Restaurar las {n} cookies de {name} del {when}? La siguiente apertura las carga.", cookie_restored: "Cookies restauradas: la siguiente apertura las carga",
-    stamp_conflict: "Conflicto", conflict_title: "Conflicto de versiones", conflict_hint: "Dos PCs trabajaron sobre la misma versión. Elige la que queda; las otras se descartan.", conflict_hub: "Copia del hub", conflict_copy: "Versión guardada aparte", conflict_keep: "Usar esta", conflict_keep_confirm: "¿Dejar como copia del hub la versión que guardó {who} el {when}? Las otras se descartan.", conflict_done: "Conflicto resuelto", conflict_wait: "Un admin o el líder del grupo tiene que elegir la versión.", conflict_cookies: "{n} cookies",
+    stamp_conflict: "Conflicto", conflict_fb: "Sesión de Facebook: {id}", conflict_no_fb: "Sin sesión de Facebook", conflict_title: "Conflicto de versiones", conflict_hint: "Dos PCs trabajaron sobre la misma versión. Elige la que queda; las otras se descartan.", conflict_hub: "Copia del hub", conflict_copy: "Versión guardada aparte", conflict_keep: "Usar esta", conflict_keep_confirm: "¿Dejar como copia del hub la versión que guardó {who} el {when}? Las otras se descartan.", conflict_done: "Conflicto resuelto", conflict_wait: "Un admin o el líder del grupo tiene que elegir la versión.", conflict_cookies: "{n} cookies",
     snapshots: "Snapshots", snapshots_hint: "copias de los datos del navegador en el NAS", snapshots_none: "Aún no hay snapshots. Cada sync guarda uno.",
     snapshot_create: "Guardar snapshot", snapshot_restore: "Restaurar", snapshot_saved: "Snapshot guardado", snapshot_restored: "Restaurado. El estado anterior quedó guardado como snapshot.",
     snapshot_confirm: "¿Restaurar {name} a la copia del {when}? Los datos actuales se guardan antes como snapshot; las cuentas guardadas no se tocan.",
     tagline: "Gestor de profiles anti-detect", new_profile: "Nuevo profile", filters: "Filtrar",
-    f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome",
+    f_all: "Todos", f_running: "En ejecución", f_proxy: "Con proxy", f_direct: "Sin proxy", f_chrome: "Engine Chrome", f_conflict: "En conflicto",
     api_docs: "Docs de la API", logout: "Cerrar sesión", your_profiles: "Profiles", search: "Buscar por nombre o proxy",
     counts: "{n} profiles · {r} en ejecución", counts_none: "{n} profiles · ninguno en ejecución",
     col_profile: "Profile", col_device: "Dispositivo", col_proxy: "Proxy", col_geo: "Timezone · Locale", col_status: "Estado", owner_line: "Dueño: {user}",
@@ -903,17 +912,18 @@ const I18N = {
     sync_hint: "Los clics, lo que se escribe, los select y Enter/Tab/Escape en el profile principal se repiten en la pestaña activa de los demás profiles mientras estén en el mismo sitio.",
     sync_need_two: "Selecciona al menos dos profiles en ejecución", syncing: "Sincronizando {leader} → {n} profile(s)", sync_stop: "Detener sincronización",
     sync_started: "Sincronización iniciada desde {leader}", sync_stopped: "Sincronización detenida: {leader}",
-    select_all: "Seleccionar todos", select_row: "Seleccionar {name}",
+    page_size: "Por página", select_page: "Seleccionar esta página", select_all_n: "Seleccionar los {n}", select_row: "Seleccionar {name}",
+    page_range: "{a}–{b} de {n}", page_prev: "‹ Anterior", page_next: "Siguiente ›",
     confirm_bulk_delete: "¿Eliminar {n} profiles seleccionados? Sus cookies y datos se borran para siempre.", bulk_skip_running: "Omitidos {n}", bulk_edit: "Editar", bulk_edit_title: "Editar {n} profiles", bulk_edit_hint: "Marca los campos que quieres cambiar; los demás conservan el valor de cada profile. Un campo vacío quita el proxy, o devuelve timezone y locale a automático.", bulk_edit_nothing: "Marca al menos un campo para cambiar", bulk_failed: "Con error ({n}): {names}", bulk_count: "Cantidad", bulk_create_n: "Crear {n} profiles", bulk_from: "Desde el número", bulk_badge: "Usar ese número en la insignia", bulk_preview: "Se crean de {first} a {last}", bulk_creating: "Creando {done} de {total}", created_n: "{n} profiles creados", updated_n: "{n} profiles actualizados",
     login_side: "Este servidor ejecuta FoxProfile. Inicia sesión con el token de la API para gestionar los profiles a distancia.",
     login_hint: "Introduce el token de la API del servidor (FOXPROFILE_API_TOKEN).", token: "Token de la API", login: "Iniciar sesión",
     bad_token: "Token no válido", create: "Crear profile", edit_title: "Editar profile", edit_sub: "Editando {name}", create_sub: "Un profile es una identidad: su propio dispositivo, proxy y ubicación.",
     name: "Nombre del profile", os: "Sistema operativo", engine: "Engine",
-    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (experimental)", engine_locked: "El engine no se puede cambiar después de crearlo.",
+    engine_camoufox: "Camoufox (Firefox)", engine_chrome: "Chrome (Chromium)", engine_locked: "El engine no se puede cambiar después de crearlo.",
     proxies_button: "Proxies", proxies_title: "Proxies guardados", proxies_hint: "La lista compartida de proxies, junto con los que ya usan los profiles.", proxy_note: "Nota (opcional)", proxy_add: "Guardar proxy", proxy_search: "Buscar proxy, nota o profile", proxy_none: "Todavía no hay proxies.", proxy_no_match: "Ningún proxy coincide", proxy_from_profiles: "de los profiles, sin guardar", proxy_used: "{n} profiles: {names}", proxy_unused: "sin usar", proxy_confirm_delete: "¿Quitar {proxy} de los guardados? Los profiles que lo usan lo conservan.",
     builds_button: "Navegadores", builds_title: "Navegadores (engine Chrome)", builds_hint: "Versiones de fingerprint-chromium para los profiles con engine Chrome. Se descargan en la PC que abre los navegadores (en el hub, la de tu agente); un profile solo abre si su versión ya está ahí.", build_download: "Descargar", build_installed: "Instalado", build_default: "predeterminado", builds_none: "No hay navegadores para el sistema de este PC",
     chrome_build: "Build de Chrome", chrome_build_hint: "Un build más viejo reinicia los datos del navegador; se conservan las cookies, el fingerprint y las pestañas.", build_downgrade_confirm: "Pasar {name} a {version} reinicia los datos de su navegador: historial, almacenamiento local (sitios como WhatsApp Web piden volver a entrar), contraseñas guardadas en el navegador y datos de las extensiones. Se conservan el fingerprint, el proxy, las pestañas y las cookies.", build_downgrade_go: "Reiniciar y pasar", chrome_downgraded: "{name} pasó a {version}: datos del navegador reiniciados, cookies conservadas", not_installed: "no instalado", build_missing: "Instala el build de Chrome {version} para abrir este profile", build_unavailable: "El build de Chrome {version} no tiene descarga para el sistema de este PC", install_build: "Instalar {version}", installing_build: "Instalando {pct} %", install_started: "Instalando el build de Chrome {version}…", install_failed: "No se pudo instalar el build de Chrome {version}: {error}", act_installing_build: "Instalando el build de Chrome {version}… {pct} %", build_confirm: "¿Pasar {name} al build de Chrome {version}? No podrá volver a un build anterior.",
-    engine_note: "Engine Chromium experimental. Cada build (~150 MB) se instala en el PC que ejecuta el navegador, con el botón Instalar de la lista. Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
+    engine_note: "Engine Chromium (fingerprint-chromium). Cada build (~150 MB) se instala en el PC que ejecuta el navegador, con el botón Instalar de la lista. Elige el sistema operativo de esa máquina: con otros se filtran sus fuentes. El engine no se puede cambiar después.",
     proxy_label: "Proxy", proxy_hint: "user:pass@host:port, host:port:user:pass o socks5://... Vacío = conexión directa.",
     check_proxy: "Probar proxy", cancel: "Cancelar", bulk_opening: "Abriendo {done} de {total}", bulk_stopping: "Deteniendo {done} de {total}", bulk_cancelling: "Cancelando… terminan de abrir los que ya iban", bulk_cancelled: "Cancelado: se abrieron {done} de {total} profiles", save: "Guardar cambios", checking: "Comprobando...",
     confirm_delete: "¿Eliminar el profile “{name}”? Sus cookies y datos se borran para siempre.", confirm_title: "Confirmar", stop_first: "Primero detén el navegador",
@@ -935,14 +945,13 @@ const I18N = {
     mcp_http_warn: "Estás en HTTP sin cifrar: el token puede interceptarse. Pon el servidor detrás de HTTPS.",
     timezone: "Timezone", locale: "Locale", geo_hint: "Déjalo vacío para seguir la IP del proxy.", check_ip: "Comprobar IP", tz_hint: "America/Mexico_City", locale_hint: "es-MX",
     geo_exit: "IP de salida {ip} · {country}", geo_tz: "Timezone: {v} ({m})", geo_locale: "Locale: {v} ({m})",
-    geo_auto: "automático", geo_pinned: "fijado", geo_random: "aleatorio en cada apertura", geo_ok: "No se encontraron discrepancias",
+    geo_auto: "automático", geo_pinned: "fijado", geo_kept: "el que guarda este profile", geo_first: "se elige en la primera apertura y luego se mantiene", geo_ok: "No se encontraron discrepancias",
     geo_failed: "No se pudo obtener la IP de salida: {e}", geo_use: "Usar {v}",
     geo_warn_country_mismatch: "{source} ubica la IP en {got}; el navegador usa {expected}",
     geo_warn_timezone_mismatch: "{source} indica la timezone {got}; el navegador usa {expected}",
     geo_warn_hosting: "{source} marca esta IP como de datacenter/hosting: espera captchas y bloqueos",
     geo_warn_ip_differs: "Proxy dual-stack: la timezone sigue a {exit_ip} pero los sitios ven {seen_ip}",
     geo_warn_locale_country: "El locale {locale} no corresponde al país de la IP ({country})",
-    geo_warn_locale_random: "El locale automático se vuelve a sortear en cada apertura ({suggested} solo ~{share}% de las veces); fíjalo",
     go: "Ir", new_tab: "Nueva pestaña", type: "Escribir", type_hint: "Escribe en el campo con foco (haz clic en la pantalla para enfocar uno)", working: "Procesando...",
     back: "Atrás", reload: "Recargar",
     retry: "Reintentar", boot_error: "No se puede conectar con el servidor",
@@ -960,15 +969,15 @@ const I18N = {
     agent_authorize: "Autorizar", agent_switch: "Cambiar cuenta",
     agent_cancelled_title: "Cancelado", agent_cancelled: "El agente no fue autorizado. Puedes cerrar esta pestaña.",
     agent_done_title: "Agente conectado", agent_done: "El agente está conectado como {user}. Puedes cerrar esta pestaña.", agent_to_panel: "Ir al panel",
-    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_connecting: "Tu PC: conectando con el agente…", agent_connect_failed: "No se pudo conectar con el agente", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.",
+    agent_on: "Tu PC: conectada", agent_on_n: "Tu PC: conectada · {n} abiertos", agent_preparing: "Tu PC: preparando el agente", act_downloading: "Descargando el navegador (solo la primera vez, ~1,3 GB)…", act_downloading_pct: "Descargando el navegador (solo la primera vez)… {pct}%", act_updating: "Actualizando el agente…", act_opening: "Abriendo {name}: descargando sus datos…", act_syncing: "Guardando {name} en el hub…", agent_off: "Tu PC: el agente no está en ejecución", agent_connecting: "Tu PC: conectando con el agente…", agent_connect_failed: "No se pudo conectar con el agente", agent_get: "Descargar el agente", agent_get_hint: "Elige el sistema de este PC para descargar su instalador.", agent_installer: "Tu PC: actualización disponible", agent_update: "Actualizar agente", agent_updating: "Tu PC: actualizando el agente", act_installing: "Descargando el instalador…", act_installing_pct: "Descargando el instalador… {pct}%", act_installer_opened: "Instalando la actualización: si tu PC pide permiso, acéptalo", act_installer_failed: "No se pudo actualizar: {error}", agent_update_started: "Tu agente está descargando su instalador nuevo…", agent_update_wait: "Tu agente se actualizará en cuanto cierres los perfiles abiertos",
     agents_button: "Agentes", agents_title: "Agentes en los PCs", agents_install: "Instalar el agente en un PC nuevo",
     agents_install_hint: "Cada PC lo instala una vez; después el agente sigue solo la versión del hub, en cuanto no tiene profiles abiertos.",
     agents_windows: "Windows", agents_macos: "macOS (Apple silicon, macOS 15+)", agents_windows_dev: "Windows · build dev", agents_macos_dev: "macOS · build dev", agents_no_file: "Todavía no hay instalador",
-    agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo… {pct}%", agents_uploaded: "{name} subido",
+    agents_download: "Descargar", agents_upload: "Subir instalador", agents_uploading: "Subiendo {name}… {pct}%", agents_uploaded: "{name} subido",
     agents_upload_failed: "No se pudo subir el instalador", agents_upload_cors: "El navegador no pudo subir al bucket. Revisa la regla CORS del bucket (PUT desde la dirección de este panel) y el proxy que tenga delante.", agents_upload_etag: "El bucket no deja al navegador leer el ETag: añade ExposeHeaders: [\"ETag\"] a su regla CORS.", agents_list: "Agentes conectados", agents_none: "Ningún agente se ha conectado desde que arrancó el hub.",
     agents_hub_code: "Versión del código del hub: {code}", agents_running: "{n} profiles abiertos", agents_refresh: "Actualizar lista", agents_online: "conectado", agents_offline: "desconectado",
     agents_update_now: "Actualizar ahora", agents_update_hint: "Cierra los profiles abiertos en ese PC y actualiza su agente", agents_update_queued: "Se actualiza en unos segundos",
-    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus profiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)",
+    agent_state_current: "Al día", agent_state_pending: "Se actualiza al cerrar sus profiles", agent_state_installer: "Necesita el instalador nuevo (cambiaron las librerías)", agent_state_installer_available: "Instalador v{version} disponible",
     agent_state_script: "Corre con el script: actualizar con git", agent_state_old: "Versión anterior: instalar el instalador nuevo una vez",
     users: "Usuarios", role_admin: "Administrador", role_operator: "Operador",
     owner: "Operador", unassigned: "Sin asignar",
@@ -978,7 +987,7 @@ const I18N = {
     general_sub: "Estos ajustes solo se aplican a este navegador.", theme: "Tema", theme_hint: "Sistema sigue la configuración de tu computadora.",
     theme_light: "Claro", theme_dark: "Oscuro", theme_system: "Sistema", language: "Idioma", language_hint: "Los mensajes de error del servidor también lo siguen.",
     groups: "Grupos", group: "Grupo", no_group: "Sin grupo", all_groups: "Todos los grupos", search_groups: "Buscar grupos", no_group_match: "Ningún grupo coincide", new_group: "Nombre del nuevo grupo", add_group: "Crear grupo",
-    group_member: "Miembro", group_lead: "Líder", add_member: "Agregar", pick_user: "Elige un usuario",
+    group_member: "Miembro", group_lead: "Líder", add_member: "Agregar", pick_user: "Elige un usuario", groups_assign_n: "Asignar a {n} grupos", groups_assigning: "Asignando {a} de {n}…", groups_assigned: "Asignado a {ok} de {n} grupos", groups_skipped: "{n} ya estaban",
     group_profiles: "{n} profiles", no_groups: "Aún no hay grupos.", group_hint: "Los miembros del grupo ven sus profiles y los abren en su propia PC.",
     confirm_delete_group: "¿Eliminar el grupo “{name}”? Sus profiles se quedan con sus operadores.",
     mcp_new_key: "Crear mi clave personal e insertarla",
@@ -1002,8 +1011,12 @@ const BULK_CREATE_MAX = 200;     // profiles per "create several" round
 let builds = null;               // GET /chrome/builds: the browser PC's Chrome engine builds
 let snapshotsOn = false;         // /info: a snapshot bucket is set
 let hub = false, me = null;      // hub mode: browsers open on each operator's PC
-let filter = "all";
-let scope = store.get("foxprofile.group");  // hub: null = all groups, "" = no group, else a group name
+// The list's state (search, filter, group, page, page size) lives in the address, so a
+// reload or a shared link shows the same page; render() writes it back (syncUrl).
+const urlState = new URLSearchParams(location.search);
+let filter = urlState.get("filter") || "all";  // checked against FILTERS once they exist
+// hub: null = all groups, "" = no group, else a group name
+let scope = urlState.has("group") ? urlState.get("group") : store.get("foxprofile.group");
 const busy = new Map();          // name -> "starting" | "stopping"
 const failed = new Map();        // name -> error message of the last failed launch
 const liveSince = new Map();     // name -> Date the profile was first seen running
@@ -1105,21 +1118,28 @@ async function pool(items, n, fn, stopped = () => false) {
 
 // One refresh at a time: a call during one asks for another round when it ends,
 // so a caller awaiting it after a change still sees that change.
-let refreshing = null, refreshAgain = false;
-function refresh() {
+// `full` also reloads the whole lists (every profile, account and report: thousands
+// of rows on a hub); the timer asks for that only every FULL_EVERY_MS, any other
+// caller always does.
+let refreshing = null, refreshAgain = false, wantFull = false, lastFull = 0;
+const FULL_EVERY_MS = 30000;
+function refresh(full = true) {
+  wantFull ||= full;
   if (refreshing) { refreshAgain = true; return refreshing; }
-  refreshing = (async () => { do { refreshAgain = false; await refreshOnce(); } while (refreshAgain); })()
-    .finally(() => { refreshing = null; });
+  refreshing = (async () => {
+    do { refreshAgain = false; const f = wantFull; wantFull = false; await refreshOnce(f); } while (refreshAgain);
+  })().finally(() => { refreshing = null; });
   return refreshing;
 }
-async function refreshOnce() {
+async function refreshOnce(full) {
+  if (full) lastFull = Date.now();
   try {
-    const [list, run, who, sync, accts, chrome, reports] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
+    const [list, run, who, sync, accts, chrome, reports] = await Promise.all([full ? api("GET", "/profiles") : null, api("GET", "/browser"),
       hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync"),
       // A locked accounts store must not keep the profiles from showing.
-      api("GET", "/accounts").catch(() => ({})), api("GET", "/chrome/builds").catch(() => null),
-      api("GET", "/account-reports").catch(() => null)]);
-    profiles = list.profiles;
+      full ? api("GET", "/accounts").catch(() => ({})) : null, api("GET", "/chrome/builds").catch(() => null),
+      full ? api("GET", "/account-reports").catch(() => null) : null]);
+    if (full) profiles = list.profiles;
     // A build install that just failed (here or on the agent) says why, once.
     for (const b of (chrome && chrome.builds) || []) {
       const was = buildInfo(b.version);
@@ -1128,10 +1148,12 @@ async function refreshOnce() {
     builds = chrome;
     if (drawBuilds) drawBuilds();
     syncs = sync.sessions;
-    accountsOf = accts;
-    accountReports = reports;
-    $("reports-count").textContent = reports ? String(reports.filter((r) => r.reviewed_at === null).length) : "!";
-    if (drawAccountReports) drawAccountReports();
+    if (full) {
+      accountsOf = accts;
+      accountReports = reports;
+      $("reports-count").textContent = reports ? String(reports.filter((r) => r.reviewed_at === null).length) : "!";
+      if (drawAccountReports) drawAccountReports();
+    }
     if (hub) renderMe(who);
     const now = new Set(run.running);
     for (const name of now) if (!liveSince.has(name)) liveSince.set(name, new Date());
@@ -1139,13 +1161,13 @@ async function refreshOnce() {
     running = now;
     for (const name of [...failed.keys()]) if (now.has(name) || !profiles.some((p) => p.name === name)) failed.delete(name);
     render();
-    loadFingerprints();
   } catch (e) { if (e.status !== 401) toast(e.message, true); }
 }
-// The list shows first; the fingerprints follow, six requests at a time.
+// The list shows first; the fingerprints follow, six requests at a time, and only
+// for the page on screen (render() asks): a hub has thousands of profiles.
 let fpLoading = false;
-function loadFingerprints() {
-  const missing = profiles.filter((p) => !(p.name in fingerprints));
+function loadFingerprints(rows) {
+  const missing = rows.filter((p) => !(p.name in fingerprints));
   if (fpLoading || !missing.length) return;
   fpLoading = true;
   pool(missing, 6, loadFingerprint).finally(() => { fpLoading = false; render(); });
@@ -1160,6 +1182,7 @@ const FILTERS = [
   ["proxy", "f_proxy", (p) => !!p.proxy],
   ["direct", "f_direct", (p) => !p.proxy],
   ["chrome", "f_chrome", (p) => p.engine === "chrome"],
+  ["conflict", "f_conflict", (p) => !!(hub && me?.conflicts?.[p.name])],  // only in the hub's list
 ];
 // Group names sort like people read them: Grupo-2 before Grupo-10, case aside.
 const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
@@ -1174,6 +1197,29 @@ function visible() {
   return profiles.filter((p) => inGroup(p, scope) && pass(p) && (!q || [p.name, p.proxy, p.number, p.remark].some((v) => (v || "").toLowerCase().includes(q))));
 }
 
+if (!FILTERS.some((f) => f[0] === filter)) filter = "all";
+const clampSize = (v) => Math.min(500, Math.max(1, parseInt(v, 10) || 10));
+let pageSize = clampSize(urlState.get("size") || store.get("foxprofile.pageSize"));
+let pageAt = Math.max(0, (parseInt(urlState.get("page"), 10) || 1) - 1);  // reset by search, filter and group; render() clamps it
+function pager(n, pages) {
+  const go = (d) => { pageAt += d; render(); $("sheet").scrollIntoView({ block: "start" }); };
+  // Any size from 1 to 500; the list only suggests the usual ones. A new size keeps the
+  // first row of the current page on screen.
+  const size = h("input", { id: "page-size", type: "number", min: 1, max: 500, list: "page-sizes", value: pageSize, onchange: (e) => {
+    const next = clampSize(e.target.value);
+    pageAt = Math.floor(pageAt * pageSize / next);
+    pageSize = next;
+    store.set("foxprofile.pageSize", String(next));
+    render();
+  } });
+  return h("div", { class: "pager" },
+    h("label", { for: "page-size" }, t("page_size")), size,
+    h("datalist", { id: "page-sizes" }, [10, 20, 50, 100].map((v) => h("option", { value: v }))),
+    t("page_range", { a: pageAt * pageSize + 1, b: Math.min(n, (pageAt + 1) * pageSize), n }),
+    h("button", { class: "btn btn-line", disabled: pageAt === 0, onclick: () => go(-1) }, t("page_prev")),
+    h("button", { class: "btn btn-line", disabled: pageAt >= pages - 1, onclick: () => go(1) }, t("page_next")));
+}
+
 let lastRender = "";
 function render() {
   const q = $("search").value.trim();
@@ -1181,10 +1227,18 @@ function render() {
   // another group leaves it, so bulk actions never reach rows the user cannot see.
   for (const name of [...selected]) if (!profiles.some((p) => p.name === name && inGroup(p, scope))) selected.delete(name);
   const shown = visible();
+  const pages = Math.max(1, Math.ceil(shown.length / pageSize));
+  // Not before the first load: an empty list would throw away the page from the address.
+  if (profiles.length) pageAt = Math.min(pageAt, pages - 1);
+  const slice = shown.slice(pageAt * pageSize, (pageAt + 1) * pageSize);
+  loadFingerprints(slice);
+  syncUrl(q);
+  // Changing the page size rebuilds its box; keep the cursor in it after Enter or the arrows.
+  const sizeFocused = document.activeElement?.id === "page-size";
   // Rebuilding the list replaces every button; skip it when nothing changed so a
   // periodic refresh cannot swap the button under the user's cursor mid-click.
-  const key = JSON.stringify([lang, q, filter, scope, profiles, me, accountsOf, accountReports, [...running].sort(), [...busy], [...failed], [...selected].sort(),
-    [...justLanded], syncs, builds, shown.map((p) => fingerprints[p.name] || null),
+  const key = JSON.stringify([lang, q, filter, scope, pageAt, pageSize, profiles, me, accountsOf, accountReports, [...running].sort(), [...busy], [...failed], [...selected].sort(),
+    [...justLanded], syncs, builds, slice.map((p) => fingerprints[p.name] || null),
     bulkRun && [bulkRun.action, bulkRun.done, bulkRun.total, bulkRun.cancelled]]);
   if (key === lastRender) return;
   lastRender = key;
@@ -1200,22 +1254,37 @@ function render() {
   const sheet = $("sheet");
   sheet.replaceChildren();
   if (!profiles.length) return sheet.append(emptyState(false));
-  if (selected.size || syncs.length) sheet.append(bulkBar());
-  sheet.append(headRow(shown));
+  if (selected.size || syncs.length) sheet.append(bulkBar(shown));
+  sheet.append(headRow(slice));
   if (!shown.length) sheet.append(emptyState(true, q));
-  for (const p of shown) sheet.append(row(p));
+  for (const p of slice) sheet.append(row(p));
+  if (shown.length) sheet.append(pager(shown.length, pages));
+  if (sizeFocused) $("page-size").focus();
   justLanded.clear();
+}
+
+function syncUrl(q) {
+  const s = new URLSearchParams();
+  if (q) s.set("q", q);
+  if (filter !== "all") s.set("filter", filter);
+  if (scope !== null) s.set("group", scope);
+  if (pageAt) s.set("page", String(pageAt + 1));
+  s.set("size", String(pageSize));
+  const url = `${location.pathname}?${s}${location.hash}`;
+  // ponytail: replaceState, so Back leaves the panel instead of stepping through pages; pushState if that is wanted.
+  if (url !== location.pathname + location.search + location.hash) history.replaceState(null, "", url);
 }
 
 function renderFilters() {
   const nav = $("filters");
   nav.replaceChildren(h("div", { class: "nav-title" }, t("filters")),
-    ...FILTERS.map(([id, label, pass]) => h("button", { class: filter === id ? "active" : "", "aria-pressed": String(filter === id),
-      onclick: () => { filter = id; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, scope) && pass(p)).length)))));
+    ...FILTERS.filter(([id]) => hub || id !== "conflict").map(([id, label, pass]) => h("button", { class: filter === id ? "active" : "", "aria-pressed": String(filter === id),
+      onclick: () => { filter = id; pageAt = 0; render(); } }, t(label), h("span", { class: "count" }, String(profiles.filter((p) => inGroup(p, scope) && pass(p)).length)))));
 }
 
 function setScope(g) {
   scope = g;
+  pageAt = 0;
   store.set("foxprofile.group", g);
 }
 function renderGroupPick() {
@@ -1251,7 +1320,7 @@ function emptyState(filtered, q = "") {
 
 function headRow(shown) {
   const all = shown.length > 0 && shown.every((p) => selected.has(p.name));
-  const box = h("input", { type: "checkbox", "aria-label": t("select_all"), onchange: (e) => {
+  const box = h("input", { type: "checkbox", "aria-label": t("select_page"), title: t("select_page"), onchange: (e) => {
     shown.forEach((p) => (e.target.checked ? selected.add(p.name) : selected.delete(p.name))); render(); } });
   box.checked = all;
   box.indeterminate = !all && shown.some((p) => selected.has(p.name));
@@ -1409,8 +1478,10 @@ function bulkProgress() {
     run.cancelled ? null : h("button", { class: "btn btn-line", onclick: () => { run.cancelled = true; render(); } }, t("cancel")));
 }
 
-function bulkBar() {
+// shown: every profile that passes the search, filter and group, on all pages.
+function bulkBar(shown) {
   const names = [...selected];
+  const rest = shown.filter((p) => !selected.has(p.name));
   // A running sync stays visible (and stoppable) with nothing selected.
   const chips = syncs.map((s) => h("span", { class: "sync-chip", title: Object.entries(s.errors).map(([n, e]) => `${n}: ${e}`).join("\n") },
     icon("sync", true), t("syncing", { leader: s.leader, n: s.followers.length }),
@@ -1422,6 +1493,7 @@ function bulkBar() {
   const admin = !hub || me?.role === "admin";
   return h("div", { class: "bulk" },
     h("span", { class: "n" }, t("selected", { n: names.length })),
+    rest.length ? h("button", { class: "btn btn-ghost", onclick: () => { rest.forEach((p) => selected.add(p.name)); render(); } }, t("select_all_n", { n: shown.length })) : null,
     h("button", { class: "btn btn-act", onclick: () => bulk("launch"), disabled: !!bulkRun }, icon("play", true), t("bulk_launch")),
     h("button", { class: "btn btn-line", onclick: () => bulk("stop") }, icon("stop", true), t("bulk_stop")),
     admin ? h("button", { class: "btn btn-line", onclick: openBulkEdit }, icon("edit", true), t("bulk_edit")) : null,
@@ -2121,7 +2193,7 @@ function geoLines(r, useLocale) {
   const lines = [
     h("div", { class: "line lead" }, icon("globe", true), h("span", { class: "data" }, t("geo_exit", { ip: r.exit_ip, country: r.country || "?" }))),
     h("div", { class: "line" }, t("geo_tz", { v: r.timezone || "?", m: mode(r.timezone_pinned) })),
-    h("div", { class: "line" }, t("geo_locale", { v: r.locale || "~" + (r.suggested_locale || "?"), m: r.locale_pinned ? t("geo_pinned") : t("geo_random") }),
+    h("div", { class: "line" }, t("geo_locale", { v: r.locale || "~" + (r.suggested_locale || "?"), m: r.locale_pinned ? t("geo_pinned") : t(r.locale ? "geo_kept" : "geo_first") }),
       r.suggested_locale && !r.locale_pinned
         ? h("button", { type: "button", class: "btn btn-line", onclick: () => useLocale(r.suggested_locale) }, t("geo_use", { v: r.suggested_locale })) : null),
     ...r.sources.map((s) => h("div", { class: "line src data" }, s.error ? `${s.source}: ${s.error}`
@@ -2245,6 +2317,7 @@ function openCookies(p) {
 function openConflict(p) {
   const base = `/profiles/${enc(p.name)}/conflicts`;
   const when = (ts) => (ts ? new Date(ts * 1000).toLocaleString(lang) : "?");
+  const tab = (u) => { try { const x = new URL(u); return x.host + x.pathname.slice(0, 30); } catch { return String(u).slice(0, 40); } };
   modal((close) => {
     const list = h("div");
     const msg = h("div", { class: "msg", role: "status" });
@@ -2258,7 +2331,10 @@ function openConflict(p) {
     const row = (title, v, id, can) => h("div", { class: "acct" },
       h("div", { class: "acct-head" },
         h("span", { class: "stack" }, h("b", {}, title),
-          h("span", { class: "minor data" }, [when(v.ts), v.by, v.pc, v.cookies != null && t("conflict_cookies", { n: v.cookies })].filter(Boolean).join(" · "))),
+          h("span", { class: "minor data" }, [when(v.ts), v.by, v.pc, v.cookies != null && t("conflict_cookies", { n: v.cookies })].filter(Boolean).join(" · ")),
+          // What tells them apart (hub/conflicts.details): whose Facebook session, which sites, which tabs.
+          h("span", { class: "minor" }, [v.facebook ? t("conflict_fb", { id: v.facebook }) : t("conflict_no_fb"), ...(v.sites || []).map(([d, n]) => `${d} ${n}`)].join(" · ")),
+          v.tabs?.length ? h("span", { class: "minor data" }, v.tabs.map(tab).join(" · ")) : null),
         can ? h("span", { class: "acct-actions" }, h("button", { type: "button", class: "btn btn-act", onclick: () => keep(id, v.by, v.ts) }, t("conflict_keep"))) : null));
     (async () => {
       try {
@@ -2420,24 +2496,33 @@ function renderMe(who) {
   el.classList.remove("hidden");
   // Busy (downloading the browser, updating, opening or saving a profile) says
   // what with; the agent reports that even before it polls.
-  const act = me.agent_activity;
+  // A failed installer is not busy: the update notice stays, with why and the button to retry.
+  const failed = me.agent_activity && me.agent_activity.state === "installer_failed" ? me.agent_activity : null;
+  const act = failed ? null : me.agent_activity;
   // Just authorized: the agent has a minute to poll before it counts as not connected.
   const connecting = me.agent_connecting && !act;
   if (agentWasConnecting && !me.agent_connecting && !me.agent_online && !act) toast(t("agent_connect_failed"), true);
   agentWasConnecting = me.agent_connecting;
-  const main = act && !me.agent_online ? "agent_preparing"
+  // The hub reports either a required installer or a newer one for this agent.
+  const installer = me.agent_installer && !act;
+  const main = act && !me.agent_online ? "agent_preparing" : installer ? "agent_installer"
+    : act && act.state.startsWith("install") ? "agent_updating"
     : me.agent_online ? (me.agent_running ? "agent_on_n" : "agent_on") : connecting ? "agent_connecting" : "agent_off";
-  const detail = !act ? null
+  const detail = failed ? t("act_installer_failed", { error: failed.error || "" })
+    : !act ? null
+    : act.state === "installing" ? t(act.pct == null ? "act_installing" : "act_installing_pct", { pct: act.pct })
     : act.state === "downloading" && act.build ? t("act_installing_build", { version: act.build, pct: act.pct == null ? "…" : act.pct })
     : act.state === "downloading" ? t(act.pct == null ? "act_downloading" : "act_downloading_pct", { pct: act.pct })
     : t("act_" + act.state, { name: act.profile || "" });
-  el.classList.toggle("on", me.agent_online && !act);
+  el.classList.toggle("on", me.agent_online && !act && !installer);
+  el.classList.toggle("update", installer);
   el.classList.toggle("busy", !!act || connecting);
   el.replaceChildren(h("span", { class: "agent-text" },
     h("span", {}, `${firstName(me)} · ${t(main, { n: me.agent_running })}`),
-    detail ? h("span", { class: "agent-detail" }, detail) : null));
+    detail ? h("span", { class: "agent-detail" + (failed ? " failed" : "") }, detail) : null));
   el.title = me.name;
   $("agent-get-btn").classList.toggle("hidden", me.agent_online || !!act || connecting);
+  $("agent-update-btn").classList.toggle("hidden", !installer);
   $("users-btn").classList.toggle("hidden", me.role !== "admin");
   $("groups-btn").classList.toggle("hidden", me.role !== "admin" && !Object.keys(me.my_groups).length);
   $("agents-btn").classList.remove("hidden");
@@ -2499,6 +2584,11 @@ function openUsers() {
 
 // --- Agents: installers for new PCs, and (admins) each PC's version -------------
 // Installed agents update themselves to the hub's code (src/hub/agent_code.py).
+// The installer upload in progress, if any: one at a time, since every row reports
+// into the same message (two at once made the percentage jump back and forth). It
+// outlives the dialog: reopened, the dialog shows its progress and stays locked.
+// `say` and `refresh` belong to the dialog open now.
+let installerUpload = null;
 function openAgents() {
   modal((close) => {
     const admin = me.role === "admin";
@@ -2506,13 +2596,17 @@ function openAgents() {
     const msg = h("div", { class: "msg", role: "status" });
     const say = (text, cls = "info") => { msg.className = "msg " + cls; msg.textContent = text; };
     const mb = (n) => (n / 1048576).toFixed(0) + " MB";
+    const progress = (pct) => {
+      installerUpload.pct = pct;
+      installerUpload.say(t("agents_uploading", { name: installerUpload.name, pct }));
+    };
     // One PUT, with progress (XHR): resolves with the response's ETag. `done` is
     // what earlier PUTs of this upload already sent.
     const put = (url, body, headers, done, total) => new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", url);
       Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
-      xhr.upload.onprogress = (e) => say(t("agents_uploading", { pct: Math.floor(100 * (done + e.loaded) / total) }));
+      xhr.upload.onprogress = (e) => progress(Math.floor(100 * (done + e.loaded) / total));
       xhr.onload = () => {
         if (xhr.status < 300) return resolve(xhr.getResponseHeader("ETag"));
         let detail = `${t("agents_upload_failed")} (${xhr.status})`;
@@ -2523,11 +2617,24 @@ function openAgents() {
       xhr.send(body);
     });
     const upload = async (platform, file) => {
+      if (installerUpload) return;
+      installerUpload = { name: file.name, pct: 0, say, refresh: refreshAgents };
+      installs.querySelectorAll("[data-upload]").forEach((b) => { b.disabled = true; });
+      try {
+        await uploadInstaller(platform, file);
+      } finally {
+        const { refresh } = installerUpload;
+        installerUpload = null;
+        refresh();  // unlocks the buttons, and lists the new file
+      }
+    };
+    const uploadInstaller = async (platform, file) => {
+      const say = (...args) => installerUpload.say(...args);  // the dialog open now
       // The hub says where to PUT: its own route, or a bucket through a presigned
       // URL per part (proxies such as Cloudflare refuse bodies over 100 MB).
       let target;
       try { target = await api("POST", `/hub/installers/${platform}/upload-url?name=${enc(file.name)}&size=${file.size}`); } catch (e) { return say(e.message, "err"); }
-      say(t("agents_uploading", { pct: 0 }));
+      progress(0);
       const done = { name: file.name, upload_id: target.upload_id };
       try {
         if (!target.direct) {
@@ -2550,7 +2657,6 @@ function openAgents() {
         return say(e.message || t(target.direct ? "agents_upload_cors" : "agents_upload_failed"), "err");
       }
       say(t("agents_uploaded", { name: file.name }), "ok");
-      loadInstallers();
     };
     const loadInstallers = async () => {
       let files;
@@ -2566,7 +2672,7 @@ function openAgents() {
           h("div", { class: "sub" }, f ? `${f.name} · ${mb(f.size)}` : t("agents_no_file")),
           h("div", { class: "acts" },
             f ? h("a", { class: "btn btn-act", href: `/api/v1/hub/installers/${platform}`, download: f.name }, icon("download", true), t("agents_download")) : null,
-            admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => pick.click() }, icon("upload", true), t("agents_upload")) : null,
+            admin ? h("button", { type: "button", class: "btn btn-line", "data-upload": true, disabled: !!installerUpload, onclick: () => pick.click() }, icon("upload", true), t("agents_upload")) : null,
             pick));
       }));
     };
@@ -2575,21 +2681,26 @@ function openAgents() {
       try { res = await api("GET", "/hub/agents"); } catch (e) { return say(e.message, "err"); }
       if (!res.agents.length) { agents.replaceChildren(h("p", { class: "muted" }, t("agents_none"))); return; }
       agents.replaceChildren(h("p", { class: "muted" }, t("agents_hub_code", { code: res.code.slice(0, 7) })), ...res.agents.map((a) => {
-        const state = a.update_now ? t("agents_update_queued") : t("agent_state_" + a.state);
+        const state = a.update_now ? t("agents_update_queued") : t("agent_state_" + a.state, { version: a.installer_version });
         const cls = a.state === "current" ? "ok" : a.state === "installer" || a.state === "old" ? "err" : "";
-        const where = [a.pc, a.version && "v" + a.version, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
+        const channel = a.installer_platform && (a.installer_platform.endsWith("-dev") ? "dev" : "prod");
+        const where = [a.pc, a.version && "v" + a.version, channel, a.online ? (a.running ? t("agents_running", { n: a.running }) : t("agents_online")) : t("agents_offline")].filter(Boolean).join(" · ");
         return h("div", { class: "agent-row" },
           h("b", {}, a.user),
           h("div", { class: "sub" }, where, " · ", h("span", { class: cls }, state)),
-          h("div", { class: "acts" }, (a.state === "pending" || a.state === "installer") && a.online && !a.update_now
+          h("div", { class: "acts" }, ["pending", "installer", "installer_available"].includes(a.state) && a.online && !a.update_now
             ? h("button", { type: "button", class: "btn btn-line", title: t("agents_update_hint"), onclick: async () => {
                 try { await api("POST", `/hub/agents/${enc(a.user)}/update`); loadAgents(); } catch (e) { say(e.message, "err"); }
               } }, icon("sync", true), t("agents_update_now"))
             : null));
       }));
     };
-    loadInstallers();
-    if (admin) loadAgents();
+    const refreshAgents = () => { loadInstallers(); if (admin) loadAgents(); };
+    refreshAgents();
+    if (installerUpload) {  // started in an earlier dialog: report here from now on
+      Object.assign(installerUpload, { say, refresh: refreshAgents });
+      progress(installerUpload.pct);
+    }
     return h("div", {},
       modalHead(t("agents_title"), null, close),
       h("div", { class: "modal-body" },
@@ -2597,7 +2708,7 @@ function openAgents() {
         admin ? h("h3", {}, t("agents_list")) : null, admin ? agents : null,
         msg),
       h("div", { class: "modal-foot" },
-        admin ? h("button", { type: "button", class: "btn btn-line", onclick: () => { loadInstallers(); loadAgents(); } }, icon("reload", true), t("agents_refresh")) : null,
+        admin ? h("button", { type: "button", class: "btn btn-line", onclick: refreshAgents }, icon("reload", true), t("agents_refresh")) : null,
         h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
 }
@@ -2771,46 +2882,116 @@ function openAdsPower() {
 function openGroups() {
   modal((close) => {
     const list = h("div");
+    const bar = h("div");
     const msg = h("div", { class: "msg", role: "status" });
     const fail = (e) => { msg.className = "msg err"; msg.textContent = e.message; };
     const admin = me.role === "admin";
+    const PAGE = 25;  // 300+ groups in production: one page at a time
+    let groups = [], users = [], at = 0;
+    const chosen = new Set();  // ticked for "Assign to N groups"
     const call = (method, path, body) => api(method, path, body)
       .then(() => { msg.textContent = ""; load(); refresh(); return true; }, (e) => { fail(e); return false; });
+    // Each picker lists every user: built only for what is on screen, never per group.
+    const picker = (skip = {}) => h("select", { "aria-label": t("pick_user") }, h("option", { value: "" }, t("pick_user")),
+      users.filter((u) => !(u.name in skip)).map((u) => h("option", { value: u.name }, u.name)));
+    const q = h("input", { type: "search", placeholder: t("search_groups"), "aria-label": t("search_groups"), autocomplete: "off", style: "flex:1",
+      oninput: () => { clearTimeout(q.wait); q.wait = setTimeout(() => { at = 0; draw(); }, 200); } });
+    const matching = () => {
+      const s = q.value.trim().toLowerCase();
+      return s ? groups.filter((g) => g.name.toLowerCase().includes(s) || Object.keys(g.members).some((u) => u.toLowerCase().includes(s))) : groups;
+    };
+    const tick = (names, on) => { names.forEach((n) => (on ? chosen.add(n) : chosen.delete(n))); draw(); };
+    const pageBox = h("input", { type: "checkbox", "aria-label": t("select_page"), title: t("select_page"),
+      onchange: (e) => tick(matching().slice(at * PAGE, (at + 1) * PAGE).filter((g) => g.my_role === "lead").map((g) => g.name), e.target.checked) });
+    const allBtn = h("button", { type: "button", class: "btn btn-ghost" });
+    const section = (g) => {
+      const lead = g.my_role === "lead";
+      const base = `/hub/groups/${enc(g.name)}`;
+      const members = Object.entries(g.members).map(([u, r]) => {
+        // Only admins promote, demote or remove leads.
+        const role = admin
+          ? h("select", { "aria-label": `Role: ${u}`, onchange: (e) => call("PUT", `${base}/members/${enc(u)}`, { role: e.target.value }) },
+            ["member", "lead"].map((v) => h("option", { value: v, selected: v === r }, t("group_" + v))))
+          : h("span", {}, t("group_" + r));
+        return h("div", { class: "user-row" }, h("span", {}, u), role, h("span"),
+          lead ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u}`,
+            disabled: !admin && r === "lead", onclick: () => call("DELETE", `${base}/members/${enc(u)}`) }, icon("x")) : h("span"));
+      });
+      const pick = lead ? picker(g.members) : null;
+      return h("section", { style: "margin-bottom:18px" },
+        h("div", { style: "display:flex;align-items:center;gap:10px" },
+          lead ? h("input", { type: "checkbox", checked: chosen.has(g.name), "aria-label": t("select_row", { name: g.name }),
+            onchange: (e) => tick([g.name], e.target.checked) }) : null,
+          h("h3", { style: "margin:0" }, g.name), h("span", { class: "minor" }, t("group_profiles", { n: g.profiles })),
+          h("span", { style: "flex:1" }),
+          admin ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${g.name}`,
+            onclick: async () => {
+              if (await confirmDialog(t("confirm_delete_group", { name: g.name }), t("delete"), true)) call("DELETE", base);
+            } }, icon("trash")) : null),
+        ...members,
+        lead ? h("form", { style: "display:flex;gap:8px;margin-top:8px", onsubmit: (e) => {
+          e.preventDefault(); if (pick.value) call("PUT", `${base}/members/${enc(pick.value)}`, { role: "member" });
+        } }, pick, h("button", { class: "btn btn-line" }, icon("plus", true), t("add_member"))) : null);
+    };
+    // One user into every ticked group, a PUT each (the hub checks each group's lead).
+    const assign = async (user, role, go) => {
+      const names = [...chosen].sort(natural);
+      const failed = [];
+      let done = 0, skipped = 0;
+      go.disabled = true;
+      for (const [i, name] of names.entries()) {
+        msg.className = "msg info"; msg.textContent = t("groups_assigning", { a: i + 1, n: names.length });
+        const now = groups.find((g) => g.name === name)?.members[user];
+        // Already there with that role, or a lead: a member assignment never demotes.
+        if (now === role || (now === "lead" && role === "member")) { skipped++; continue; }
+        try { await api("PUT", `/hub/groups/${enc(name)}/members/${enc(user)}`, { role }); done++; }
+        catch (e) { failed.push(`${name}: ${e.message}`); }
+      }
+      chosen.clear();
+      await load();
+      refresh();
+      msg.className = failed.length ? "msg err" : "msg ok";
+      msg.textContent = [t("groups_assigned", { ok: done, n: names.length }), skipped && t("groups_skipped", { n: skipped }), ...failed].filter(Boolean).join(" · ");
+    };
+    const drawBar = () => {
+      if (!chosen.size || !users.length) return bar.replaceChildren();
+      const who = picker();
+      // Leads add members; only admins name leads (the hub refuses otherwise).
+      const role = h("select", { "aria-label": t("group_member"), disabled: !admin },
+        ["member", "lead"].map((v) => h("option", { value: v }, t("group_" + v))));
+      const go = h("button", { class: "btn btn-act" }, icon("plus", true), t("groups_assign_n", { n: chosen.size }));
+      bar.replaceChildren(h("form", { class: "user-row", style: "grid-template-columns:auto minmax(160px,1fr) 120px auto auto", onsubmit: (e) => {
+        e.preventDefault(); if (who.value) assign(who.value, role.value, go);
+      } }, h("b", {}, t("selected", { n: chosen.size })), who, role, go,
+        h("button", { type: "button", class: "btn btn-ghost", onclick: () => tick([...chosen], false) }, t("cancel"))));
+    };
+    const draw = () => {
+      const all = matching(), pages = Math.max(1, Math.ceil(all.length / PAGE));
+      at = Math.min(at, pages - 1);
+      const page = all.slice(at * PAGE, (at + 1) * PAGE);
+      const tickable = page.filter((g) => g.my_role === "lead");
+      pageBox.checked = tickable.length > 0 && tickable.every((g) => chosen.has(g.name));
+      pageBox.disabled = !tickable.length;
+      const rest = all.filter((g) => g.my_role === "lead" && !chosen.has(g.name));
+      allBtn.hidden = all.length <= PAGE || !rest.length;
+      allBtn.textContent = t("select_all_n", { n: all.filter((g) => g.my_role === "lead").length });
+      allBtn.onclick = () => tick(rest.map((g) => g.name), true);
+      const go = (d) => { at += d; draw(); list.scrollIntoView({ block: "start" }); };
+      list.replaceChildren(
+        ...(page.length ? page.map(section) : [h("p", { class: "minor" }, t(groups.length ? "no_group_match" : "no_groups"))]),
+        pages > 1 ? h("div", { class: "pager" },
+          t("page_range", { a: at * PAGE + 1, b: Math.min(all.length, (at + 1) * PAGE), n: all.length }),
+          h("button", { type: "button", class: "btn btn-line", disabled: at === 0, onclick: () => go(-1) }, t("page_prev")),
+          h("button", { type: "button", class: "btn btn-line", disabled: at >= pages - 1, onclick: () => go(1) }, t("page_next"))) : null);
+      drawBar();
+    };
     const load = async () => {
-      let groups, users = [];
       try {
         groups = await api("GET", "/hub/groups");
-        if (groups.some((g) => g.my_role === "lead")) users = await api("GET", "/hub/users");
+        if (!users.length && groups.some((g) => g.my_role === "lead")) users = await api("GET", "/hub/users");
       } catch (e) { return fail(e); }
-      if (!groups.length) return list.replaceChildren(h("p", { class: "minor" }, t("no_groups")));
-      list.replaceChildren(...groups.map((g) => {
-        const lead = g.my_role === "lead";
-        const base = `/hub/groups/${enc(g.name)}`;
-        const members = Object.entries(g.members).map(([u, r]) => {
-          // Only admins promote, demote or remove leads.
-          const role = admin
-            ? h("select", { "aria-label": `Role: ${u}`, onchange: (e) => call("PUT", `${base}/members/${enc(u)}`, { role: e.target.value }) },
-              ["member", "lead"].map((v) => h("option", { value: v, selected: v === r }, t("group_" + v))))
-            : h("span", {}, t("group_" + r));
-          return h("div", { class: "user-row" }, h("span", {}, u), role, h("span"),
-            lead ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${u}`,
-              disabled: !admin && r === "lead", onclick: () => call("DELETE", `${base}/members/${enc(u)}`) }, icon("x")) : h("span"));
-        });
-        const pick = h("select", { "aria-label": t("pick_user") }, h("option", { value: "" }, t("pick_user")),
-          users.filter((u) => !(u.name in g.members)).map((u) => h("option", { value: u.name }, u.name)));
-        return h("section", { style: "margin-bottom:18px" },
-          h("div", { style: "display:flex;align-items:center;gap:10px" },
-            h("h3", { style: "margin:0" }, g.name), h("span", { class: "minor" }, t("group_profiles", { n: g.profiles })),
-            h("span", { style: "flex:1" }),
-            admin ? h("button", { type: "button", class: "icon-btn danger", title: t("delete"), "aria-label": `${t("delete")}: ${g.name}`,
-              onclick: async () => {
-                if (await confirmDialog(t("confirm_delete_group", { name: g.name }), t("delete"), true)) call("DELETE", base);
-              } }, icon("trash")) : null),
-          ...members,
-          lead ? h("form", { style: "display:flex;gap:8px;margin-top:8px", onsubmit: (e) => {
-            e.preventDefault(); if (pick.value) call("PUT", `${base}/members/${enc(pick.value)}`, { role: "member" });
-          } }, pick, h("button", { class: "btn btn-line" }, icon("plus", true), t("add_member"))) : null);
-      }));
+      for (const n of [...chosen]) if (!groups.some((g) => g.name === n)) chosen.delete(n);
+      draw();
     };
     const name = h("input", { id: "g-name", placeholder: t("new_group"), autocomplete: "off", required: true });
     load();
@@ -2821,7 +3002,8 @@ function openGroups() {
         admin ? h("form", { style: "display:flex;gap:8px;margin:8px 0 4px", onsubmit: (e) => {
           e.preventDefault(); call("POST", "/hub/groups", { name: name.value.trim() }).then((ok) => { if (ok) name.value = ""; });
         } }, name, h("button", { class: "btn btn-act" }, icon("plus", true), t("add_group"))) : null,
-        msg, h("div", { style: "margin-top:18px" }, list)),
+        h("div", { style: "display:flex;align-items:center;gap:10px;margin-top:14px" }, pageBox, q, allBtn),
+        bar, msg, h("div", { style: "margin-top:18px" }, list)),
       h("div", { class: "modal-foot" }, h("button", { type: "button", class: "btn btn-line", onclick: close }, t("close"))));
   }, { wide: true });
 }
@@ -3261,7 +3443,7 @@ async function showApp(authRequired) {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
   $("logout-btn").classList.toggle("hidden", !authRequired);
   await refresh();
-  if (!listTimer) listTimer = setInterval(() => { if (!viewing && !document.hidden) refresh(); }, 4000);
+  if (!listTimer) listTimer = setInterval(() => { if (!viewing && !document.hidden) refresh(Date.now() - lastFull >= FULL_EVERY_MS); }, 4000);
 }
 $("login-form").onsubmit = async (e) => {
   e.preventDefault();
@@ -3299,6 +3481,11 @@ $("backups-btn").onclick = () => showPage("backups-page");
 $("backups-q").oninput = drawBackups;
 $("backups-group").onchange = drawBackups;
 $("agent-get-btn").onclick = openAgentDownload;
+// The agent fetches and runs its own channel's installer (agent.install_update).
+$("agent-update-btn").onclick = async () => {
+  try { toast(t((await api("POST", "/hub/me/agent-update")).running ? "agent_update_wait" : "agent_update_started")); }
+  catch (e) { toast(e.message, true); }
+};
 $("settings-btn").onclick = () => showSettings(true);
 $("general-btn").onclick = () => showPage("general-page");
 document.querySelectorAll("[data-theme-pick]").forEach((b) => {
@@ -3329,7 +3516,8 @@ $("group-list").onkeydown = (e) => {
   const next = e.key === "ArrowDown" ? document.activeElement.nextElementSibling : document.activeElement.previousElementSibling;
   (next || (e.key === "ArrowUp" ? $("group-q") : null))?.focus();
 };
-$("search").oninput = render;
+$("search").value = urlState.get("q") || "";
+$("search").oninput = () => { pageAt = 0; render(); };
 document.querySelectorAll("[data-lang]").forEach((b) => { b.onclick = () => { lang = b.dataset.lang; store.set("foxprofile.lang", lang); applyI18n(); lastRender = ""; render(); }; });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {

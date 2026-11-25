@@ -20,6 +20,7 @@ from .auth import require_token
 from .guard import LocalOnlyGuard
 from .routes import (
     account_reports_router,
+    accounts_login_router,
     accounts_router,
     accounts_summary_router,
     adspower_router,
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
 logger = get_logger("api")
 
 API_PREFIX = "/api/v1"
-VERSION = "2.3.1"
+VERSION = "2.4.1"
 _PANEL = pathlib.Path(__file__).resolve().parents[1] / "web" / "index.html"
 _FONTS = pathlib.Path(__file__).resolve().parents[1] / "assets" / "fonts"
 # Served to the panel without a token: it needs them before login.
@@ -113,6 +114,7 @@ def create_app(container: Container, self_url: str | None = None) -> FastAPI:
     protected = [Depends(require_token)]
     app.include_router(profiles_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(accounts_router, prefix=API_PREFIX, dependencies=protected)
+    app.include_router(accounts_login_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(accounts_summary_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(account_reports_router, prefix=API_PREFIX, dependencies=protected)
     app.include_router(browser_router, prefix=API_PREFIX, dependencies=protected)

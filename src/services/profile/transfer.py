@@ -8,7 +8,6 @@ import time
 import zipfile
 from datetime import datetime
 
-from ...core.config import FINGERPRINT_FILE
 from ...core.logging import get_logger
 from ...models.profile import ENGINES, NUMBER_MAX, REMARK_MAX, Profile, label_text
 from ...utils.validation import (
@@ -17,15 +16,38 @@ from ...utils.validation import (
     validate_profile_name,
     validate_timezone,
 )
-from ..browser.fingerprint import CHROME_PERSONA_FILE
+from ..browser.fingerprint import IDENTITY_FILES
+from ..browser.session import TABS_FILE
 
 logger = get_logger("profile.transfer")
 
 # The agent's cookie checkpoints of a running profile (save_checkpoint): they
 # never leave the PC, and go with the profile dir once it is uploaded.
 CHECKPOINTS = "checkpoints"
-# Browser caches: rebuilt on demand, often hundreds of MB. Never exported.
-_CACHE_DIRS = {"cache2", "startupCache", "Cache", "Code Cache", "GPUCache", "GrShaderCache"}
+# Browser caches: rebuilt on demand, often hundreds of MB. Never exported. Matched
+# by folder name at any depth. Chrome: CacheStorage is the sites' Cache API (under
+# Service Worker/, whose registrations stay), OptGuideOnDeviceModel an on-device
+# AI model of GBs; the rest are GPU shader, component and crash caches.
+_CACHE_DIRS = {
+    "cache2",
+    "startupCache",
+    "Cache",
+    "Code Cache",
+    "GPUCache",
+    "GrShaderCache",
+    "CacheStorage",
+    "ShaderCache",
+    "GraphiteDawnCache",
+    "DawnGraphiteCache",
+    "DawnWebGPUCache",
+    "DawnCache",
+    "GPUPersistentCache",
+    "component_crx_cache",
+    "extensions_crx_cache",
+    "OptGuideOnDeviceModel",
+    "Crashpad",
+    "BrowserMetrics",
+}
 
 # Hub agents carry a profile's cookies as portable JSON next to the browser's
 # own store: Chrome encrypts its cookie DB per machine (DPAPI, keychain), so the
@@ -35,6 +57,19 @@ COOKIES_SHA = "cookies.json.gz.sha256"
 # What happened to the cookies on the last close and open, and the last exit IP:
 # the agent and runner write it, the start page shows it. Travels in the ZIP.
 SYNC_META = "sync.json"
+
+# A light bundle (hub FOXPROFILE_HUB_SYNC=light): what travels on each open and
+# close, a few MB. The profile's own files, and the sites' storage, which unlike
+# Chrome's cookie DB and passwords is not encrypted per PC: Chrome's Local Storage
+# (one LevelDB for every site, so it goes whole), each site's IndexedDB, and each
+# site's folder of Firefox's storage. The rest (history, extension data, caches)
+# stays on each PC; the hub's copy of it comes from the periodic full upload.
+LIGHT_FILES = (COOKIES_GZ, COOKIES_SHA, TABS_FILE, *IDENTITY_FILES, SYNC_META)
+LIGHT_WHOLE = ("Default/Local Storage",)
+LIGHT_PER_SITE = ("Default/IndexedDB", "storage/default")
+# A bigger folder (a site's offline store, WhatsApp Web) stays on its PC.
+LIGHT_UNIT_MB = 25
+LIGHT = "light"  # profile.json "bundle" of a light archive
 
 
 def read_meta(profile_dir: str) -> dict:
@@ -91,18 +126,48 @@ def read_cookies(profile_dir: str) -> str | None:
         raise IntegrityError(f"{COOKIES_GZ}: {e}") from e
 
 
+def _files(path: pathlib.Path):
+    """`path` itself, or the files under it without browser caches (Firefox's
+    storage keeps each site's Cache API in a folder named cache)."""
+    if path.is_file():
+        yield path
+        return
+    for root, dirs, files in os.walk(path):
+        dirs[:] = sorted(d for d in dirs if d not in _CACHE_DIRS and d != "cache")
+        for name in sorted(files):
+            yield pathlib.Path(root, name)
+
+
+def _site(name: str) -> str:
+    """Chrome keeps a site's IndexedDB in <origin>.indexeddb.leveldb and .blob."""
+    return name.split(".indexeddb.")[0]
+
+
+def light_units(profile_dir: str | pathlib.Path) -> dict[str, list[pathlib.Path]]:
+    """What a light bundle carries, by unit: a file, a folder, or a site's folders.
+    A light upload replaces each unit it carries as one and keeps the others."""
+    root = pathlib.Path(profile_dir)
+    units = {f: [root / f] for f in LIGHT_FILES if (root / f).is_file()}
+    units |= {d: [root / d] for d in LIGHT_WHOLE if (root / d).is_dir()}
+    for parent in LIGHT_PER_SITE:
+        folder = root / parent
+        for child in sorted(folder.iterdir()) if folder.is_dir() else ():
+            units.setdefault(f"{parent}/{_site(child.name)}", []).append(child)
+    return units
+
+
 def data_stamp(profile_dir: str) -> str:
-    """Changes whenever a file of the dir does: names, sizes and times, nothing read.
+    """Changes whenever a file of the light bundle does: names, sizes and times,
+    nothing read. Every upload rewrites sync.json, so it changes with any upload.
     An agent keeps the stamp of what it uploaded; the same stamp on the next launch
     means the hub's copy is still exactly that, so its local copy can open."""
     digest = hashlib.sha256()
-    for root, dirs, files in os.walk(profile_dir):
-        dirs.sort()
-        for name in sorted(files):
-            path = os.path.join(root, name)
-            st = os.stat(path)
-            rel = os.path.relpath(path, profile_dir)
-            digest.update(f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\n".encode())
+    for paths in light_units(profile_dir).values():
+        for path in paths:
+            for f in _files(path):
+                st = f.stat()
+                rel = f.relative_to(profile_dir).as_posix()
+                digest.update(f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\n".encode())
     return digest.hexdigest()[:32]
 
 
@@ -190,17 +255,32 @@ def export_to_zip(
     profile_data_dir: str,
     export_path: str,
     include_data: bool = True,
+    light: bool = False,
 ) -> tuple[bool, str]:
-    """Create a ZIP archive of a profile and optionally its browser data."""
+    """Create a ZIP archive of a profile and optionally its browser data, or with
+    `light` only the light bundle (LIGHT_FILES and the sites' storage)."""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_filename = f"{profile.name}_{timestamp}.zip"
         zip_path = os.path.join(export_path, zip_filename)
 
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            zipf.writestr("profile.json", json.dumps(profile.to_dict(), indent=2))
+            meta = {**profile.to_dict(), "bundle": LIGHT} if light else profile.to_dict()
+            zipf.writestr("profile.json", json.dumps(meta, indent=2))
 
-            if include_data and pathlib.Path(profile_data_dir).exists():
+            if light:
+                root = pathlib.Path(profile_data_dir)
+                for unit, paths in light_units(root).items():
+                    files = [f for p in paths for f in _files(p)]
+                    size = sum(f.stat().st_size for f in files)
+                    if paths[0].is_dir() and size > LIGHT_UNIT_MB * 1024 * 1024:
+                        logger.info(
+                            "Light bundle of %s: %s left out (%d bytes)", profile.name, unit, size
+                        )
+                        continue
+                    for f in files:
+                        zipf.write(f, "data/" + f.relative_to(root).as_posix())
+            elif include_data and pathlib.Path(profile_data_dir).exists():
                 for root, dirs, files in os.walk(profile_data_dir):
                     dirs[:] = [d for d in dirs if d not in _CACHE_DIRS]
                     if root == profile_data_dir and CHECKPOINTS in dirs:
@@ -215,7 +295,7 @@ def export_to_zip(
             else:
                 # The fingerprint is the profile's identity, not browser data:
                 # keep it so the imported profile presents the same device.
-                for identity in (FINGERPRINT_FILE, CHROME_PERSONA_FILE):
+                for identity in IDENTITY_FILES:
                     fp_file = os.path.join(profile_data_dir, identity)
                     if pathlib.Path(fp_file).exists():
                         zipf.write(fp_file, os.path.join("data", identity))
@@ -308,12 +388,14 @@ def import_from_zip(
 
 def swap_in(
     zip_path: str, tmp: str, name: str, data_root: pathlib.Path, check_name: bool = True
-) -> None:
+) -> Profile:
     """Replace data_root/<name> with an archive's data, through `tmp` on the same
-    filesystem (the old data ends up in tmp/old). ValueError if the archive is
-    unreadable, WrongProfileError if it is another profile's (check_name: a
-    snapshot may carry the name the profile had then), IntegrityError if its
-    cookies are damaged: good data is never replaced with bad."""
+    filesystem (the old data ends up in tmp/old). A light archive replaces only
+    the units it carries (light_units) and keeps the rest. ValueError if the
+    archive is unreadable, WrongProfileError if it is another profile's
+    (check_name: a snapshot may carry the name the profile had then),
+    IntegrityError if its cookies are damaged: good data is never replaced with bad.
+    Returns the archive's profile settings."""
     extract = os.path.join(tmp, "data")
     ok, result = import_from_zip(zip_path, extract)
     if not ok:
@@ -323,7 +405,26 @@ def swap_in(
     new = pathlib.Path(extract, result.name)
     new.mkdir(parents=True, exist_ok=True)
     read_cookies(str(new))
-    target = data_root / name
+    target, aside = data_root / name, pathlib.Path(tmp, "old")
+    if target.exists() and (read_profile_meta(zip_path) or {}).get("bundle") == LIGHT:
+        _merge_light(new, target, aside)
+        return result
     if target.exists():
-        target.rename(pathlib.Path(tmp, "old"))
+        target.rename(aside)
+    data_root.mkdir(parents=True, exist_ok=True)
     new.rename(target)
+    return result
+
+
+def _merge_light(new: pathlib.Path, target: pathlib.Path, aside: pathlib.Path) -> None:
+    """Each unit `new` carries replaces the same unit of `target`, whole: two
+    LevelDBs are never mixed. Units it does not carry (too big, or not light) stay."""
+    old = light_units(target)
+    aside.mkdir()
+    for i, (unit, paths) in enumerate(light_units(new).items()):
+        for path in old.get(unit, ()):
+            path.rename(aside / f"{i}-{path.name}")
+        for path in paths:
+            dest = target / path.relative_to(new)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            path.rename(dest)

@@ -9,6 +9,7 @@ import zipfile
 
 import pytest
 
+from src.core import config
 from src.core.strings import get_string
 from src.hub import agent_code
 from src.hub import routes as hub_routes
@@ -181,6 +182,61 @@ def test_agents_list_shows_each_installers_own_version(hub, hub_code, tmp_path, 
     assert agent_code.installed_version() == "3.0.41"
 
 
+@pytest.mark.parametrize(
+    ("platform", "version", "available"),
+    [
+        ("macos-dev", "3.0.116", "3.0.125"),
+        ("macos-dev", "3.0.125", ""),
+        ("macos-dev", "3.0.126", ""),
+        ("macos", "3.0.116", ""),
+        ("windows-dev", "3.0.116", ""),
+        ("", "3.0.116", ""),  # agents that do not yet report their channel
+    ],
+)
+def test_panel_detects_a_newer_installer_for_the_agents_slot(
+    hub, hub_code, monkeypatch, platform, version, available
+):
+    monkeypatch.setattr(config, "S3_BUCKET", "")
+    monkeypatch.setattr(config, "HUB_FILE", "hub.json")
+    client, _, admin = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    params = dict(code="hubcode", req="req1", ver=version, installer_platform=platform)
+    assert _poll(client, ana, **params).status_code == 204
+    before = client.get("/api/v1/hub/me", headers=ana).json()
+    assert before["agent_installer"] is False
+    for slot, name in (
+        ("macos", "FoxProfileAgent-3.0.115-macos.pkg"),
+        ("macos-dev", "FoxProfileAgent-3.0.125-dev-macos.pkg"),
+    ):
+        path = f"/api/v1/hub/installers/{slot}?name={name}"
+        assert client.put(path, content=b"pkg", headers=admin).is_success
+
+    assert _poll(client, ana, **params).status_code == 204
+    info = client.get("/api/v1/hub/agents", headers=admin).json()["agents"][0]
+    assert info["state"] == ("installer_available" if available else "current")
+    assert info["installer_version"] == available
+    assert client.get("/api/v1/hub/me", headers=ana).json()["agent_installer"] is bool(available)
+
+    if available:
+        assert client.post("/api/v1/profiles", json={"name": "shop-01"}, headers=ana).is_success
+        assert (
+            client.post("/api/v1/browser/shop-01/launch?wait=false", headers=ana).status_code == 202
+        )
+        assert client.post("/api/v1/hub/me/agent-update", headers=ana).is_success
+        assert _poll(client, ana, running="shop-01", **params).status_code == 204
+        assert _poll(client, ana, **params).json() == {
+            "op": "installer_needed",
+            "force": True,
+            "newer": True,
+        }
+        assert _poll(client, ana, **params).status_code == 204
+        assert client.post("/api/v1/hub/agents/ana/update", headers=admin).is_success
+        assert _poll(client, ana, **params).json()["newer"] is True
+        download = "/api/v1/hub/installers/macos-dev?name=FoxProfileAgent-3.0.125-dev-macos.pkg"
+        assert client.get(download).content == b"pkg"
+        assert client.get(download.replace(".125-", ".126-")).status_code == 404
+
+
 def test_the_installer_waits_for_closed_browsers(hub, hub_code):
     client, container, admin = hub
     ana = _login(client, "ana", "anaanaanaana")
@@ -196,6 +252,7 @@ class _Resp(io.BytesIO):
     def __init__(self, data: bytes, url: str):
         super().__init__(data)
         self.url = url
+        self.headers = {"Content-Length": str(len(data))}
 
     def geturl(self) -> str:
         return self.url
@@ -228,7 +285,12 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
     a = agent.Agent(hub_client, notify=notes.append)  # before Popen is faked: it names the PC
     monkeypatch.setattr(urllib.request, "urlopen", urlopen)
     monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    sent = []
+    monkeypatch.setattr(a, "report", lambda force=False: sent.append(a.activity()))
     a.install_update()
+    # The panel saw the download's progress, then the installer opening.
+    assert {"state": "installing", "pct": 100} in sent
+    assert sent[-1] == {"state": "installer_opened"}
     # Downloaded without the agent's key (a presigned bucket URL must not get it), then opened.
     assert fetched == [("https://hub.example.com/api/v1/hub/installers/macos", None)]
     pkg = tmp_path / "installer" / "FoxProfileAgent-2.4.0-macos.pkg"
@@ -238,6 +300,18 @@ def test_agent_runs_the_hubs_installer_once(tmp_path, monkeypatch):
     a.install_update()
     assert len(started) == 1 and len(fetched) == 1
     assert notes[-1] == agent.get_string("agent_installer_needed")
+    # Asked from the panel ("Update agent"): run again, e.g. after a cancelled Installer.
+    a.install_update(force=True)
+    assert len(started) == 2
+    # A failed download is shown in the panel, with why, until the next try.
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *a, **kw: (_ for _ in ()).throw(OSError("boom"))
+    )
+    a.install_update(force=True)
+    assert sent[-1] == {"state": "installer_failed", "error": "boom"}
+    listing.clear()
+    a.install_update(force=True)
+    assert sent[-1]["error"] == agent.get_string("agent_installer_missing")
 
 
 def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
@@ -273,6 +347,113 @@ def test_dev_agents_run_only_the_hubs_dev_installer(tmp_path, monkeypatch):
     a.install_update()
     assert fetched == ["https://hub.example.com/api/v1/hub/installers/macos-dev"]
     assert started == [["open", str((tmp_path / "installer" / listing[1]["name"]).resolve())]]
+
+
+def test_agent_reports_its_installer_slot_and_downloads_only_a_newer_package(tmp_path, monkeypatch):
+    import subprocess
+    import urllib.parse
+    import urllib.request
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent.sys, "platform", "darwin")
+    monkeypatch.setattr(agent_code, "INSTALLED", tmp_path)
+    (tmp_path / "BUILD").write_text("b1")
+    (tmp_path / "CHANNEL").write_text("dev")
+    (tmp_path / "VERSION").write_text("3.0.116")
+    (tmp_path / "requirements.txt").write_text("")
+    app = agent.App("https://hub.example.com", {}, agent._is_dev())
+    a = app.agent
+    item = {
+        "platform": "macos-dev",
+        "name": "FoxProfileAgent-3.0.115-dev-macos.pkg",
+        "size": 3,
+        "time": 1.0,
+    }
+    fetched, started = [], []
+
+    def call(method, path, data=None, **kwargs):
+        if path == "/hub/installers":
+            return [item]
+        if path.startswith("/hub/poll?"):
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
+            assert query["installer_platform"] == ["macos-dev"]
+            a.restart = True
+
+    def fetch(request, timeout):
+        fetched.append(request.full_url)
+        return _Resp(b"pkg", request.full_url)
+
+    monkeypatch.setattr(a.hub, "call", call)
+    monkeypatch.setattr(urllib.request, "urlopen", fetch)
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    a.run()
+    assert a.restart
+    a.install_update(force=True, newer=True)
+    assert fetched == []
+
+    item["name"] = "FoxProfileAgent-3.0.125-dev-macos.pkg"
+    a.install_update(force=True, newer=True)
+    assert fetched == [
+        f"https://hub.example.com/api/v1/hub/installers/macos-dev?name={item['name']}"
+    ]
+    assert started == [["open", str((tmp_path / "installer" / item["name"]).resolve())]]
+
+
+def test_panel_offers_the_installer_and_nothing_opens_meanwhile(hub, hub_code):
+    client, container, _ = hub
+    ana = _login(client, "ana", "anaanaanaana")
+    for name in ("shop-01", "shop-02"):
+        client.post("/api/v1/profiles", json={"name": name}, headers=ana)
+    assert client.post("/api/v1/hub/me/agent-update", headers=ana).status_code == 409
+    assert _poll(client, ana, code="old", req="req0", running="shop-01").status_code == 204
+    assert client.get("/api/v1/hub/me", headers=ana).json()["agent_installer"] is True
+    r = client.post("/api/v1/browser/shop-02/launch?wait=false", headers=ana)
+    assert r.status_code == 409 and r.json()["detail"] == get_string("err_agent_installer")
+    # The button waits for closed browsers, then runs the installer even if run before.
+    assert client.post("/api/v1/hub/me/agent-update", headers=ana).json() == {"running": 1}
+    assert _poll(client, ana, code="old", req="req0", running="shop-01").status_code == 204
+    r = _poll(client, ana, code="old", req="req0")
+    assert r.json() == {"op": "installer_needed", "force": True}
+    _poll(client, ana, code="hubcode", req="req1")
+    assert client.get("/api/v1/hub/me", headers=ana).json()["agent_installer"] is False
+
+
+def test_dev_agents_on_windows_run_the_msi_with_msiexec(tmp_path, monkeypatch):
+    """A dev agent's platform is "windows-dev": it must still go through msiexec,
+    not macOS's `open` (which fails on Windows with WinError 2)."""
+    import subprocess
+    import urllib.request
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(agent.sys, "platform", "win32")
+    # Windows-only constants, so the test also runs on Linux CI.
+    monkeypatch.setattr(subprocess, "DETACHED_PROCESS", 8, raising=False)
+    monkeypatch.setattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 512, raising=False)
+    monkeypatch.setattr(agent_code, "installed_requirements", lambda: "req0")
+    listing = [
+        {"platform": "windows-dev", "name": "FoxProfileAgent-2.4.0-dev.msi", "size": 3, "time": 1.0}
+    ]
+    hub_client = agent.HubClient("https://hub.example.com", "ana", "fpk_x")
+    monkeypatch.setattr(
+        hub_client,
+        "call",
+        lambda m, path, data=None, **kw: listing if path == "/hub/installers" else None,
+    )
+    started, notes = [], []
+    a = agent.Agent(hub_client, notify=notes.append)
+    a.dev = True
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda r, timeout=None: _Resp(b"msi", r.full_url)
+    )
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: started.append(args))
+    a.install_update()
+    msi = str((tmp_path / "installer" / listing[0]["name"]).resolve())
+    assert started == [["msiexec", "/i", msi, "/passive", "/norestart"]]
+    assert notes[-1] == agent.get_string("agent_installer_opened")
 
 
 def test_admin_can_offer_the_installer_again(hub, hub_code):
@@ -348,6 +529,23 @@ def _listed(stub, platform, *names):
     ]
     expected = {"Bucket": "fox", "Prefix": f"fox-profiles/dev/installers/{platform}/"}
     stub.add_response("list_objects_v2", {"Contents": contents} if contents else {}, expected)
+
+
+def test_an_s3_upload_refreshes_the_cached_installer_slot(bucket, monkeypatch):
+    from src.hub import installers
+
+    monkeypatch.setattr(installers, "_UPDATE_CACHE", {})
+    platform = "macos-dev"
+    name = "FoxProfileAgent-3.0.125-dev-macos.pkg"
+    _listed(bucket, platform)
+    assert installers.for_update(platform) is None
+    assert installers.for_update(platform) is None  # no second S3 request
+
+    _listed(bucket, platform, name)
+    installers.uploaded(platform, name)
+    _listed(bucket, platform, name)
+    assert installers.for_update(platform)["name"] == name
+    bucket.assert_no_pending_responses()
 
 
 def test_installers_in_a_bucket_go_through_presigned_urls(hub, bucket):
@@ -455,7 +653,12 @@ def test_agent_activity_reaches_the_panel_and_expires(hub):
         "/api/v1/hub/agent/status", json={"state": "downloading", "pct": 40}, headers=ana
     )
     assert r.status_code == 200
-    assert me()["agent_activity"] == {"state": "downloading", "pct": 40, "profile": None}
+    assert me()["agent_activity"] == {
+        "state": "downloading",
+        "pct": 40,
+        "profile": None,
+        "error": None,
+    }
     # Silent for too long: the panel stops showing it.
     container.browser_launcher.agents["ana"]["activity"]["at"] -= hub_routes.ACTIVITY_TTL + 1
     assert me()["agent_activity"] is None
@@ -712,7 +915,12 @@ def test_a_plain_http_hub_cannot_push_code_or_installers(tmp_path, monkeypatch):
     a.update("abc")
     a.update("abc")  # the next poll: no second notice
     a.install_update()
-    assert calls == [] and started == [] and not a.restart and not a.updating
+    # Nothing fetched; only the panel is told why (agent/status).
+    # (sent from a thread: maybe not yet)
+    assert (
+        set(calls) <= {"/hub/agent/status"} and started == [] and not a.restart and not a.updating
+    )
+    assert a.installer["state"] == "installer_failed"
     assert notes == [agent.get_string("agent_update_needs_https")] * 2
 
 
@@ -728,3 +936,62 @@ def test_an_installer_redirected_to_plain_http_is_not_run(tmp_path, monkeypatch)
     a.install_update()
     assert started == [] and not (tmp_path / "installer" / "evil.pkg").exists()
     assert notes == [agent.get_string("agent_update_needs_https")] and not a.updating
+
+
+def test_agents_hub_and_server_run_without_flet():
+    """The installers ship requirements.txt, which has no flet (the desktop app's
+    requirements-desktop.txt does): nothing but src.ui may load it."""
+    import subprocess
+
+    code = (
+        "import sys\n"
+        "import src.agent, src.agent_logs, src.agent_panel, src.agent_wall\n"
+        "import src.server, src.hub.routes, src.mcp_server.server\n"
+        "assert not [m for m in sys.modules if m.split('.')[0] == 'flet'], 'flet loaded'\n"
+    )
+    root = pathlib.Path(__file__).resolve().parents[1]
+    r = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    lines = (root / "requirements.txt").read_text().splitlines()
+    assert not [line for line in lines if line.startswith("flet")]
+
+
+def test_a_restarted_agent_waits_for_the_previous_ones_lock(tmp_path, monkeypatch):
+    import threading
+
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    previous = agent._try_lock()
+    assert previous is not None
+    assert agent._single_instance() is None  # a second agent: no wait
+    threading.Timer(0.5, previous.close).start()  # the previous one exits
+    assert agent._single_instance(wait=5) is not None
+
+
+def test_an_update_restarts_without_the_tray(tmp_path, monkeypatch):
+    """23-nov: the tray did not stop after an update, so the agent hung."""
+    from src import agent
+
+    monkeypatch.chdir(tmp_path)
+    app = agent.App("https://hub.example.com", {}, True)
+    steps = []
+    monkeypatch.setattr(app.agent.bl, "shutdown_all", lambda: steps.append("browsers"))
+
+    class Child:
+        pid = 4321
+
+    monkeypatch.setattr(agent, "_restart", lambda: steps.append("start") or Child())
+    monkeypatch.setattr(agent, "_exit_now", lambda why="": steps.append("exit"))
+    app.restart_now()
+    assert steps == ["browsers", "start", "exit"]
+
+    # The new agent did not start: this one goes on, ready for the next offer.
+    def fail():
+        raise OSError("no python")
+
+    steps.clear()
+    app.agent.restart = app.agent.updating = True
+    monkeypatch.setattr(agent, "_restart", fail)
+    app.restart_now()
+    assert steps == ["browsers"] and not app.agent.restart and not app.agent.updating

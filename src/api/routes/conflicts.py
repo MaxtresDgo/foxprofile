@@ -55,6 +55,7 @@ def list_conflicts(
     packed, upload = meta.get("packed") or {}, meta.get("hub_upload") or {}
     hub = {"ts": upload.get("ts"), "by": upload.get("by"), "pc": packed.get("pc", "")}
     hub["cookies"] = packed.get("cookies")
+    hub |= conflicts.details(os.path.join(DATA_DIR, name))
     return {
         "hub": hub,
         "copies": conflicts.entries(profile.uid),

@@ -32,17 +32,37 @@ if "--home" in sys.argv:
     _home = os.path.join(_base, "FoxProfile")
     os.makedirs(_home, exist_ok=True)
     os.chdir(_home)
+    if os.name == "nt":
+        # The profiles live outside AppData, as AdsPower's: C:\Users\<user>\FoxProfiles,
+        # a short path for Chrome's deep folders, easy to find, and private to its
+        # Windows user like the rest of their folder (it holds sessions).
+        # FOXPROFILE_PROFILES_ROOT (in .env) moves it, say to another disk: one per
+        # Windows user. A folder it cannot make keeps them in the agent's, as before.
+        try:
+            from dotenv import load_dotenv  # noqa: E402
+
+            load_dotenv(os.path.join(_home, ".env"))
+        except ImportError:
+            pass
+        _root = os.getenv("FOXPROFILE_PROFILES_ROOT") or os.path.expanduser("~\\FoxProfiles")
+        try:
+            os.makedirs(os.path.join(_root, "perfiles"), exist_ok=True)
+            os.environ.setdefault("FOXPROFILE_DATA_DIR", os.path.join(_root, "perfiles"))
+        except OSError:
+            pass
 
 import argparse  # noqa: E402
 import collections  # noqa: E402
 import contextlib  # noqa: E402
 import dataclasses  # noqa: E402
+import getpass  # noqa: E402
 import hashlib  # noqa: E402
 import importlib.util  # noqa: E402
 import ipaddress  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
 import pathlib  # noqa: E402
+import re  # noqa: E402
 import secrets  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
@@ -68,7 +88,7 @@ from src.core.config import (  # noqa: E402
 from src.core.container import Container  # noqa: E402
 from src.core.logging import get_logger, setup_logging  # noqa: E402
 from src.core.strings import current_language, get_string, set_language  # noqa: E402
-from src.hub import agent_code  # noqa: E402
+from src.hub import agent_code, installers  # noqa: E402
 from src.hub.agent_auth import SignIn, pc_name  # noqa: E402
 from src.models.profile import Profile  # noqa: E402
 from src.services.browser import chrome_prefetch, cookies  # noqa: E402
@@ -89,6 +109,7 @@ from src.services.profile.transfer import (  # noqa: E402
     read_cookies,
     read_meta,
     save_checkpoint,
+    swap_in,
     update_meta,
 )
 from src.services.proxy.geo_check import check_geo  # noqa: E402
@@ -100,14 +121,24 @@ PART_BYTES = 8 * 1024 * 1024
 # What a hub without a route answers: older than the pieces above.
 OLD_HUB = (404, 405)
 CREDENTIALS = pathlib.Path("agent.json")
-# Minutes between cookie checkpoints of each open profile; 0 turns them off. A
-# crash uploads the last verified one instead of what the browser left behind.
-CHECKPOINT_MIN = 10
-# Each profile's data stays on this PC after its upload (profile-cache/<name>), so
+# Seconds between cookie checkpoints of each open profile; 0 turns them off. A
+# crash, or an export that fails after the close, uploads the last verified one
+# instead of what the browser left behind. Written only when the cookies changed.
+CHECKPOINT_SECONDS = 20
+# Each profile's data stays on this PC after its upload (Agent.cache_root), so
 # it still opens when the hub or the internet is down; a copy unused for
-# CACHE_DAYS goes. It opens without a download only while the hub's copy is
-# exactly the one uploaded from it (same data_stamp), and offline from the tray.
-CACHE_DAYS = 14
+# CACHE_DAYS goes, and the least used ones while all of them take more than
+# CACHE_MAX_GB or the disk has under CACHE_MIN_FREE_GB free. It opens without a
+# download only while the hub's copy is exactly the one uploaded from it (same
+# data_stamp), and offline from the tray. With light sync it is the profile's
+# data on this PC: the light bundle from the hub goes over it.
+CACHE_DAYS = 30
+CACHE_MAX_GB = 20
+CACHE_MIN_FREE_GB = 2
+# Seconds a restarted agent waits for the one before it to let go of agent.lock,
+# and that Quit gives the tray before the process ends anyway (App.quit).
+RESTART_WAIT = 30
+QUIT_GRACE = 10
 ICON = pathlib.Path(__file__).parent / "assets" / "icon.png"
 
 
@@ -142,6 +173,74 @@ def store_info(local: pathlib.Path) -> dict:
             st = f.stat()
             stores[rel] = {"bytes": st.st_size, "modified": time.ctime(st.st_mtime)}
     return {"files": files, "bytes": size, "stores": stores}
+
+
+def account_dir(user: str) -> str:
+    """A hub account as a folder name: an email stays readable."""
+    return re.sub(r"[^\w.@+-]", "_", user).strip(". ") or "_"
+
+
+# Where agents 3.0.123 to 3.0.125 kept them on Windows: C:\FoxProfiles\<user>.
+LEGACY_ROOT = pathlib.Path("C:/FoxProfiles")
+
+
+def move_old_layout(data_root: pathlib.Path, cache_base: pathlib.Path) -> None:
+    """Move what an earlier agent left, in its own folder (the cwd: camoufox_data,
+    profile-cache/<name> and its record) or in LEGACY_ROOT/<user> (perfiles,
+    cache/<account>): the profiles still to upload into data_root, the copies into
+    cache_base/<account>."""
+    legacy = LEGACY_ROOT / getpass.getuser()
+    olds = [(pathlib.Path("camoufox_data"), pathlib.Path("profile-cache"))]
+    olds.append((legacy / "perfiles", legacy / "cache"))
+    for old_data, old_cache in olds:
+        if old_data.is_dir() and old_data.resolve() != data_root.resolve():
+            for d in old_data.iterdir():
+                if d.is_dir() and not (data_root / d.name).exists():
+                    try:
+                        shutil.move(str(d), str(data_root / d.name))
+                    except OSError as e:
+                        logger.warning("Could not move %s to %s: %s", d, data_root, e)
+        same = old_cache.resolve() == cache_base.resolve()
+        records = sorted(old_cache.glob("*.json")) if old_cache.is_dir() else []
+        if not same:  # copies already filed by account
+            records += sorted(old_cache.glob("*/*.json"))
+        for record in records:
+            try:
+                user = json.loads(record.read_text(encoding="utf-8")).get("user") or ""
+            except (OSError, ValueError):
+                continue
+            dest, copy = cache_base / account_dir(user), record.with_suffix("")
+            if not copy.is_dir() or (dest / record.name).exists():
+                continue
+            try:
+                dest.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(copy), str(dest / copy.name))
+                shutil.move(str(record), str(dest / record.name))
+            except OSError as e:
+                logger.warning("Could not move the copy of %s: %s", copy.name, e)
+        # rmdir only takes empty folders; never the ones in use.
+        empty = [old_data] if old_data.resolve() != data_root.resolve() else []
+        if not same and old_cache.is_dir():
+            empty += [d for d in old_cache.iterdir() if d.is_dir()] + [old_cache]
+        for d in empty:
+            with contextlib.suppress(OSError):
+                d.rmdir()
+    for d in (legacy, LEGACY_ROOT):
+        with contextlib.suppress(OSError):
+            d.rmdir()
+
+
+def drop_cookie_store(local: pathlib.Path) -> int:
+    """Delete the browser's own cookie store and its journal (the pack refills it):
+    after another PC's sessions, none of this copy's comes back. How many files."""
+    gone = 0
+    for rel in _COOKIE_STORES:
+        for suffix in ("", "-journal", "-wal", "-shm"):
+            f = local / (rel + suffix)
+            if f.is_file():
+                f.unlink()
+                gone += 1
+    return gone
 
 
 def merge_cookies(text: str, previous: str | None) -> tuple[str, int]:
@@ -278,16 +377,20 @@ class Agent:
         self.chrome_installs: dict[str, int] = {}
         self.chrome_error = ""  # "<version> <error>" of the last failed one, for the panel
         self.updating = False
+        # The new installer (install_update): its download, opened, or why it failed.
+        self.installer: dict | None = None
         self._ops: dict[str, str] = {}  # profile -> "opening" | "syncing"
         # Profiles downloaded by this run: their os_type and engine open the
         # browser that packs the cookies when they are uploaded.
         self._profiles: dict[str, Profile] = {}
+        # SHA-256 of each open profile's last checkpoint: unchanged cookies are not saved again.
+        self._checkpointed: dict[str, str] = {}
         # Unpacked extension folders of each launch (what the hub sent with it).
         self._ext_dirs: dict[str, list[str]] = {}
         self._sent: tuple = ()
         self._activity_lock = threading.Lock()
         threading.Thread(target=self._heartbeat, daemon=True).start()
-        if CHECKPOINT_MIN:
+        if CHECKPOINT_SECONDS:
             threading.Thread(target=self._checkpoints, daemon=True).start()
         container = Container(hub=False)
         self.bl = container.browser_launcher
@@ -299,7 +402,25 @@ class Agent:
         self.proxies = container.proxy_service
         self.data_root = pathlib.Path(DATA_DIR)
         self.data_root.mkdir(parents=True, exist_ok=True)
-        self.cache_root = pathlib.Path("profile-cache")
+        # The copies, one folder per hub account (cache_root): next to the profiles
+        # when they live outside the agent's folder (C:\\FoxProfiles\\<user>\\cache).
+        self.cache_base = (
+            self.data_root.parent / "cache"
+            if self.data_root.is_absolute()
+            else pathlib.Path("profile-cache")
+        )
+        self._cache_root: pathlib.Path | None = None
+        self.cache_base.mkdir(parents=True, exist_ok=True)  # next to perfiles from the start
+        move_old_layout(self.data_root, self.cache_base)
+
+    @property
+    def cache_root(self) -> pathlib.Path:
+        """The signed-in account's copies: switching accounts keeps each one's."""
+        return self._cache_root or self.cache_base / account_dir(self.hub.user)
+
+    @cache_root.setter
+    def cache_root(self, path: pathlib.Path) -> None:
+        self._cache_root = path
 
     @property
     def online(self) -> bool:
@@ -322,6 +443,12 @@ class Agent:
     def activity(self) -> dict:
         if self.updating:
             return {"state": "updating"}
+        inst = self.installer
+        # Opened: until the installer restarts this agent; a cancelled one stops showing.
+        if inst and not (
+            inst["state"] == "installer_opened" and time.monotonic() - inst["at"] > 600
+        ):
+            return {k: v for k, v in inst.items() if k != "at"}
         if self.browser_download is not None:
             pct = self.browser_download if self.browser_download >= 0 else None
             return {"state": "downloading", "pct": pct}
@@ -359,27 +486,32 @@ class Agent:
                 self.report(force=True)
 
     def _checkpoints(self) -> None:
-        # By the wall clock, checked every 30 s: a long sleep() stops counting while
+        # By the wall clock, checked every 5 s: a long sleep() stops counting while
         # the PC is suspended, and a laptop's lid would push checkpoints back.
         last: dict[str, float] = {}
         while True:
-            time.sleep(30)
+            time.sleep(5)
             running = self.bl.running_profile_names()
             last = {n: t for n, t in last.items() if n in running}
             for name in running:
-                due = time.time() - last.setdefault(name, time.time()) >= CHECKPOINT_MIN * 60
+                due = time.time() - last.setdefault(name, time.time()) >= CHECKPOINT_SECONDS
                 if due and name not in self._ops:  # not while it is opening or saving
                     self.checkpoint(name)
                     last[name] = time.time()
 
     def checkpoint(self, name: str) -> None:
-        """Keep the open profile's cookies on this PC, checked back from disk."""
+        """Keep the open profile's cookies on this PC, checked back from disk; not
+        again while they are the same as the last time."""
         try:
             text = cookies.as_json(self.bl.control(name, "cookies", timeout=30))
+            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            if self._checkpointed.get(name) == digest:
+                return
             entry = save_checkpoint(str(self.data_root / name), text)
         except (BrowserControlError, OSError, ValueError) as e:
             trace(name, "checkpoint.failed", warn=True, error=e)
             return
+        self._checkpointed[name] = digest
         trace(
             name,
             "checkpoint.saved",
@@ -408,12 +540,15 @@ class Agent:
         details: dict | None = None,
         stamp: str | None = None,
         offline: bool = False,
+        light: bool = False,
+        full: bool = False,
     ) -> None:
         name = profile_dict["name"]
         self._details[name] = details or {}
+        self._checkpointed.pop(name, None)
         try:
             with self.busy("opening", name):
-                profile = self._download(name, profile_dict, stamp, offline)
+                profile = self._download(name, profile_dict, stamp, offline, light, full)
                 self._ext_dirs[name] = self._extensions(extensions)
         except Exception as e:
             say(get_string("agent_download_failed", name=name, error=e))
@@ -470,6 +605,9 @@ class Agent:
         # stop_profile does not fire on_stop, so sync here.
         # Time for the browser to close and write its cookies before the upload.
         trace(name, "stop.requested")
+        if name in self.bl.running_profile_names():
+            # The live browser's cookies: exporting them once it closed can still fail.
+            self.checkpoint(name)
         if self.bl.stop_profile(name, timeout=15):
             say(get_string(said, name=name))
             self._sync(name)
@@ -496,7 +634,7 @@ class Agent:
         name, params = cmd["profile"]["name"], cmd["params"]
         local = self.data_root / name
         try:
-            profile = self._download(name)
+            profile = self._download(name, light=cmd.get("sync") == "light")
             if cmd["action"] == "export":
                 text, count = cookies.export_cookies(
                     name, profile.os_type, params["format"], profile.engine, profile.chrome_version
@@ -566,21 +704,41 @@ class Agent:
         profile_dict: dict | None = None,
         stamp: str | None = None,
         offline: bool = False,
+        light: bool = False,
+        full: bool = False,
     ) -> Profile:
         """The profile's data into data_root: from the hub, or this PC's copy of it
         (profile_dict given: a launch) when the hub's is unchanged, unreachable or
-        `offline` (opened from the tray while the hub is down)."""
+        `offline` (opened from the tray while the hub is down). `light` (the hub's
+        FOXPROFILE_HUB_SYNC): only the light bundle comes, over this PC's copy or
+        alone; `full`: this close uploads the whole profile, the hub's backup."""
         local = self.data_root / name
         started = time.monotonic()
-        trace(name, "download.start", pc=self.identity["pc"], user=self.hub.user)
+        trace(name, "download.start", pc=self.identity["pc"], user=self.hub.user, light=light)
         cached = self._cache_get(name) if profile_dict is not None else None
+        was = (cached or {}).get("profile", {}).get("chrome_version")
+        if cached and was != profile_dict.get("chrome_version"):
+            # Another Chrome build (a downgrade on the hub): Chromium cannot read a
+            # newer build's data, and the hub's copy has it no more.
+            trace(name, "cache.other_build", was=was, now=profile_dict.get("chrome_version"))
+            self._cache_drop(name)
+            cached = None
         size, source, base = 0, {}, stamp  # base: the hub copy this session starts from
         if cached and (offline or (stamp and cached["stamp"] == stamp)):
             result = self._cache_take(name, cached, profile_dict, stale=offline)
             source, base = {"source": "cache", "stale": offline}, cached["stamp"]
+            if offline:  # as its last open from the hub synced
+                light = bool((read_meta(str(local)).get("sync") or {}).get("light"))
         else:
             try:
-                result, size = self._fetch_into(name, local)
+                # Light: over this PC's copy, or alone for a cookie job. A launch on a
+                # PC without a copy (its first time there) takes the whole profile:
+                # the hub's last full upload with today's cookies and storage.
+                if light and (cached or profile_dict is None):
+                    result, size = self._fetch_light(name, cached, profile_dict)
+                    source = {"source": "light", "over_copy": bool(cached)}
+                else:
+                    result, size = self._fetch_into(name, local)
             except (OSError, ValueError) as e:  # URLError and IntegrityError included
                 # A 4xx is the hub's answer (deleted, someone else's): not an outage.
                 answered = isinstance(e, urllib.error.HTTPError) and e.code < 500
@@ -605,8 +763,13 @@ class Agent:
         update_meta(str(local), profile={**engine, "chrome_version": result.chrome_version})
         # Sent with the upload: a hub copy changed since then is a conflict (hub.routes).
         update_meta(str(local), base_stamp=base)
+        if not offline:  # how its close uploads (_upload); an offline open keeps the last
+            update_meta(str(local), sync={"light": light, "full": full})
+        # The pack this PC uploaded on its last close: its own store is as new.
+        pack = local / COOKIES_GZ
+        own = bool(cached) and pack.is_file() and cached.get("pack") == file_sha256(str(pack))
         try:
-            self._restore_cookies(result, local, size, source)
+            self._restore_cookies(result, local, size, source, light, own)
         except IntegrityError as e:
             trace(name, "download.cookies_corrupt", warn=True, error=e)
             # Not left for recover() to upload: the hub keeps its own copy.
@@ -627,6 +790,31 @@ class Agent:
             trace(name, "download.unpack_failed", warn=True, error=result)
             raise RuntimeError(result)
         return result, size
+
+    def _fetch_light(
+        self, name: str, cached: dict | None, profile_dict: dict | None
+    ) -> tuple[Profile, int]:
+        """The hub's light bundle over this PC's copy, or alone (the browser makes
+        the rest). The copy goes back to the cache if the bundle cannot be used."""
+        local = self.data_root / name
+        # Next to data_root: swap_in renames across them.
+        with tempfile.TemporaryDirectory(dir=self.data_root.parent) as tmp:
+            zip_path = os.path.join(tmp, "bundle.zip")
+            self._fetch_bundle(name, zip_path, light=True)
+            size = os.path.getsize(zip_path)
+            sha = file_sha256(zip_path)[:16]
+            trace(name, "download.bundle", light=True, bytes=size, sha256=sha)
+            shutil.rmtree(local, ignore_errors=True)
+            if cached:
+                self._cache_take(name, cached, profile_dict, stale=False)
+            try:
+                return swap_in(zip_path, tmp, name, self.data_root), size
+            except Exception:
+                if cached and local.is_dir():
+                    local.rename(self.cache_root / name)
+                    record = json.dumps(cached)
+                    (self.cache_root / f"{name}.json").write_text(record, encoding="utf-8")
+                raise
 
     # --- this PC's copy of each profile (CACHE_DAYS) ----------------------------
 
@@ -657,31 +845,67 @@ class Agent:
 
     def _cache_put(self, name: str, local: pathlib.Path, stamp: str | None) -> None:
         """Keep the uploaded data here under the hub's stamp instead of deleting it."""
-        shutil.rmtree(self.cache_root / name, ignore_errors=True)
+        self._cache_drop(name)
         profile = self._profiles.get(name)
         if not stamp or profile is None or not CACHE_DAYS:  # a hub too old to stamp
             shutil.rmtree(local, ignore_errors=True)
             return
-        for rel in (CHECKPOINTS, *_CACHE_DIRS):  # rebuilt on demand, often big
-            for d in [local / rel, *local.glob(f"*/{rel}")]:
-                shutil.rmtree(d, ignore_errors=True)
-        self.cache_root.mkdir(exist_ok=True)
-        local.rename(self.cache_root / name)
+        shutil.rmtree(local / CHECKPOINTS, ignore_errors=True)
+        for root, dirs, _ in os.walk(local):  # caches: rebuilt on demand, often big
+            for d in [d for d in dirs if d in _CACHE_DIRS]:
+                shutil.rmtree(os.path.join(root, d), ignore_errors=True)
+                dirs.remove(d)
+        self.cache_root.mkdir(parents=True, exist_ok=True)
+        kept = self.cache_root / name
+        local.rename(kept)
+        pack = kept / COOKIES_GZ
         record = {"stamp": stamp, "user": self.hub.user, "hub": self.hub.url, "ts": time.time()}
+        record["pack"] = file_sha256(str(pack)) if pack.is_file() else None
+        record["bytes"] = sum(f.stat().st_size for f in kept.rglob("*") if f.is_file())
         record["profile"] = profile.to_dict()
         (self.cache_root / f"{name}.json").write_text(json.dumps(record), encoding="utf-8")
-        trace(name, "cache.kept", stamp=stamp[:12])
+        trace(name, "cache.kept", stamp=stamp[:12], bytes=record["bytes"])
+        self.prune_cache()
+
+    def _cache_drop(self, name: str) -> None:
+        shutil.rmtree(self.cache_root / name, ignore_errors=True)
+        (self.cache_root / f"{name}.json").unlink(missing_ok=True)
 
     def prune_cache(self, everything: bool = False) -> None:
-        """Drop copies unused for CACHE_DAYS, or of another account; all on `everything`."""
+        """Drop copies unused for CACHE_DAYS, or of another account; all on `everything`.
+        Then the least recently used while the copies take over CACHE_MAX_GB or the
+        disk has under CACHE_MIN_FREE_GB free."""
+        old = time.time() - CACHE_DAYS * 86400
+        # Other accounts' copies on this PC go by age only (their sessions, unused).
+        mine = self._cache_root is None and self.cache_base.is_dir()  # none saved yet
+        others = self.cache_base.iterdir() if mine else ()
+        for folder in [f for f in others if f.is_dir() and f != self.cache_root]:
+            for record in folder.glob("*.json"):
+                with contextlib.suppress(OSError, ValueError):
+                    if json.loads(record.read_text(encoding="utf-8")).get("ts", 0) <= old:
+                        shutil.rmtree(folder / record.stem, ignore_errors=True)
+                        record.unlink(missing_ok=True)
         if not self.cache_root.is_dir():
             return
-        old = time.time() - CACHE_DAYS * 86400
+        kept = []
         for record in self.cache_root.glob("*.json"):
             meta = self._cache_get(record.stem)
             if everything or meta is None or meta.get("ts", 0) <= old:  # Windows: ~15 ms ticks
-                shutil.rmtree(self.cache_root / record.stem, ignore_errors=True)
-                record.unlink(missing_ok=True)
+                self._cache_drop(record.stem)
+            else:
+                kept.append((meta.get("ts", 0), record.stem, meta.get("bytes") or 0))
+        kept.sort()
+        total = sum(size for _, _, size in kept)
+
+        def full() -> bool:
+            low = shutil.disk_usage(self.cache_root).free < CACHE_MIN_FREE_GB * 2**30
+            return low or total > CACHE_MAX_GB * 2**30
+
+        while kept and full():
+            _, name, size = kept.pop(0)
+            self._cache_drop(name)
+            total -= size
+            trace(name, "cache.dropped", reason="space", bytes=size)
 
     def local_profiles(self) -> list[dict]:
         """What the local panel lists: profiles with a copy here, open, or not uploaded."""
@@ -745,14 +969,15 @@ class Agent:
             say(get_string("agent_extension_ready", name=ext["name"]))
         return dirs
 
-    def _fetch_bundle(self, name: str, zip_path: str) -> None:
-        """The profile's ZIP in pieces, checked against its SHA-256: the hub builds
-        it while this polls, so no request comes near Cloudflare's 100 MB / 100 s."""
+    def _fetch_bundle(self, name: str, zip_path: str, light: bool = False) -> None:
+        """The profile's ZIP (or its light bundle) in pieces, checked against its
+        SHA-256: the hub builds it while this polls, so no request comes near
+        Cloudflare's 100 MB / 100 s."""
         base = f"/hub/bundle/{self.q(name)}/download"
         try:
-            job = self.hub.call("POST", base, b"{}")["id"]
+            job = self.hub.call("POST", base + ("?light=1" if light else ""), b"{}")["id"]
         except urllib.error.HTTPError as e:
-            if e.code not in OLD_HUB:
+            if e.code not in OLD_HUB or light:  # a hub that asks for light serves it
                 raise
             self._fetch_whole(name, zip_path)
             return
@@ -790,12 +1015,23 @@ class Agent:
             raise IntegrityError(get_string("err_bundle_corrupt"))
 
     def _restore_cookies(
-        self, profile: Profile, local: pathlib.Path, bundle: int = 0, source: dict | None = None
+        self,
+        profile: Profile,
+        local: pathlib.Path,
+        bundle: int = 0,
+        source: dict | None = None,
+        light: bool = False,
+        own: bool = False,
     ) -> None:
-        """Load the cookies packed on the last close into this PC's browser store."""
+        """Load the cookies packed on the last close into this PC's browser store.
+        With light sync the pack is the profile's sessions on every engine: `own`
+        (this PC packed it, its store is as new or newer) skips the import; any
+        other pack first empties the store it lands on, this PC's copy's or the
+        hub's (written on another PC, by its last full upload)."""
         name = profile.name
         text = read_cookies(str(local))  # IntegrityError: the launch is refused
-        if profile.engine != "chrome":
+        prior = read_meta(str(local)).get("restored") or {}
+        if profile.engine != "chrome" and not light:
             # Camoufox's own store travels: a stale copy must never be uploaded
             # back and imported over newer cookies. Chrome's store does not travel
             # (Windows encrypts it per PC), so its pack stays until the close
@@ -810,6 +1046,13 @@ class Agent:
             trace(name, "restore.nothing_packed", warn=profile.engine == "chrome")
             update_meta(str(local), restored=restored)
             return
+        if light and own and not prior.get("error"):
+            restored |= {"cookies": expected, "kept_store": True}
+            trace(name, "restore.own_pack", expected=expected)
+            update_meta(str(local), restored=restored)
+            return
+        if light:
+            trace(name, "restore.store_cleared", files=drop_cookie_store(local))
         trace(name, "restore.start", expected=expected, domains=cookie_domains(text))
         try:
             count = cookies.import_cookies(
@@ -936,20 +1179,22 @@ class Agent:
     def _upload(self, name: str, local: pathlib.Path, upload_id: str = "") -> dict:
         """Send the profile's data; the hub's answer: its copy's new `stamp`, or the
         `conflict` it was kept as when the hub's copy changed since this one began."""
+        meta = read_meta(str(local))
+        sync = meta.get("sync") or {}
+        light = bool(sync.get("light")) and not sync.get("full")  # how it was opened
         with tempfile.TemporaryDirectory() as tmp:
-            ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, include_data=True)
+            ok, zip_path = export_to_zip(Profile(name=name), str(local), tmp, True, light)
             if not ok:
                 raise OSError(zip_path)
             bundle = f"/hub/bundle/{self.q(name)}"
             raw = {"Content-Type": "application/octet-stream"}
             sha = {"X-Content-SHA256": file_sha256(zip_path)}
-            if base := read_meta(str(local)).get("base_stamp"):
+            if base := meta.get("base_stamp"):
                 sha |= {"X-Base-Stamp": base, "X-Upload-Id": upload_id or secrets.token_hex(8)}
             size = os.path.getsize(zip_path)
             parts = -(-size // PART_BYTES)
-            trace(
-                name, "upload.bundle", bytes=size, parts=parts, sha256=sha["X-Content-SHA256"][:16]
-            )
+            digest = sha["X-Content-SHA256"][:16]
+            trace(name, "upload.bundle", light=light, bytes=size, parts=parts, sha256=digest)
             with open(zip_path, "rb") as f:
                 offset = 0
                 while part := f.read(PART_BYTES):
@@ -993,7 +1238,12 @@ class Agent:
 
     def run(self) -> None:
         self.report(force=True)  # clears what a previous run left on the hub
-        self.recover()
+        try:
+            self.recover()
+        except Exception:
+            # Logged, not fatal: without the loop below the agent never polls,
+            # while its tray still says connected.
+            logger.exception("Recovering what a previous run left failed")
         while not self.restart:
             running = ",".join(sorted(self.bl.running_profile_names()))
             builds = ",".join(fetch_installed_versions()) if self.identity["chrome_os"] else ""
@@ -1001,6 +1251,7 @@ class Agent:
                 {
                     "running": running,
                     **self.identity,
+                    "installer_platform": self.installer_platform if self.follow_updates else "",
                     "chrome_builds": builds,
                     "chrome_error": self.chrome_error,
                 }
@@ -1027,6 +1278,9 @@ class Agent:
                     resp.get("extensions") or [],
                     resp.get("details"),
                     resp.get("stamp"),
+                    False,
+                    resp.get("sync") == "light",
+                    bool(resp.get("full")),
                 )
                 threading.Thread(target=self.launch, args=args, daemon=True).start()
             elif resp["op"] == "stop":
@@ -1048,37 +1302,54 @@ class Agent:
                     say(get_string("agent_update_skipped_dev", code=resp["code"]))
             elif resp["op"] == "installer_needed":
                 if self.follow_updates:
-                    threading.Thread(target=self.install_update, daemon=True).start()
+                    force = bool(resp.get("force"))
+                    newer = bool(resp.get("newer"))
+                    threading.Thread(
+                        target=self.install_update,
+                        args=(force,),
+                        kwargs={"newer": newer},
+                        daemon=True,
+                    ).start()
                 else:
                     self.notify(get_string("agent_installer_needed"))
 
-    def install_update(self) -> None:
-        """New libraries need the new installer: download the hub's and run it. It
+    @property
+    def installer_platform(self) -> str:
+        system = {"win32": "windows", "darwin": "macos"}.get(sys.platform, "")
+        return system + "-dev" if system and self.dev else system
+
+    def install_update(self, force: bool = False, *, newer: bool = False) -> None:
+        """Download and run the hub's installer for this agent's slot. It
         stops this agent and starts the new one (Windows asks for admin rights; on
         macOS the operator clicks through Installer). An installer already run once
-        is not run again: the hub may still offer an old one."""
-        system = {"win32": "windows", "darwin": "macos"}.get(sys.platform)
-        if system is not None and self.dev:
-            system += "-dev"
-        if system is None or not agent_code.installed_requirements():
+        is not run again (unless `force`, asked from the panel): the hub may still offer an old one."""
+        system = self.installer_platform
+        if not system or not agent_code.installed_requirements():
             self.notify(get_string("agent_installer_needed"))
             return
         if not _secure(self.hub.url):
             self.notify(get_string("agent_update_needs_https"))
+            self._installer_failed(get_string("agent_update_needs_https"))
             return
         try:
             offered = {i["platform"]: i for i in self.hub.call("GET", "/hub/installers") or []}
         except (OSError, urllib.error.URLError, ValueError) as e:
-            say(get_string("agent_installer_failed", error=e))
+            self._installer_failed(e)
             return
         item = offered.get(system)
         stamp = f"{item['name']}:{item['size']}:{item['time']}" if item else ""
         tried = pathlib.Path("installer-tried.txt")
-        if not item or (tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp):
+        if not item:
+            self.notify(get_string("agent_installer_needed"))
+            self._installer_failed(get_string("agent_installer_missing"))
+            return
+        if newer and not installers.newer_version(system, item["name"], self.identity["ver"]):
+            return
+        if not force and tried.exists() and tried.read_text(encoding="utf-8").strip() == stamp:
             self.notify(get_string("agent_installer_needed"))
             return
         say(get_string("agent_installer_downloading"))
-        self.updating = True
+        self.installer = {"state": "installing", "pct": None}
         self.report()
         target = pathlib.Path("installer") / pathlib.PurePath(item["name"]).name
         try:
@@ -1086,16 +1357,27 @@ class Agent:
             # Public, and from a bucket a redirect to a presigned URL that must not
             # get this agent's key.
             url = f"{self.hub.url}/api/v1/hub/installers/{system}"
+            if newer:
+                url += "?" + urllib.parse.urlencode({"name": item["name"]})
             request = urllib.request.Request(url, headers={"User-Agent": "FoxProfile-Agent"})
             with urllib.request.urlopen(request, timeout=600) as r:
                 # The bucket's redirect must not drop to plain http either.
                 if not _secure(r.geturl()):
                     self.notify(get_string("agent_update_needs_https"))
+                    self._installer_failed(get_string("agent_update_needs_https"))
                     return
+                total, done = int(r.headers.get("Content-Length") or 0), 0
                 with open(target, "wb") as f:
-                    shutil.copyfileobj(r, f)
+                    while chunk := r.read(1 << 20):
+                        f.write(chunk)
+                        done += len(chunk)
+                        if total:
+                            pct = min(100, done * 100 // total)
+                            self.installer = {"state": "installing", "pct": pct}
+                            self.report()  # sent only when the percentage changes
             tried.write_text(stamp, encoding="utf-8")
-            if system == "windows":
+            # By OS, not `system`: a dev agent's is "windows-dev".
+            if sys.platform == "win32":
                 flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
                 subprocess.Popen(
                     ["msiexec", "/i", str(target.resolve()), "/passive", "/norestart"],
@@ -1105,12 +1387,17 @@ class Agent:
             else:
                 subprocess.Popen(["open", str(target.resolve())])
         except (OSError, urllib.error.URLError) as e:
-            say(get_string("agent_installer_failed", error=e))
+            self._installer_failed(e)
             return
-        finally:
-            self.updating = False
-            self.report()
+        self.installer = {"state": "installer_opened", "at": time.monotonic()}
+        self.report()
         self.notify(get_string("agent_installer_opened"))
+
+    def _installer_failed(self, error) -> None:
+        """Logged here and shown in the panel's "Your PC" line until the next try."""
+        say(get_string("agent_installer_failed", error=error))
+        self.installer = {"state": "installer_failed", "error": str(error)[:300]}
+        self.report()
 
     def update(self, code: str) -> None:
         """Unpack the hub's code for the installer's hook to load, then restart."""
@@ -1123,15 +1410,23 @@ class Agent:
         self.status("agent_status_updating")
         self.updating = True
         self.report()
+        started = time.monotonic()
+        logger.info("[update] downloading code %s from %s", code, self.hub.url)
         try:
-            with self.hub.call("GET", "/hub/agent/code", timeout=300, raw=True) as resp:
+            # A few MB: 60 s without a byte means the hub is not sending it.
+            with self.hub.call("GET", "/hub/agent/code", timeout=60, raw=True) as resp:
                 data = resp.read()
+            took = time.monotonic() - started
+            logger.info("[update] downloaded %d bytes in %.1f s", len(data), took)
             agent_code.unpack(data, code, pathlib.Path.cwd())
         except (OSError, ValueError, zipfile.BadZipFile) as e:
+            took = time.monotonic() - started
+            logger.warning("[update] failed after %.1f s: %s", took, e)
             say(get_string("agent_update_failed", error=e))
             self.updating = False
             self.report()
             return
+        logger.info("[update] unpacked %s: restarting", code)
         self.restart = True
 
 
@@ -1171,8 +1466,17 @@ def _save_credentials(creds: dict) -> None:
         CREDENTIALS.chmod(0o600)
 
 
-def _single_instance():
-    """A held lock file, or None when another agent already runs from this folder."""
+def _single_instance(wait: float = 0):
+    """A held lock file, or None when another agent already runs from this folder.
+    `wait`: seconds to keep trying, for a restarted agent whose previous process
+    is still on its way out."""
+    deadline = time.monotonic() + wait
+    while (lock := _try_lock()) is None and time.monotonic() < deadline:
+        time.sleep(0.5)
+    return lock
+
+
+def _try_lock():
     f = open("agent.lock", "a")  # noqa: SIM115 - held for the process lifetime
     try:
         if os.name == "nt":
@@ -1197,14 +1501,19 @@ def _log_file() -> str:
     return os.path.abspath(LOG_DIR)
 
 
+def open_path(path: str) -> None:
+    """A file or folder with the system's own app (Explorer, Finder)."""
+    if os.name == "nt":
+        os.startfile(path)
+    else:
+        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+
+
 def open_logs() -> None:
     """The log in a window of its own (src/agent_logs.py), following new lines."""
     path = _log_file()
     if importlib.util.find_spec("tkinter") is None:  # Python built without Tk
-        if os.name == "nt":
-            os.startfile(path)
-        else:
-            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
+        open_path(path)
         return
     env = {**os.environ, "PYTHONPATH": str(pathlib.Path(__file__).resolve().parent.parent)}
     subprocess.Popen([sys.executable, "-m", "src.agent_logs", path, current_language()], env=env)
@@ -1429,9 +1738,9 @@ class App:
             self.client.user,
             self.client.url,
         ):
-            # The old account's browsers sync with the old key before switching.
+            # The old account's browsers sync with the old key before switching. Its
+            # copies stay in its own folder (Agent.cache_root) for its next sign-in.
             self.agent.stop_all()
-            self.agent.prune_cache(everything=True)  # its sessions do not stay here
         self.client.url, self.client.user, self.client.key = (
             result["hub"],
             result["user"],
@@ -1503,9 +1812,32 @@ class App:
             # Speak the hub's language unless this PC picked one.
             with contextlib.suppress(OSError, ValueError):
                 set_language(_request(self.client.url + "/api/v1/info").get("language", ""))
-        self.agent.run()
-        if self.icon is not None:  # updated: leave the tray, main() restarts
-            self.icon.stop()
+        while True:  # run() returns once an update is unpacked
+            self.agent.run()
+            self.restart_now()  # returns only if the updated agent could not start
+
+    def restart_now(self) -> None:
+        """Start the updated agent and end this one, from this thread: not through
+        the tray's loop, which once did not stop after an update (23-nov), so the
+        agent neither restarted nor quit and stopped polling. The new process waits
+        for this one's lock (main, RESTART_WAIT)."""
+        logger.info("[restart] closing the browsers")
+        self.wall.close()  # its own process: _exit_now would leave it behind
+        self.agent.bl.shutdown_all()  # what was open uploads on the next start
+        try:
+            child = _restart()
+        except OSError:
+            logger.exception("[restart] the updated agent did not start; this one goes on")
+            self.agent.restart = self.agent.updating = False
+            self.agent.report()
+            return
+        if self.icon is not None:
+            with contextlib.suppress(Exception):
+                self.icon.visible = False  # no dead icon left in the tray
+        logger.info(
+            "[restart] started the updated agent (pid %s); pid %s exits", child.pid, os.getpid()
+        )
+        _exit_now()
 
     def run_tray(self) -> bool:
         """Run in the tray until Quit; False when this system has no tray."""
@@ -1551,6 +1883,7 @@ class App:
                 visible=lambda _: self.panel is not None and not self.agent.online,
             ),
             item(lambda _: get_string("agent_menu_logs"), open_logs),
+            item(lambda _: get_string("agent_menu_cache"), self.open_cache),
             item(lambda _: get_string("agent_menu_quit"), self.quit),
         )
         self.icon = pystray.Icon("foxprofile-agent", Image.open(ICON), self.title, menu)
@@ -1562,8 +1895,19 @@ class App:
         self.icon.run(setup=setup)  # main thread: required on macOS
         return True
 
+    def open_cache(self) -> None:
+        """This account's copies of its profiles (Agent.cache_root)."""
+        folder = self.agent.cache_root
+        folder.mkdir(parents=True, exist_ok=True)
+        open_path(str(folder.resolve()))
+
     def quit(self) -> None:
         say(get_string("agent_stopping"))
+        # Out even if the tray's loop does not end (it once did not, 23-nov):
+        # nothing is lost, what was open uploads on the next start (recover).
+        timer = threading.Timer(QUIT_GRACE, _exit_now, args=("[quit] still running: exiting",))
+        timer.daemon = True
+        timer.start()
         if self.signin is not None:
             self.signin.close()
         self.wall.close()
@@ -1615,7 +1959,12 @@ def main() -> None:
     parser.add_argument("--console", action="store_true", help="Stay in the terminal, no tray")
     args = parser.parse_args()
     setup_logging(LOG_DIR)
-    lock = _single_instance()
+    restarted = os.environ.pop(RESTARTED, "") == "1"
+    started = time.monotonic()
+    lock = _single_instance(wait=RESTART_WAIT if restarted else 0)
+    if restarted:
+        took = time.monotonic() - started
+        logger.info("[restart] pid %s started, lock %s after %.1f s", os.getpid(), bool(lock), took)
     if lock is None:
         say(get_string("agent_already_running"))
         return
@@ -1629,18 +1978,28 @@ def main() -> None:
         say(get_string("agent_stopping"))
     finally:
         app.agent.bl.shutdown_all()
-    if app.agent.restart:
-        lock.close()  # the new process takes it
-        _restart()
 
 
-def _restart() -> None:
+# Set for the agent _restart() starts: it waits for this one's lock.
+RESTARTED = "FOXPROFILE_AGENT_RESTARTED"
+
+
+def _restart() -> subprocess.Popen:
     """Start this agent again, with the code the update unpacked (the installer's
     hook picks it). Its own session, so launchd ending this job does not end it."""
+    env = {**os.environ, RESTARTED: "1"}
     if os.name == "nt":
-        subprocess.Popen(sys.orig_argv, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-    else:
-        subprocess.Popen(sys.orig_argv, start_new_session=True)
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP
+        return subprocess.Popen(sys.orig_argv, env=env, creationflags=flags)
+    return subprocess.Popen(sys.orig_argv, env=env, start_new_session=True)
+
+
+def _exit_now(why: str = "") -> None:
+    """End the process at once: no thread or loop (the tray's) can hold it."""
+    if why:
+        logger.warning(why)
+    logging.shutdown()
+    os._exit(0)
 
 
 if __name__ == "__main__":

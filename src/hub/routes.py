@@ -54,6 +54,7 @@ from ..core.strings import get_string
 from ..services.profile import snapshots
 from ..services.profile.transfer import (
     COOKIES_GZ,
+    LIGHT,
     SYNC_META,
     IntegrityError,
     WrongProfileError,
@@ -61,6 +62,7 @@ from ..services.profile.transfer import (
     export_to_zip,
     file_sha256,
     read_meta,
+    read_profile_meta,
     swap_in,
     update_meta,
 )
@@ -158,6 +160,8 @@ def me(request: Request) -> dict:
         "agent_activity": _activity(bl, user["name"]),
         "agent_running": bl.agents.get(user["name"], {}).get("running", 0),
         "agent_connecting": _connecting(bl, user["name"]),
+        # Its PC needs a compatible installer or has a newer build in its slot.
+        "agent_installer": bl.online(user["name"]) and _has_installer_update(bl, user["name"]),
         "leases": {n: u for n, u in bl.leases().items() if store.can(user, n)},
         "syncing": sorted(n for n in _syncing(bl) if store.can(user, n)),
         "owners": {n: u for n, u in store.owners.items() if store.can(user, n)},
@@ -178,6 +182,30 @@ def _conflicts(request: Request, store, user: dict) -> dict[str, int]:
         for p in pm.list_profiles()
         if p.uid in waiting and store.can(user, p.name)
     }
+
+
+def _has_installer_update(bl, user: str) -> bool:
+    state, _ = _agent_state(
+        bl.agents.get(user, {}), agent_code.hub_code()[0], agent_code.hub_requirements()
+    )
+    return state in ("installer", "installer_available")
+
+
+@router.post("/me/agent-update")
+def update_my_agent(request: Request) -> dict:
+    """The panel's "Update agent": the caller's agent downloads and runs the new
+    installer on its next poll once its browsers are closed, even if it was told before."""
+    user, bl = _user(request)["name"], _launcher(request)
+    info = bl.agents.get(user, {})
+    state, _ = _agent_state(info, agent_code.hub_code()[0], agent_code.hub_requirements())
+    if state == "installer_available":
+        bl.install_newer[user] = info["installer_platform"]
+    elif state == "installer":
+        info.pop("told", None)
+        info["force"] = True
+    else:
+        raise HTTPException(status_code=409, detail=get_string("err_no_agent_update"))
+    return {"running": info.get("running", 0)}
 
 
 @router.post("/me/key")
@@ -316,8 +344,18 @@ ACTIVITY_TTL = 30
 
 
 class AgentStatus(BaseModel):
-    state: Literal["ready", "downloading", "updating", "opening", "syncing"]
+    state: Literal[
+        "ready",
+        "downloading",
+        "updating",
+        "opening",
+        "syncing",
+        "installing",  # the new installer (agent.install_update)
+        "installer_opened",
+        "installer_failed",
+    ]
     pct: int | None = Field(None, ge=0, le=100)
+    error: str | None = Field(None, max_length=300)
     profile: str | None = Field(None, max_length=200)
     syncing: list[str] = Field(default_factory=list, max_length=1000)
 
@@ -327,7 +365,7 @@ def _activity(bl, user: str) -> dict | None:
     seen = bl.agents.get(user, {}).get("activity")
     if not seen or seen["state"] == "ready" or time.monotonic() - seen["at"] > ACTIVITY_TTL:
         return None
-    return {k: seen[k] for k in ("state", "pct", "profile")}
+    return {k: seen.get(k) for k in ("state", "pct", "profile", "error")}
 
 
 # How long the panel says "connecting" after an agent is authorized; past that
@@ -459,6 +497,7 @@ async def poll(
     req: str = "",
     pc: str = "",
     ver: str = "",
+    installer_platform: str = "",
     chrome_os: str = "",
     chrome_builds: str = "",
     chrome_error: str = "",
@@ -473,6 +512,9 @@ async def poll(
         "req": req,
         "pc": pc[:64],
         "version": ver[:32],
+        "installer_platform": installer_platform
+        if installer_platform in installers.PLATFORMS
+        else "",
         # Its Chrome engine builds (routes/chrome.py): platform and installed versions.
         "os": chrome_os[:32],
         "builds": [b for b in chrome_builds.split(",") if b][:64],
@@ -510,10 +552,12 @@ def _agent_update(bl, user: str, hub_code: str, busy: bool) -> dict | None:
     once its browsers are closed (or now, when an admin asked), or install the new
     installer when the libraries changed."""
     info = bl.agents[user]
+    forced = user in bl.update_now
     if info["code"] == hub_code:
         bl.update_now.discard(user)
+        if (forced or not busy) and bl.install_newer.pop(user, None) == info["installer_platform"]:
+            return {"op": "installer_needed", "force": True, "newer": True}
         return None
-    forced = user in bl.update_now
     if info["req"] != agent_code.hub_requirements():
         # The agent runs the new installer itself: once, and with its browsers closed.
         # An admin can ask again: a newer installer may have been uploaded since.
@@ -521,7 +565,8 @@ def _agent_update(bl, user: str, hub_code: str, busy: bool) -> dict | None:
             return None
         bl.update_now.discard(user)
         info["told"] = hub_code
-        return {"op": "installer_needed"}
+        # Asked from the panel: run it even if this installer was run once already.
+        return {"op": "installer_needed", **({"force": True} if info.pop("force", None) else {})}
     if not forced and (
         busy or time.monotonic() - info.get("offered", -UPDATE_RETRY) < UPDATE_RETRY
     ):
@@ -538,47 +583,67 @@ async def agent_code_zip() -> Response:
     return Response(data, media_type="application/zip", headers={"X-Code-Id": code})
 
 
-def _agent_state(info: dict, hub_code: str, hub_req: str | None) -> str:
+def _agent_state(info: dict, hub_code: str, hub_req: str | None) -> tuple[str, str]:
     if not info.get("code"):
-        return "old"  # an agent from before updates: needs the new installer once
+        return "old", ""  # an agent from before updates: needs the new installer once
     if not info.get("req"):
-        return "script"
-    if info["code"] == hub_code:
-        return "current"
-    return "pending" if info["req"] == hub_req else "installer"
+        return "script", ""
+    if info["code"] != hub_code:
+        return ("pending" if info["req"] == hub_req else "installer"), ""
+    version = _available_installer(info)
+    return ("installer_available", version) if version else ("current", "")
+
+
+def _available_installer(info: dict) -> str:
+    platform, installed = info.get("installer_platform"), info.get("version")
+    if not platform or not installed:
+        return ""
+    # A storage outage should not take down the sidebar or hide code updates.
+    try:
+        with _installer_errors():
+            item = installers.for_update(platform)
+    except (HTTPException, OSError):
+        return ""
+    return installers.newer_version(platform, item["name"], installed) if item else ""
 
 
 @router.get("/agents", dependencies=[Depends(_admin)])
-async def list_agents(request: Request) -> dict:
+def list_agents(request: Request) -> dict:
     bl = _launcher(request)
-    hub_code, _ = await run_in_threadpool(agent_code.hub_code)
+    hub_code, _ = agent_code.hub_code()
     hub_req = agent_code.hub_requirements()
-    return {
-        "code": hub_code,
-        "agents": [
+    agents = []
+    for user, info in sorted(bl.agents.items()):
+        state, version = _agent_state(info, hub_code, hub_req)
+        agents.append(
             {
                 "user": user,
                 "pc": info.get("pc", ""),
                 "version": info.get("version", ""),
+                "installer_platform": info.get("installer_platform", ""),
+                "installer_version": version,
                 "code": info.get("code", ""),
                 "online": bl.online(user),
                 "running": info.get("running", 0),
-                "state": _agent_state(info, hub_code, hub_req),
+                "state": state,
                 "update_now": user in bl.update_now,
             }
-            for user, info in sorted(bl.agents.items())
-        ],
-    }
+        )
+    return {"code": hub_code, "agents": agents}
 
 
 @router.post("/agents/{user}/update", dependencies=[Depends(_admin)])
 def update_agent_now(user: str, request: Request) -> dict:
     """Update that agent on its next poll even with profiles open (they close)."""
     bl = _launcher(request)
-    if user not in bl.agents:
+    info = bl.agents.get(user)
+    if info is None:
         raise HTTPException(status_code=404, detail=get_string("err_no_agent"))
+    state, _ = _agent_state(info, agent_code.hub_code()[0], agent_code.hub_requirements())
+    if state == "installer_available":
+        bl.install_newer[user] = info["installer_platform"]
     bl.update_now.add(user)
-    bl.agents[user].pop("offered", None)
+    info.pop("offered", None)
     return {"user": user}
 
 
@@ -606,17 +671,17 @@ def list_installers() -> list[dict]:
 
 
 @public_router.get("/installers/{platform}")
-def download_installer(platform: str) -> Response:
+def download_installer(platform: str, name: str | None = None) -> Response:
     """Public: the installers hold no secrets, and a new PC has no session yet.
     From a bucket, a redirect to a short-lived presigned URL."""
     with _installer_errors():
-        installers.check(platform)
+        installers.check(platform, name)
         if installers.in_bucket():
-            url = installers.download_url(platform)
+            url = installers.download_url(platform, name)
             if url is None:
                 raise installers.InstallerError("err_no_installer")
             return RedirectResponse(url, status_code=307)
-        path = installers.local_file(platform)
+        path = installers.local_file(platform, name)
         if path is None:
             raise installers.InstallerError("err_no_installer")
     return FileResponse(path, filename=path.name, media_type=installers.CONTENT_TYPE)
@@ -752,9 +817,9 @@ _downloads: dict[str, dict] = {}
 _downloads_lock = threading.Lock()
 
 
-def _build_download(job: dict, profile: Any, data_dir: str) -> None:
+def _build_download(job: dict, profile: Any, data_dir: str, light: bool = False) -> None:
     try:
-        ok, result = export_to_zip(profile, data_dir, job["dir"], include_data=True)
+        ok, result = export_to_zip(profile, data_dir, job["dir"], include_data=True, light=light)
         if not ok:
             raise OSError(result)
         job.update(path=result, size=os.path.getsize(result), sha256=file_sha256(result))
@@ -780,7 +845,9 @@ def _download_job(request: Request, name: str, job_id: str) -> dict:
 
 
 @router.post("/bundle/{name}/download")
-def start_download(name: str, request: Request) -> dict:
+def start_download(name: str, request: Request, light: bool = Query(False)) -> dict:
+    """Build the profile's ZIP for the agent to fetch in pieces; with light=1 only
+    its light bundle (FOXPROFILE_HUB_SYNC=light)."""
     profile = require_profile(name, request.app.state.container.profile_manager)
     _require_lease(request, name)
     now = time.time()
@@ -795,12 +862,14 @@ def start_download(name: str, request: Request) -> dict:
         _downloads[job_id] = job
     data_dir = os.path.join(DATA_DIR, name)
     logger.info(
-        "[sync %s] hub.download to=%s packed=%s",
+        "[sync %s] hub.download to=%s light=%s packed=%s",
         name,
         _user(request)["name"],
+        light,
         _packed(read_meta(data_dir)),
     )
-    threading.Thread(target=_build_download, args=(job, profile, data_dir), daemon=True).start()
+    args = (job, profile, data_dir, light)
+    threading.Thread(target=_build_download, args=args, daemon=True).start()
     return {"id": job_id}
 
 
@@ -892,15 +961,21 @@ async def upload_bundle(
         expected = request.headers.get(SHA_HEADER)  # agents older than the header send none
         if expected and expected.lower() != actual:
             raise HTTPException(status_code=422, detail=get_string("err_bundle_corrupt"))
+        # A light bundle replaces only what it carries (transfer.swap_in): the rest
+        # of the hub's copy stays from the last full upload, its backup.
+        light = (read_profile_meta(zip_path) or {}).get("bundle") == LIGHT
+        hub_meta = read_meta(os.path.join(DATA_DIR, name))
         # Who replaces what: an upload whose cookies were packed before the copy it
         # replaces puts older sessions back (a stale copy left on some PC).
-        new, old = _packed(_zip_meta(zip_path)), _packed(read_meta(os.path.join(DATA_DIR, name)))
+        new, old = _packed(_zip_meta(zip_path)), _packed(hub_meta)
         stale = bool(new and old and new.get("ts", 0) < old.get("ts", 0))
         (logger.warning if stale or not new else logger.info)(
-            "[sync %s] hub.upload from=%s lease=%s bytes=%d sha256=%s packed=%s replaces=%s%s",
+            "[sync %s] hub.upload from=%s lease=%s light=%s bytes=%d sha256=%s packed=%s"
+            " replaces=%s%s",
             name,
             _user(request)["name"],
             _launcher(request).holder(name) or "free",
+            light,
             os.path.getsize(zip_path),
             actual[:16],
             new or "none",
@@ -910,9 +985,11 @@ async def upload_bundle(
         # Chrome's own cookie store is encrypted for the PC that wrote it: without
         # the pack, the profile opens logged out everywhere else. Agents before
         # sync.json's "profile" upload profiles left open by a crash or an update
-        # this way. 409: the agent stops retrying and keeps its copy.
+        # this way. 409: the agent stops retrying and keeps its copy. (A light bundle
+        # without its pack leaves the hub's in place.)
         if (
-            profile.engine == "chrome"
+            not light
+            and profile.engine == "chrome"
             and (pathlib.Path(DATA_DIR, name) / COOKIES_GZ).is_file()
             and not _has_cookie_pack(zip_path)
         ):
@@ -938,9 +1015,16 @@ async def upload_bundle(
                 _launcher(request).release(name, by)
             return {"name": name, "released": release, "conflict": entry["id"]}
         await run_in_threadpool(_swap_in, zip_path, tmp, name, data_root)
-        update_meta(hub_dir, hub_upload={"id": upload_id, "by": by, "ts": time.time()})
+        now = time.time()
+        # When the whole profile last came up: a light sync asks for it again later
+        # (remote.sync_mode). Before light sync every upload was full.
+        last_full = hub_meta.get("hub_full") or hub_meta.get("hub_upload") or {"ts": 0}
+        full = last_full if light else {"by": by, "ts": now}
+        update_meta(hub_dir, hub_upload={"id": upload_id, "by": by, "ts": now}, hub_full=full)
         await run_in_threadpool(_keep_cookies, profile, name, by)
-        if snapshots.enabled():  # the checked upload is this version's snapshot
+        # The checked upload is this version's snapshot. Only a full one: the day's
+        # last snapshot replaces the day's others, and a light one is not the profile.
+        if snapshots.enabled() and not light:
             snapshots.upload_later(profile, zip_path)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

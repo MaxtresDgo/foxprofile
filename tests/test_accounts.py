@@ -161,6 +161,12 @@ def test_hub_accounts_are_private_and_closed_to_personal_keys(hub, monkeypatch):
     assert client.get(base, headers=army).status_code == 403
     acc = summary["shop-01"][0]["id"]
     assert client.get(f"{base}/{acc}/password", headers=army).status_code == 403
+    assert client.get(f"{base}/{acc}/totp", headers=army).status_code == 403
+    # Log in, though: it fills the running profile's form, and no secret leaves the hub.
+    # 409: shop-01 is not running (past the key check). Other personal keys still can't.
+    assert client.post(f"{base}/{acc}/login", headers=army).status_code == 409
+    mcp = {"Authorization": "Bearer " + key}
+    assert client.post(f"{base}/{acc}/login", headers=mcp).status_code == 403
     agent = client.post("/api/v1/hub/me/agent-key", headers=bob).json()["key"]
     assert (
         client.get("/api/v1/accounts", headers={"Authorization": "Bearer " + agent}).status_code
