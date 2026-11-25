@@ -1118,21 +1118,28 @@ async function pool(items, n, fn, stopped = () => false) {
 
 // One refresh at a time: a call during one asks for another round when it ends,
 // so a caller awaiting it after a change still sees that change.
-let refreshing = null, refreshAgain = false;
-function refresh() {
+// `full` also reloads the whole lists (every profile, account and report: thousands
+// of rows on a hub); the timer asks for that only every FULL_EVERY_MS, any other
+// caller always does.
+let refreshing = null, refreshAgain = false, wantFull = false, lastFull = 0;
+const FULL_EVERY_MS = 30000;
+function refresh(full = true) {
+  wantFull ||= full;
   if (refreshing) { refreshAgain = true; return refreshing; }
-  refreshing = (async () => { do { refreshAgain = false; await refreshOnce(); } while (refreshAgain); })()
-    .finally(() => { refreshing = null; });
+  refreshing = (async () => {
+    do { refreshAgain = false; const f = wantFull; wantFull = false; await refreshOnce(f); } while (refreshAgain);
+  })().finally(() => { refreshing = null; });
   return refreshing;
 }
-async function refreshOnce() {
+async function refreshOnce(full) {
+  if (full) lastFull = Date.now();
   try {
-    const [list, run, who, sync, accts, chrome, reports] = await Promise.all([api("GET", "/profiles"), api("GET", "/browser"),
+    const [list, run, who, sync, accts, chrome, reports] = await Promise.all([full ? api("GET", "/profiles") : null, api("GET", "/browser"),
       hub ? api("GET", "/hub/me") : null, api("GET", "/automation/sync"),
       // A locked accounts store must not keep the profiles from showing.
-      api("GET", "/accounts").catch(() => ({})), api("GET", "/chrome/builds").catch(() => null),
-      api("GET", "/account-reports").catch(() => null)]);
-    profiles = list.profiles;
+      full ? api("GET", "/accounts").catch(() => ({})) : null, api("GET", "/chrome/builds").catch(() => null),
+      full ? api("GET", "/account-reports").catch(() => null) : null]);
+    if (full) profiles = list.profiles;
     // A build install that just failed (here or on the agent) says why, once.
     for (const b of (chrome && chrome.builds) || []) {
       const was = buildInfo(b.version);
@@ -1141,10 +1148,12 @@ async function refreshOnce() {
     builds = chrome;
     if (drawBuilds) drawBuilds();
     syncs = sync.sessions;
-    accountsOf = accts;
-    accountReports = reports;
-    $("reports-count").textContent = reports ? String(reports.filter((r) => r.reviewed_at === null).length) : "!";
-    if (drawAccountReports) drawAccountReports();
+    if (full) {
+      accountsOf = accts;
+      accountReports = reports;
+      $("reports-count").textContent = reports ? String(reports.filter((r) => r.reviewed_at === null).length) : "!";
+      if (drawAccountReports) drawAccountReports();
+    }
     if (hub) renderMe(who);
     const now = new Set(run.running);
     for (const name of now) if (!liveSince.has(name)) liveSince.set(name, new Date());
@@ -1152,13 +1161,13 @@ async function refreshOnce() {
     running = now;
     for (const name of [...failed.keys()]) if (now.has(name) || !profiles.some((p) => p.name === name)) failed.delete(name);
     render();
-    loadFingerprints();
   } catch (e) { if (e.status !== 401) toast(e.message, true); }
 }
-// The list shows first; the fingerprints follow, six requests at a time.
+// The list shows first; the fingerprints follow, six requests at a time, and only
+// for the page on screen (render() asks): a hub has thousands of profiles.
 let fpLoading = false;
-function loadFingerprints() {
-  const missing = profiles.filter((p) => !(p.name in fingerprints));
+function loadFingerprints(rows) {
+  const missing = rows.filter((p) => !(p.name in fingerprints));
   if (fpLoading || !missing.length) return;
   fpLoading = true;
   pool(missing, 6, loadFingerprint).finally(() => { fpLoading = false; render(); });
@@ -1222,6 +1231,7 @@ function render() {
   // Not before the first load: an empty list would throw away the page from the address.
   if (profiles.length) pageAt = Math.min(pageAt, pages - 1);
   const slice = shown.slice(pageAt * pageSize, (pageAt + 1) * pageSize);
+  loadFingerprints(slice);
   syncUrl(q);
   // Changing the page size rebuilds its box; keep the cursor in it after Enter or the arrows.
   const sizeFocused = document.activeElement?.id === "page-size";
@@ -3433,7 +3443,7 @@ async function showApp(authRequired) {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
   $("logout-btn").classList.toggle("hidden", !authRequired);
   await refresh();
-  if (!listTimer) listTimer = setInterval(() => { if (!viewing && !document.hidden) refresh(); }, 4000);
+  if (!listTimer) listTimer = setInterval(() => { if (!viewing && !document.hidden) refresh(Date.now() - lastFull >= FULL_EVERY_MS); }, 4000);
 }
 $("login-form").onsubmit = async (e) => {
   e.preventDefault();
