@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import shutil
+import ssl
 import subprocess
 import sys
 import tarfile
@@ -30,6 +31,24 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .release import RELEASES, Asset, Release, get_release, host_platform
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """The OS store plus certifi's roots.
+
+    Windows fetches a missing root (ISRG Root X1, USERTrust ECC: GitHub's release
+    downloads) only when a Windows app asks; Python never does, so on a PC that never
+    opened those sites the download failed with CERTIFICATE_VERIFY_FAILED.
+    """
+    ctx = ssl.create_default_context()
+    with contextlib.suppress(ImportError):
+        import certifi
+
+        ctx.load_verify_locations(certifi.where())
+    return ctx
+
+
+_SSL = _ssl_context()
 
 MARKER = ".installed"
 # An agent running code the hub sent has it elsewhere (installer/agent_update_hook.py).
@@ -217,7 +236,10 @@ def download(asset: Asset, dest: Path, progress: Progress | None = None) -> None
     done = 0
     request = urllib.request.Request(asset.url, headers={"User-Agent": "foxprofile-chrome-engine"})
     try:
-        with urllib.request.urlopen(request, timeout=60) as resp, open(dest, "wb") as out:
+        with (
+            urllib.request.urlopen(request, timeout=60, context=_SSL) as resp,
+            open(dest, "wb") as out,
+        ):
             total = int(resp.headers.get("Content-Length") or asset.size)
             while chunk := resp.read(_CHUNK):
                 out.write(chunk)

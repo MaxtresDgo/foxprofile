@@ -165,3 +165,12 @@ def test_api_refuses_chrome_on_an_unsupported_host(client, monkeypatch):
     r = client.post("/api/v1/profiles", json={"name": "c3", "engine": "chrome"})
     assert r.status_code == 400
     assert "darwin/x86_64" in r.json()["detail"]
+
+
+def test_build_downloads_trust_roots_windows_may_lack():
+    # GitHub's release downloads chain to ISRG Root X1; a Windows PC that never
+    # fetched it failed with CERTIFICATE_VERIFY_FAILED.
+    from chrome_engine import fetch
+
+    names = {dict(x[0] for x in c["subject"]).get("commonName") for c in fetch._SSL.get_ca_certs()}
+    assert "ISRG Root X1" in names
